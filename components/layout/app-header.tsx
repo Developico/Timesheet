@@ -3,10 +3,11 @@
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
-import { Search, Sun, Moon, LogOut, User } from "lucide-react"
+import { Search, Sun, Moon, LogOut, User, Settings } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,6 +21,7 @@ interface UserIdentity {
   id: string
   name: string
   email: string
+  role: "consultant" | "administrator"
   avatarUrl?: string
 }
 
@@ -27,6 +29,7 @@ const mockUser: UserIdentity = {
   id: "local-user",
   name: "John Kowalski",
   email: "john.kowalski@example.com",
+  role: "consultant",
   avatarUrl: "/professional-avatar.png",
 }
 
@@ -99,7 +102,21 @@ export function AppHeader() {
               <div className="flex flex-col space-y-1 p-2">
                 <p className="text-sm font-medium leading-none">{user.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                <div className="flex items-center gap-1 pt-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Role:</span>
+                  <Badge variant={user.role === "administrator" ? "destructive" : "secondary"} className="text-[10px] px-2 py-0.5 font-medium">
+                    {user.role === "administrator" ? "Administrator" : "Consultant"}
+                  </Badge>
+                </div>
               </div>
+              {user.role === "administrator" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { /* TODO: admin panel */ }}>
+                    <Settings className="mr-2 h-4 w-4" /> Administration
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => { /* later profile modal */ }}>
                 <User className="mr-2 h-4 w-4" /> Profile
