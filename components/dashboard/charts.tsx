@@ -60,38 +60,50 @@ export function ActiveProjectsCard() {
 
   const totalHours = Object.values(finalProjectHours).reduce((sum, hours) => sum + hours, 0)
 
+  // Primary brand palette simplified; first color (turquoise) is dominant per design update
   const brandColors = ["#6eedd9", "#174076", "#e03768", "#9169f4", "#150628"]
 
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),100); return ()=>clearTimeout(t); },[]);
+
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-white dark:bg-gray-900">
+    <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900"
+      style={{
+        opacity: isVisible?1:0,
+        transform: isVisible? 'translateY(0)': 'translateY(18px)'
+      }}
+    >
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Active Projects</CardTitle>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Average 72% completed</p>
+        <div className="transition-all duration-700" style={{
+          opacity: isVisible?1:0,
+          transform: isVisible? 'translateX(0)':'translateX(-12px)'
+        }}>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Active Projects</CardTitle>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Average 72% completed</p>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {sortedProjects.map(([projectId, hours], index) => {
           const project = projects.find((p) => p.id === projectId)
-          const percentage = totalHours > 0 ? (hours / totalHours) * 100 : 0
           const projectNames = ["E-commerce Platform", "Mobile App", "API Integration", "Dashboard", "Website Redesign"]
-          const projectName = project?.name || projectNames[index] || `Project ${index + 1}`
-          const completionPercentages = [85, 72, 94, 58, 43]
-          const completion = completionPercentages[index] || Math.floor(Math.random() * 40) + 60
-
+            const projectName = project?.name || projectNames[index] || `Project ${index + 1}`
+            const completionPercentages = [85, 72, 94, 58, 43]
+            const completion = completionPercentages[index] || Math.floor(Math.random() * 40) + 60
+          const color = project?.color || brandColors[index % brandColors.length];
           return (
-            <div key={projectId} className="space-y-3">
+            <div key={projectId} className="space-y-3 transition-all duration-700"
+              style={{
+                opacity: isVisible?1:0,
+                transform: isVisible? 'translateY(0)': 'translateY(14px)',
+                transitionDelay: `${index*120 + 150}ms`
+              }}
+            >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: project?.color || brandColors[index % brandColors.length],
-                    }}
-                  />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                   <div>
                     <div className="font-medium text-sm text-gray-900 dark:text-white">{projectName}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {project?.code || `PRJ-${index + 1}`}
-                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{project?.code || `PRJ-${index + 1}`}</div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -99,12 +111,13 @@ export function ActiveProjectsCard() {
                   <div className="text-xs text-gray-500 dark:text-gray-400">{hours.toFixed(1)}h</div>
                 </div>
               </div>
-              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-2 rounded-full transition-all duration-500"
+                  className="h-2 rounded-full transition-all duration-700 ease-out"
                   style={{
-                    width: `${completion}%`,
-                    backgroundColor: project?.color || brandColors[index % brandColors.length],
+                    width: isVisible ? `${completion}%` : '0%',
+                    backgroundColor: color === '#6eedd9' ? '#6eedd9' : color,
+                    transitionDelay: `${index * 120 + 300}ms`
                   }}
                 />
               </div>

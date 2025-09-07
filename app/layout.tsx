@@ -1,7 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ClientRoot } from "@/components/client-root"
 import { Suspense } from "react"
 import "./globals.css"
 
@@ -24,11 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable}`}>
-        <Suspense fallback={null}>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
-        </Suspense>
+  <ClientRoot>{children}</ClientRoot>
         {/* Analytics component removed to fix import error */}
       </body>
     </html>

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { AppHeader } from "@/components/layout/app-header"
+import { useAuth } from "@/lib/auth-client"
+import Link from "next/link"
+import { SignInScreen } from "@/components/auth/signin-screen"
 import { FilterBar } from "@/components/layout/filter-bar"
 import { NavigationTabs } from "@/components/layout/navigation-tabs"
 import { KPICards } from "@/components/dashboard/kpi-cards"
@@ -9,6 +12,9 @@ import { Charts } from "@/components/dashboard/charts"
 import { CalendarView } from "@/components/calendar/calendar-view"
 import { ProjectsTable } from "@/components/projects/projects-table"
 import { FilterProvider } from "@/lib/filter-context"
+import { ViewingScopeProvider } from "@/lib/viewing-scope"
+import { ViewingBanner } from "@/components/admin/viewing-banner"
+import { ConsultantDock } from "@/components/admin/consultant-dock"
 import { dataService } from "@/lib/data"
 import type { TimeEntry, Project, Consultant } from "@/lib/data"
 
@@ -20,6 +26,7 @@ export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [consultants, setConsultants] = useState<Consultant[]>([])
   const [loading, setLoading] = useState(true)
+  const { user, isLoading: authLoading } = useAuth()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,7 +50,7 @@ export default function HomePage() {
     fetchData()
   }, [])
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <FilterProvider timeEntries={[]} projects={[]}>
@@ -59,26 +66,37 @@ export default function HomePage() {
     )
   }
 
+  // Not authenticated -> show sign-in landing (no data exposure)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <AppHeader />
+        <SignInScreen productName="Timesheet" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <FilterProvider timeEntries={timeEntries} projects={projects}>
-        <AppHeader />
-        <FilterBar />
-        <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-        <main className="container px-6 py-8">
-          {activeTab === "dashboard" && (
-            <div className="space-y-6">
-              <KPICards />
-              <Charts />
-            </div>
-          )}
-
-          {activeTab === "calendar" && <CalendarView />}
-
-          {activeTab === "projects" && <ProjectsTable />}
-        </main>
-      </FilterProvider>
+      <ViewingScopeProvider>
+        <FilterProvider timeEntries={timeEntries} projects={projects}>
+          <AppHeader />
+          <ViewingBanner />
+          <FilterBar />
+          <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <main className="container px-6 py-8">
+            {activeTab === "dashboard" && (
+              <div className="space-y-6">
+                <KPICards />
+                <Charts />
+              </div>
+            )}
+            {activeTab === "calendar" && <CalendarView />}
+            {activeTab === "projects" && <ProjectsTable />}
+          </main>
+          <ConsultantDock />
+        </FilterProvider>
+      </ViewingScopeProvider>
     </div>
   )
 }

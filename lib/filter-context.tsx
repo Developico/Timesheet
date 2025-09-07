@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, type ReactNode } from "react"
+import { useViewingScope } from "./viewing-scope"
 import type { TimeEntry, Project } from "@/lib/data"
 
 export interface FilterState {
@@ -43,6 +44,13 @@ export function FilterProvider({
   projects: Project[]
 }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
+  let viewingScope: ReturnType<typeof useViewingScope> | null = null
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    viewingScope = useViewingScope()
+  } catch {
+    // context not mounted yet (e.g. during tests) – ignore
+  }
 
   const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -53,6 +61,7 @@ export function FilterProvider({
   }
 
   // Apply filters to time entries
+  const effectiveConsultant = viewingScope?.consultantId || null
   const filteredTimeEntries = timeEntries.filter((entry) => {
     // Date range filter
     const entryDate = new Date(entry.date)
@@ -121,7 +130,9 @@ export function FilterProvider({
     }
 
     // Consultant filter
-    if (filters.selectedConsultants.length > 0 && !filters.selectedConsultants.includes(entry.consultantId)) {
+    if (effectiveConsultant) {
+      if (entry.consultantId !== effectiveConsultant) return false
+    } else if (filters.selectedConsultants.length > 0 && !filters.selectedConsultants.includes(entry.consultantId)) {
       return false
     }
 
