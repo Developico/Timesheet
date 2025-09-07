@@ -6,11 +6,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+// Sheet removed in favor of shared ProjectDetailPanel
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Eye, ChevronUp, ChevronDown } from "lucide-react"
+import { Eye, ChevronUp, ChevronDown } from "lucide-react"
+import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import type { Project } from "@/lib/data"
@@ -20,7 +19,7 @@ export function ProjectsTable() {
   const [sortField, setSortField] = useState<keyof Project>("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [localSearch, setLocalSearch] = useState("")
+  const [projectScope, setProjectScope] = useState<"my"|"all">("my")
 
   const consultants = dataService.getConsultants()
 
@@ -40,15 +39,6 @@ export function ProjectsTable() {
   })
 
   const filteredAndSortedProjects = projectsWithMetrics
-    .filter((project) => {
-      if (!localSearch) return true
-      const searchLower = localSearch.toLowerCase()
-      return (
-        project.name.toLowerCase().includes(searchLower) ||
-        project.client.toLowerCase().includes(searchLower) ||
-        project.code.toLowerCase().includes(searchLower)
-      )
-    })
     .sort((a, b) => {
       const aValue = a[sortField]
       const bValue = b[sortField]
@@ -105,18 +95,26 @@ export function ProjectsTable() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Projects ({filteredAndSortedProjects.length})</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search projects..."
-                  value={localSearch}
-                  onChange={(e) => setLocalSearch(e.target.value)}
-                  className="pl-10 w-64"
-                />
+            <div className="flex items-center gap-4">
+              <CardTitle>Projects ({filteredAndSortedProjects.length})</CardTitle>
+              <div className="flex items-center rounded-lg border p-1 bg-background">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={projectScope==='my'? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setProjectScope('my')}
+                >My Projects</Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={projectScope==='all'? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setProjectScope('all')}
+                >All</Button>
               </div>
             </div>
+            <div />
           </div>
         </CardHeader>
         <CardContent>
@@ -124,9 +122,6 @@ export function ProjectsTable() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox disabled />
-                  </TableHead>
                   <TableHead>
                     <SortButton field="billable">Billable</SortButton>
                   </TableHead>
@@ -148,11 +143,27 @@ export function ProjectsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedProjects.map((project) => (
-                  <TableRow key={project.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <Checkbox checked={project.assigned} disabled />
-                    </TableCell>
+                {(() => {
+                  const myProjectIds = new Set(filteredTimeEntries.map(e=>e.projectId))
+                  const msPerDay = 1000*60*60*24
+                  const now = Date.now()
+                  const NEW_DAYS = 30
+      const visible = (projectScope==='my')
+                    ? filteredAndSortedProjects.filter(p=> myProjectIds.has(p.id))
+                    : filteredAndSortedProjects
+                  if(visible.length===0) {
+                    return (
+                      <TableRow>
+        <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
+                          {projectScope==='my' ? 'No projects with your recent time entries – switch to All to browse all codes.' : 'No projects'}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  }
+                  return visible.map(project => {
+                    const isNew = (now - new Date(project.startDate).getTime())/msPerDay <= NEW_DAYS
+                    return (
+                      <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${isNew?'ring-1 ring-[#6eedd9]':''}`}>
                     <TableCell>
                       <Badge variant={project.billable ? "default" : "secondary"} className="text-xs">
                         {project.billable ? "Yes" : "No"}
@@ -161,7 +172,10 @@ export function ProjectsTable() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
-                        <span className="font-mono text-sm">{project.code}</span>
+                        <span className="font-mono text-sm flex items-center gap-1">
+                          {project.code}
+                          {isNew && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{project.client}</TableCell>
@@ -181,94 +195,33 @@ export function ProjectsTable() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedProject(project)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </SheetTrigger>
-                        <SheetContent className="w-96">
-                          <SheetHeader>
-                            <SheetTitle className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: project.color }} />
-                              {project.code}
-                            </SheetTitle>
-                            <SheetDescription>{project.name}</SheetDescription>
-                          </SheetHeader>
-                          <div className="mt-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Client</label>
-                                <p className="text-sm">{project.client}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Status</label>
-                                <Badge className={getStatusColor(project.status)} variant="secondary">
-                                  {project.status.replace("-", " ")}
-                                </Badge>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Billable</label>
-                                <p className="text-sm">{project.billable ? "Yes" : "No"}</p>
-                              </div>
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Assigned</label>
-                                <p className="text-sm">{project.assigned ? "Yes" : "No"}</p>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="text-sm font-medium text-muted-foreground">Hours Summary</label>
-                              <div className="mt-2 space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span>Total Hours:</span>
-                                  <span className="font-medium">{project.actualHours.toFixed(1)}h</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span>Billable Hours:</span>
-                                  <span className="font-medium text-teal-600">{project.billableHours.toFixed(1)}h</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span>Billable %:</span>
-                                  <span className="font-medium">{project.billablePercentage.toFixed(1)}%</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="text-sm font-medium text-muted-foreground">Assigned Consultants</label>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {project.assignedConsultants.map((consultantId) => {
-                                  const consultant = consultants.find((c) => c.id === consultantId)
-                                  return (
-                                    <Badge key={consultantId} variant="outline" className="text-xs">
-                                      {consultant?.name || consultantId}
-                                    </Badge>
-                                  )
-                                })}
-                                {project.assignedConsultants.length === 0 && (
-                                  <span className="text-sm text-muted-foreground">No consultants assigned</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {project.note && (
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                                <p className="text-sm mt-1">{project.note}</p>
-                              </div>
-                            )}
-                          </div>
-                        </SheetContent>
-                      </Sheet>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedProject(project)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                    )
+                  })
+                })()}
               </TableBody>
             </Table>
           </div>
+          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;=30 days)</span>
+            </div>
+            <div>Scope: {projectScope==='my' ? 'projects you have time entries on (current filters applied)' : 'all filtered projects'}</div>
+          </div>
         </CardContent>
       </Card>
+  {selectedProject && (
+        <ProjectDetailPanel
+          project={selectedProject}
+            entries={filteredTimeEntries.filter(e=>e.projectId===selectedProject.id)}
+            scopeLabel="filtered entries"
+            onClose={()=>setSelectedProject(null)}
+        />
+      )}
     </div>
   )
 }

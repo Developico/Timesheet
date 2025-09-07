@@ -4,11 +4,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
+import { useEffect, useState } from 'react'
+
+function useCountUp(target: number, duration = 1100) {
+  const [val, setVal] = useState(0);
+  useEffect(()=>{
+    let start: number|undefined; let raf: number;
+    const step = (ts: number)=>{
+      if(start===undefined) start=ts;
+      const p = Math.min((ts-start)/duration,1);
+      setVal(target * p);
+      if(p<1) raf=requestAnimationFrame(step);
+    };
+    raf=requestAnimationFrame(step);
+    return ()=> cancelAnimationFrame(raf);
+  },[target,duration]);
+  return val;
+}
 
 export function KPICards() {
   const { filteredTimeEntries } = useFilters()
   const projects = dataService.getProjects()
   const consultants = dataService.getConsultants()
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),120); return ()=>clearTimeout(t); },[]);
 
   const totalHours = Math.max(
     filteredTimeEntries.reduce((sum, entry) => sum + entry.hours, 0),
@@ -63,6 +82,8 @@ export function KPICards() {
     {
       title: "Reported Hours",
       value: `${totalHours.toFixed(1)}h`,
+      raw: totalHours,
+      unit: 'h',
       subtitle: `${Math.max(filteredTimeEntries.length, 47)} entries this period`,
       icon: "⏱",
       color: "text-blue-600",
@@ -74,6 +95,8 @@ export function KPICards() {
     {
       title: "Reported KPI",
       value: `${reportedKPI.toFixed(1)}%`,
+      raw: reportedKPI,
+      unit: '%',
       subtitle: `Target: 99% | ${totalHours.toFixed(1)}h of ${requiredHours}h`,
       icon: "📊",
       color: reportedColors.text,
@@ -87,6 +110,8 @@ export function KPICards() {
     {
       title: "Billable KPI",
       value: `${billableKPI.toFixed(1)}%`,
+  raw: billableKPI,
+  unit: '%',
       subtitle: `Target: 85% | ${billableHours.toFixed(1)}h billable`,
       icon: "💼",
       color: billableColors.text,
@@ -101,25 +126,80 @@ export function KPICards() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {cards.map((card, index) => (
+      {cards.map((card, index) => {
+        const animated = useCountUp(card.raw, 900 + index*150);
+        const display = `${card.unit==='%'? animated.toFixed(1): animated.toFixed(1)}${card.unit}`;
+        const hasGoal = card.target !== undefined && card.progress !== undefined;
+        const belowTarget = hasGoal && (card.progress as number) < (card.target as number);
+        const critical = belowTarget && (card.progress as number) < (card.target as number) * 0.8;
+        const highlightStyle = belowTarget ? {
+          backgroundColor: critical ? 'rgba(220,38,38,0.14)' : 'rgba(245,158,11,0.16)',
+          boxShadow: critical
+            ? '0 0 0 1px rgba(220,38,38,0.25), 0 2px 4px -2px rgba(220,38,38,0.25)'
+            : '0 0 0 1px rgba(245,158,11,0.25), 0 2px 4px -2px rgba(245,158,11,0.25)',
+          transition: 'background-color 300ms ease, box-shadow 300ms ease'
+        } : undefined;
+        return (
         <Card
           key={card.title}
-          className="hover:shadow-lg transition-all duration-200 border-0 shadow-sm bg-white dark:bg-gray-900"
+          className="relative hover:shadow-xl group transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden"
+          style={{
+            opacity: isVisible?1:0,
+            transform: isVisible? 'translateY(0)': 'translateY(18px)',
+            transitionDelay: `${index*120}ms`
+          }}
         >
+          <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-teal-200/10 via-transparent to-indigo-300/10" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">{card.title}</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="inline-flex items-center gap-2">
+                {card.title}
+                {belowTarget && (
+                  <span
+                    className={`h-2 w-2 rounded-full motion-safe:animate-pulse ${critical ? 'bg-red-500' : 'bg-amber-500'}`}
+                    aria-label={critical ? 'Critical: KPI below 80% of target' : 'Warning: KPI below target'}
+                    role="status"
+                  />
+                )}
+              </span>
+            </CardTitle>
             
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <div className="text-3xl font-bold text-gray-900 dark:text-white">{card.value}</div>
+              <div className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                <span
+                  className={`inline-block transition-all duration-700 will-change-transform group-hover:scale-[1.03] rounded-md px-2 py-0.5 ${belowTarget ? 'relative' : ''}`}
+                  style={highlightStyle}
+                  aria-label={belowTarget ? (critical ? 'Critical: value significantly below target' : 'Warning: value below target') : undefined}
+                  role={belowTarget ? 'status' : undefined}
+                >
+                  {display}
+                </span>
+              </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">{card.subtitle}</div>
+              {belowTarget && (
+                <div className="flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
+                  <span className={`text-[11px] ${critical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {critical ? 'Below 80% of target' : 'Below target'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {card.progress !== undefined && (
               <div className="space-y-2">
                 <div className="relative">
-                  <Progress value={Math.min(card.progress, 100)} className="h-3 bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: isVisible? `${Math.min(card.progress,100)}%` : '0%',
+                        // Solid brand turquoise (removed gradient)
+                        backgroundColor: '#6eedd9'
+                      }}
+                    />
+                  </div>
                   {card.target && (
                     <div
                       className="absolute top-0 w-0.5 h-3 bg-gray-400 dark:bg-gray-500"
@@ -131,7 +211,7 @@ export function KPICards() {
                   <span className="text-gray-500">vs target</span>
                   <div className="flex items-center space-x-2">
                     {card.target && <span className="text-gray-400">Target: {card.target}%</span>}
-                    <span className={card.color}>{card.progress.toFixed(1)}%</span>
+                    <span className={card.color}>{animated.toFixed(1)}%</span>
                   </div>
                 </div>
               </div>
@@ -139,13 +219,20 @@ export function KPICards() {
 
             {card.miniChart && (
               <div className="flex items-end space-x-1 h-8">
-                {card.miniChart.map((value, i) => (
-                  <div
-                    key={i}
-                    className="bg-blue-200 dark:bg-blue-800 rounded-sm flex-1"
-                    style={{ height: `${(value / 100) * 100}%` }}
-                  />
-                ))}
+                {card.miniChart.map((value, i) => {
+                  const h = (value/100)*100;
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-sm flex-1 transition-all duration-700"
+                      style={{
+                        height: isVisible? `${h}%`:'0%',
+                        transitionDelay: `${index*120 + i*60}ms`,
+                        backgroundColor: '#6eedd9'
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
 
@@ -155,7 +242,7 @@ export function KPICards() {
             </div>
           </CardContent>
         </Card>
-      ))}
+      )})}
       <ActiveProjectsCard />
     </div>
   )
@@ -173,7 +260,5 @@ export function ActiveProjectsCard() {
     { code: "AUTH-SYS", name: "Authentication System", hours: 15.8, color: "bg-indigo-500", percentage: 32 },
   ]
 
-  return (
-    null
-  )
+  return null // (Active Projects card rendered by charts.tsx version)
 }

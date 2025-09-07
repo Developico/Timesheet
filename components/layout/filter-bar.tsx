@@ -9,6 +9,13 @@ export function FilterBar() {
   const projects = dataService.getProjects()
   const consultants = dataService.getConsultants()
 
+  const hasActiveFilters =
+    filters.selectedConsultants.length > 0 ||
+    filters.selectedProjects.length > 0 ||
+    filters.entryType !== "all"
+
+  if (!hasActiveFilters) return null
+
   return (
     <div className="border-b bg-background">
       <div className="container px-6 py-4">

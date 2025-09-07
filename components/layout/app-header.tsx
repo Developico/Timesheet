@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
-import { Search, Sun, Moon, LogOut, User, Settings } from "lucide-react"
+import { Search, Sun, Moon, LogOut, User } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -16,22 +16,8 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu"
 
-// Placeholder future identity (Entra ID integration later)
-interface UserIdentity {
-  id: string
-  name: string
-  email: string
-  role: "consultant" | "administrator"
-  avatarUrl?: string
-}
-
-const mockUser: UserIdentity = {
-  id: "local-user",
-  name: "John Kowalski",
-  email: "john.kowalski@example.com",
-  role: "consultant",
-  avatarUrl: "/professional-avatar.png",
-}
+import { useAuth } from "@/lib/auth-client"
+import Link from "next/link"
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme()
@@ -40,7 +26,7 @@ export function AppHeader() {
   const [logoOk, setLogoOk] = useState(true)
   useEffect(() => setMounted(true), [])
 
-  const user = mockUser // later: fetched from Entra ID / MS Graph
+  const { user, isLoading, logout } = useAuth()
 
   return (
     <header
@@ -89,44 +75,43 @@ export function AppHeader() {
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0) || <User className="h-4 w-4" />}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56" forceMount>
-              <div className="flex flex-col space-y-1 p-2">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                <div className="flex items-center gap-1 pt-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Role:</span>
-                  <Badge variant={user.role === "administrator" ? "destructive" : "secondary"} className="text-[10px] px-2 py-0.5 font-medium">
-                    {user.role === "administrator" ? "Administrator" : "Consultant"}
-                  </Badge>
+          {!isLoading && user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                    <AvatarFallback>{user.name?.charAt(0) || <User className="h-4 w-4" />}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56" forceMount>
+                <div className="flex flex-col space-y-1 p-2">
+                  <p className="text-sm font-medium leading-none">{user.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  <div className="flex items-center gap-1 pt-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Role:</span>
+                    <Badge variant={user.role === "Administrator" ? "destructive" : "secondary"} className="text-[10px] px-2 py-0.5 font-medium">
+                      {user.role}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-              {user.role === "administrator" && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { /* TODO: admin panel */ }}>
-                    <Settings className="mr-2 h-4 w-4" /> Administration
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => { /* later profile modal */ }}>
-                <User className="mr-2 h-4 w-4" /> Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => { /* TODO: logout */ }} className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" /> Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { /* profile later */ }}>
+                  <User className="mr-2 h-4 w-4" /> Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => logout()} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" /> Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {!isLoading && !user && (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/api/auth/signin">Sign in</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
