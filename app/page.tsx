@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navbar } from "@/components/layout/navbar"
+import { AppHeader } from "@/components/layout/app-header"
 import { FilterBar } from "@/components/layout/filter-bar"
 import { NavigationTabs } from "@/components/layout/navigation-tabs"
 import { KPICards } from "@/components/dashboard/kpi-cards"
@@ -14,7 +14,7 @@ import type { TimeEntry, Project, Consultant } from "@/lib/data"
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "calendar" | "projects">("dashboard")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  // viewMode state reserved for future UI switcher (currently unused)
 
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -47,7 +47,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-background">
         <FilterProvider timeEntries={[]} projects={[]}>
-          <Navbar />
+          <AppHeader />
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -62,8 +62,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       <FilterProvider timeEntries={timeEntries} projects={projects}>
-        <Navbar />
-        <FilterBar viewMode={viewMode} onViewModeChange={setViewMode} />
+        <AppHeader />
+        <FilterBar />
         <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main className="container px-6 py-8">

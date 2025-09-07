@@ -2,10 +2,15 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x || 22.x",
+    "pnpm": ">=8.0.0 <12"
+  },
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "start": "next start"
   },
   "dependencies": {
