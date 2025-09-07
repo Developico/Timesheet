@@ -117,7 +117,7 @@ export function ActiveProjectsCard() {
 }
 
 export function HoursSummaryChart() {
-  const { filteredTimeEntries } = useFilters()
+  // const { filteredTimeEntries } = useFilters() // (reserved for future real data aggregation)
   const [viewMode, setViewMode] = useState<"weekly" | "daily">("weekly")
   const [isVisible, setIsVisible] = useState(false)
 
@@ -127,14 +127,17 @@ export function HoursSummaryChart() {
   }, [])
 
   // Sample data for hours summary with absences
-  const weeklyData = [
+  type WeeklyPoint = { week: string; billable: number; nonBillable: number; absence: number; total: number }
+  type DailyPoint = { day: string; billable: number; nonBillable: number; absence: number; total: number }
+
+  const weeklyData: WeeklyPoint[] = [
     { week: "Week 1", billable: 32.5, nonBillable: 7.5, absence: 0, total: 40 },
     { week: "Week 2", billable: 28.0, nonBillable: 4.0, absence: 8, total: 40 },
     { week: "Week 3", billable: 35.2, nonBillable: 4.8, absence: 0, total: 40 },
     { week: "Week 4", billable: 30.1, nonBillable: 5.9, absence: 4, total: 40 },
   ]
 
-  const dailyData = [
+  const dailyData: DailyPoint[] = [
     { day: "Mon", billable: 6.5, nonBillable: 1.5, absence: 0, total: 8.0 },
     { day: "Tue", billable: 7.2, nonBillable: 0.8, absence: 0, total: 8.0 },
     { day: "Wed", billable: 0, nonBillable: 0, absence: 8, total: 8.0 },
@@ -142,7 +145,15 @@ export function HoursSummaryChart() {
     { day: "Fri", billable: 6.9, nonBillable: 1.1, absence: 0, total: 8.0 },
   ]
 
-  const currentData = viewMode === "weekly" ? weeklyData : dailyData
+  interface UnifiedPoint { label: string; billable: number; nonBillable: number; absence: number; total: number }
+  const base = viewMode === 'weekly' ? weeklyData : dailyData
+  const currentData: UnifiedPoint[] = base.map(p => ({
+    label: 'week' in p ? p.week : p.day,
+    billable: p.billable,
+    nonBillable: p.nonBillable,
+    absence: p.absence,
+    total: p.total,
+  }))
   const maxTotal = Math.max(...currentData.map((d) => d.total))
 
   // Calculate totals for the period
@@ -270,7 +281,7 @@ export function HoursSummaryChart() {
               >
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {viewMode === "weekly" ? item.week : item.day}
+                    {item.label}
                   </span>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white animate-pulse">
                     {item.total.toFixed(1)}h
