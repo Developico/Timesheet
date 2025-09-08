@@ -363,25 +363,27 @@ export function CalendarView() {
   <div className="space-y-6">
       {/* Horizontal Summary Bar */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-teal-700">{periodSummary.billableHours.toFixed(1)}</div>
+        <CardContent className="py-4">
+          <div className="grid grid-cols-4 gap-8 items-center">
+            {/* Total */}
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-purple-600 leading-none">{periodSummary.totalHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-foreground">Total Hours</div>
+            </div>
+            {/* Billable */}
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-teal-700 leading-none">{periodSummary.billableHours.toFixed(1)}</div>
               <div className="text-xs text-muted-foreground">Billable Hours</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: "#174076" }}>
-                {periodSummary.nonBillableHours.toFixed(1)}
-              </div>
+            {/* Non-billable */}
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold leading-none" style={{ color: '#174076' }}>{periodSummary.nonBillableHours.toFixed(1)}</div>
               <div className="text-xs text-muted-foreground">Non-billable Hours</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{periodSummary.absenceHours.toFixed(1)}</div>
+            {/* Absence */}
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-red-600 leading-none">{periodSummary.absenceHours.toFixed(1)}</div>
               <div className="text-xs text-muted-foreground">Absence Hours</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{periodSummary.totalHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">Total Hours</div>
             </div>
           </div>
         </CardContent>
