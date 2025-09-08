@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useNewProjects } from "@/lib/use-new-projects"
 import type { Project } from "@/lib/data"
 
 interface EntryLike { hours: number; billable: boolean; isAbsence?: boolean }
@@ -15,6 +16,8 @@ interface ProjectDetailPanelProps {
 export function ProjectDetailPanel({ project, entries, scopeLabel = "Current scope", onClose }: ProjectDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
+  const { markViewed } = useNewProjects()
+  const [copied, setCopied] = useState(false)
 
   const total = entries.reduce((s,e)=>s+e.hours,0)
   const absence = entries.filter(e=>e.isAbsence).reduce((s,e)=>s+e.hours,0)
@@ -23,6 +26,8 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   const billablePct = total? (billable/total)*100:0
 
   useEffect(()=>{
+  // mark as viewed when panel opens
+  markViewed(project.id)
     const handleKey = (e: KeyboardEvent) => {
       if(e.key==='Escape') onClose()
       else if(e.key==='Tab' && panelRef.current){
@@ -50,6 +55,12 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 rounded-full" style={{backgroundColor: project.color}} />
               <span id="project-detail-title" className="font-mono text-sm font-semibold">{project.code}</span>
+              <button
+                type="button"
+                onClick={()=>{ navigator.clipboard?.writeText(project.code).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),1500); markViewed(project.id); }); }}
+                className="text-[10px] px-1 py-0.5 rounded border bg-muted/50 hover:bg-muted transition-colors"
+                aria-label="Copy project code"
+              >{copied? '✓':'Copy'}</button>
             </div>
             <h2 className="font-semibold leading-tight">{project.name}</h2>
             {"client" in project && (project as any).client && <p className="text-xs text-muted-foreground">{(project as any).client}</p>}

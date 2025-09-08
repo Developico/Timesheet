@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import { useEffect, useState } from 'react'
+import { useNewProjects } from '@/lib/use-new-projects'
 
 function useCountUp(target: number, duration = 1100) {
   const [val, setVal] = useState(0);
@@ -24,6 +25,7 @@ function useCountUp(target: number, duration = 1100) {
 
 export function KPICards() {
   const { filteredTimeEntries } = useFilters()
+  const { newProjects } = useNewProjects()
   const projects = dataService.getProjects()
   const consultants = dataService.getConsultants()
   const [isVisible, setIsVisible] = useState(false);
@@ -122,6 +124,21 @@ export function KPICards() {
       trend: billableKPI >= 85 ? "+3.2%" : "-2.4%",
       trendColor: billableKPI >= 85 ? "text-green-600" : "text-red-500",
     },
+    // New Projects quick card (shows only if at least 1 new project)
+    ...(newProjects.length>0 ? [{
+      title: 'New Projects',
+      value: `${newProjects.length}`,
+      raw: newProjects.length,
+      unit: '',
+      subtitle: 'Awaiting your review',
+      icon: '🆕',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50 dark:bg-teal-950/20',
+      progress: undefined,
+      target: undefined,
+      trend: '',
+      trendColor: 'text-teal-600'
+    }]: []),
   ]
 
   return (

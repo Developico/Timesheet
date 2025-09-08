@@ -3,7 +3,8 @@
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
-import { Search, Sun, Moon, LogOut, User } from "lucide-react"
+import { Search, Sun, Moon, LogOut, User, Sparkles } from "lucide-react"
+import { useNewProjects } from "@/lib/use-new-projects"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -27,6 +28,8 @@ export function AppHeader() {
   useEffect(() => setMounted(true), [])
 
   const { user, isLoading, logout } = useAuth()
+  const { newProjects } = useNewProjects()
+  const [openNew, setOpenNew] = useState(false)
 
   return (
     <header
@@ -62,8 +65,54 @@ export function AppHeader() {
           </div>
         </div>
 
-    {/* Actions */}
-  <div className="flex items-center gap-3">
+        {/* Actions */}
+  <div className="flex items-center gap-3 relative">
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="New project assignments"
+              className={`h-8 w-8 ${openNew? 'bg-muted':''}`}
+              onClick={()=>setOpenNew(o=>!o)}
+            >
+              <Sparkles className="h-4 w-4" />
+              {newProjects.length>0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-5 rounded-full bg-[#6eedd9] text-[10px] font-semibold flex items-center justify-center text-black px-1">
+                  {newProjects.length}
+                </span>
+              )}
+            </Button>
+            {openNew && (
+              <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-background shadow-lg p-3 z-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium tracking-wide">New Projects</span>
+                  <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {newProjects.length===0 && <div className="text-xs text-muted-foreground py-2">None</div>}
+                <ul className="space-y-2 max-h-56 overflow-auto">
+                  {newProjects.map(p=> (
+                    <li key={p.id} className="flex items-center gap-2 text-xs">
+                      <span className="w-2 h-2 rounded-full" style={{backgroundColor:p.color}} />
+                      <button
+                        className="font-mono underline decoration-dotted hover:text-foreground"
+                        onClick={()=>{
+                          // Dispatch global events to change tab & open panel
+                          window.dispatchEvent(new CustomEvent('ts:setActiveTab', { detail: { tab: 'projects' }}));
+                          window.dispatchEvent(new CustomEvent('ts:openProject', { detail: { projectId: p.id }}));
+                          setOpenNew(false);
+                        }}
+                      >{p.code}</button>
+                      <button
+                        className="ml-auto px-1 py-0.5 border rounded hover:bg-muted"
+                        onClick={()=>{navigator.clipboard?.writeText(p.code).catch(()=>{});}}
+                        title="Copy code"
+                      >Copy</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
           {mounted && (
             <Button
               variant="outline"
