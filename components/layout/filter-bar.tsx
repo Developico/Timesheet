@@ -2,12 +2,13 @@
 
 import { Badge } from "@/components/ui/badge"
 import { useFilters } from "@/lib/filter-context"
-import { dataService } from "@/lib/data"
+import { useProjects } from "@/hooks/use-projects"
+import { useConsultants } from "@/hooks/use-consultants"
 
 export function FilterBar() {
   const { filters, updateFilter } = useFilters()
-  const projects = dataService.getProjects()
-  const consultants = dataService.getConsultants()
+  const { projects } = useProjects()
+  const { consultants } = useConsultants()
 
   const hasActiveFilters =
     filters.selectedConsultants.length > 0 ||

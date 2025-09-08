@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { dataService } from "@/lib/data";
+import { useProjects } from "@/hooks/use-projects";
 import { useAuth } from "@/lib/auth-client";
 
 /**
@@ -17,12 +17,7 @@ interface ViewedMap { [projectId: string]: number }
 
 export function useNewProjects() {
   const { user } = useAuth();
-  let projects: any[] = []
-  try {
-    projects = dataService.getProjects();
-  } catch {
-    projects = [];
-  }
+  const { projects } = useProjects();
   const [viewed, setViewed] = useState<ViewedMap>({});
 
   // Load viewed from localStorage once user available
@@ -52,10 +47,13 @@ export function useNewProjects() {
     const now = Date.now();
     const msPerDay = 1000*60*60*24;
     return projects.filter(p=>{
-      const start = new Date(p.startDate).getTime();
-      const ageDays = (now - start)/msPerDay;
-      return ageDays <= NEW_DAYS && !viewed[p.id];
-    });
+      const raw = (p as any).startDate
+      if(!raw) return false
+      const start = new Date(raw).getTime()
+      if (isNaN(start)) return false
+      const ageDays = (now - start)/msPerDay
+      return ageDays <= NEW_DAYS && !viewed[p.id]
+    })
   },[projects, viewed]);
 
   const isNew = useCallback((projectId: string) => newProjects.some(p=>p.id===projectId), [newProjects]);

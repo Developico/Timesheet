@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Eye, ChevronUp, ChevronDown } from "lucide-react"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
-import { dataService } from "@/lib/data"
+import { useConsultants } from "@/hooks/use-consultants"
 import type { Project } from "@/lib/data"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 import { toast } from "@/hooks/use-toast"
@@ -24,7 +24,7 @@ export function ProjectsTable() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [projectScope, setProjectScope] = useState<"my"|"all">("my")
   const [assignedIds, setAssignedIds] = useState<Set<string>|null>(null)
-  const consultants = dataService.getConsultants()
+  const { consultants } = useConsultants()
   const primaryConsultant = consultants[0] // TODO: replace with authenticated user principal
 
   useEffect(()=>{
