@@ -61,6 +61,11 @@ export const DV = {
 }
 
 export function ensureDataverseBaseUrl() {
-  if (!DV.baseUrl) throw new Error("DATAVERSE_URL env not set")
+  // Return empty string instead of throwing so modules can import safely.
+  // Actual usage will be gated by feature flag + runtime checks.
+  if (!DV.baseUrl) {
+    if (typeof console !== "undefined") console.warn("[dataverse] DATAVERSE_URL env not set; falling back to mock data source")
+    return ""
+  }
   return DV.baseUrl
 }

@@ -15,7 +15,7 @@ function assignColor(id: string) {
 
 export class DataverseDataSource implements IDataSource {
   private ensureEnabled() {
-    if (!DV.baseUrl) throw new Error("Dataverse not configured (DATAVERSE_URL)")
+  if (!DV.baseUrl) throw new Error("Dataverse disabled: DATAVERSE_URL not set")
   }
 
   async getConsultants(): Promise<Consultant[]> {

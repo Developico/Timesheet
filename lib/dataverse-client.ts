@@ -19,6 +19,9 @@ export class DataverseClient {
   private base = ensureDataverseBaseUrl()
 
   async request(path: string, opts: DataverseRequestOptions = {}): Promise<any> {
+    if (!this.base) {
+      throw new Error("Dataverse disabled: base URL not configured (DATAVERSE_URL)")
+    }
     const token = await getDataverseToken()
     const method = (opts.method || "GET").toUpperCase()
     const url = `${this.base}/api/data/v9.2${path.startsWith("/") ? path : "/" + path}${opts.query ? (path.includes("?") ? "&" + opts.query : "?" + opts.query) : ""}`
