@@ -23,8 +23,20 @@ export function ProjectsTable() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [projectScope, setProjectScope] = useState<"my"|"all">("my")
-
+  const [assignedIds, setAssignedIds] = useState<Set<string>|null>(null)
   const consultants = dataService.getConsultants()
+  const primaryConsultant = consultants[0] // TODO: replace with authenticated user principal
+
+  useEffect(()=>{
+    let ignore = false
+    if(!primaryConsultant) return
+    fetch(`/api/dataverse/project-assignments?consultantId=${primaryConsultant.id}`)
+      .then(r=> r.ok? r.json(): Promise.reject())
+      .then(json=>{ if(!ignore && json?.value) setAssignedIds(new Set(json.value)) })
+      .catch(()=>{})
+    return ()=>{ ignore = true }
+  }, [primaryConsultant?.id])
+  
 
   const projectsWithMetrics = filteredProjects.map((project) => {
     const projectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
@@ -147,7 +159,7 @@ export function ProjectsTable() {
               </TableHeader>
               <TableBody>
                 {(() => {
-                  const myProjectIds = new Set(filteredTimeEntries.map(e=>e.projectId))
+                  const myProjectIds = assignedIds || new Set(filteredTimeEntries.map(e=>e.projectId))
                   const msPerDay = 1000*60*60*24
                   const now = Date.now()
                   const NEW_DAYS = 30
@@ -158,7 +170,7 @@ export function ProjectsTable() {
                     return (
                       <TableRow>
         <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
-                          {projectScope==='my' ? 'No projects with your recent time entries – switch to All to browse all codes.' : 'No projects'}
+                          {projectScope==='my' ? (assignedIds? 'No assigned projects' : 'No projects with your recent time entries – switch to All to browse all codes.') : 'No projects'}
                         </TableCell>
                       </TableRow>
                     )
@@ -220,7 +232,7 @@ export function ProjectsTable() {
               <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;={NEW_DAYS} days)</span>
             </div>
             {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
-            <div>Scope: {projectScope==='my' ? 'projects you have time entries on (current filters applied)' : 'all filtered projects'}</div>
+            <div>Scope: {projectScope==='my' ? (assignedIds? 'projects you are assigned to' : 'projects you have time entries on (current filters applied)') : 'all filtered projects'}</div>
           </div>
         </CardContent>
       </Card>
