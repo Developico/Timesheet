@@ -179,4 +179,10 @@ export class MockDataSource implements IDataSource {
 
     return entries
   }
+
+  async getProjectAssignments(consultantId: string): Promise<string[]> {
+    // Simple mock: user 1 & 2 assigned to first three projects, others to first two
+    if (consultantId === "1" || consultantId === "2") return this.projects.slice(0, 3).map(p=>p.id)
+    return this.projects.slice(0, 2).map(p=>p.id)
+  }
 }

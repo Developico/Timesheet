@@ -84,6 +84,22 @@ export class DataverseDataSource implements IDataSource {
       note: r[tr.note] || undefined,
     }))
   }
+
+  async getProjectAssignments(consultantId: string): Promise<string[]> {
+    this.ensureEnabled()
+    const pu = DV.projectUser
+    // Filter by user lookup; GUIDs in Dataverse filters should be presented without braces
+    const filter = encodeURIComponent(`${pu.userLookup} eq ${consultantId}`)
+    const select = pu.projectLookup
+    const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`)
+    const records: any[] = data.value || []
+    const ids = new Set<string>()
+    for (const r of records) {
+      const pid = r[pu.projectLookup]
+      if (pid) ids.add(pid)
+    }
+    return [...ids]
+  }
 }
 
 // (Optional) future explicit mapper exports if needed externally
