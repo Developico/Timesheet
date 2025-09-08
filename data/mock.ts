@@ -185,4 +185,17 @@ export class MockDataSource implements IDataSource {
     if (consultantId === "1" || consultantId === "2") return this.projects.slice(0, 3).map(p=>p.id)
     return this.projects.slice(0, 2).map(p=>p.id)
   }
+
+  async getDaysOff(from: string, to: string): Promise<{ date: string; name?: string }[]> {
+    // simple deterministic mock: every 2nd Friday is day off
+    const out: { date: string; name: string }[] = []
+    const start = new Date(from)
+    const end = new Date(to)
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+      if (d.getDay() === 5 && Math.floor(d.getDate()/7)%2===0) {
+        out.push({ date: d.toISOString().substring(0,10), name: 'Company Day Off' })
+      }
+    }
+    return out
+  }
 }

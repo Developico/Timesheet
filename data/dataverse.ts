@@ -33,13 +33,20 @@ export class DataverseDataSource implements IDataSource {
     }))
   }
 
-  async getProjects(): Promise<Project[]> {
+  async getProjects(currentConsultantId?: string): Promise<Project[]> {
     this.ensureEnabled()
     const s = DV.project
     const select = [s.id, s.name, s.code, s.client, s.billable, s.meta, s.note, s.createdOn].join(",")
     const filter = `${s.stateCode} eq 0`
     const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`)
     const records: any[] = data.value || []
+    let assignmentSet: Set<string> | null = null
+    if (currentConsultantId) {
+      try {
+        const assigned = await this.getProjectAssignments(currentConsultantId)
+        assignmentSet = new Set(assigned)
+      } catch {/* ignore */}
+    }
     return records.map((r) => ({
       id: r[s.id],
       code: r[s.code],
@@ -48,7 +55,7 @@ export class DataverseDataSource implements IDataSource {
       meta: r[s.meta] || undefined,
       note: r[s.note] || undefined,
       billable: !!r[s.billable],
-      assigned: true, // refined later via ProjectUser relation
+      assigned: assignmentSet ? assignmentSet.has(r[s.id]) : true,
       color: assignColor(r[s.id]),
     }))
   }
@@ -99,6 +106,17 @@ export class DataverseDataSource implements IDataSource {
       if (pid) ids.add(pid)
     }
     return [...ids]
+  }
+
+  async getDaysOff(from: string, to: string): Promise<{ date: string; name?: string }[]> {
+    this.ensureEnabled()
+    const d = DV.daysOff
+    const dateField = d.date
+    const filter = encodeURIComponent(`${dateField} ge ${from} and ${dateField} le ${to}`)
+    const select = [d.id, d.date, d.name].join(",")
+    const data = await dataverseClient.list(d.entitySet, `$select=${select}&$filter=${filter}`)
+    const records: any[] = data.value || []
+    return records.map(r=>({ date: r[d.date]?.substring(0,10), name: r[d.name] }))
   }
 }
 
