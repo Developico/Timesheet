@@ -15,40 +15,47 @@ import { FilterProvider } from "@/lib/filter-context"
 import { ViewingScopeProvider } from "@/lib/viewing-scope"
 import { ViewingBanner } from "@/components/admin/viewing-banner"
 import { ConsultantDock } from "@/components/admin/consultant-dock"
-import { dataService } from "@/lib/data"
-import type { TimeEntry, Project, Consultant } from "@/lib/data"
+import { useProjects } from "@/hooks/use-projects"
+import { useConsultants } from "@/hooks/use-consultants"
+import { useTimeEntries } from "@/hooks/use-time-entries"
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "calendar" | "projects">("dashboard")
   // viewMode state reserved for future UI switcher (currently unused)
 
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
-  const [consultants, setConsultants] = useState<Consultant[]>([])
-  const [loading, setLoading] = useState(true)
   const { user, isLoading: authLoading } = useAuth()
+  // Data fetched via hooks (Dataverse or mock depending on feature flag)
+  const { projects: rawProjects, loading: projectsLoading } = useProjects()
+  const { consultants, loading: consultantsLoading } = useConsultants()
+  // Default time range: current month
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth(), 1)
+  const to = new Date(now.getFullYear(), now.getMonth()+1, 0)
+  const range = {
+    from: `${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`,
+    to: `${to.getFullYear()}-${String(to.getMonth()+1).padStart(2,'0')}-${String(to.getDate()).padStart(2,'0')}`
+  }
+  const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
+  // Adapt raw projects to legacy Project shape expected by FilterProvider (fill safe defaults)
+  const projects = rawProjects.map(p => ({
+    id: p.id,
+    name: p.name,
+    client: (p as any).client || '',
+    code: p.code || p.id.slice(0,6),
+    color: (p as any).color || '#6366f1',
+  status: 'active' as const,
+    totalHours: 0,
+    budget: 0,
+    progress: 0,
+    startDate: new Date().toISOString().substring(0,10),
+    billable: (p as any).billable ?? true,
+    assigned: (p as any).assigned ?? true,
+    metaproject: (p as any).meta,
+    note: (p as any).note,
+  }))
+  const loading = projectsLoading || consultantsLoading || entriesLoading || authLoading
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [entriesData, projectsData, consultantsData] = await Promise.all([
-          Promise.resolve(dataService.getTimeEntries()),
-          Promise.resolve(dataService.getProjects()),
-          Promise.resolve(dataService.getConsultants()),
-        ])
-
-        setTimeEntries(entriesData)
-        setProjects(projectsData)
-        setConsultants(consultantsData)
-      } catch (error) {
-        console.error("Failed to fetch data:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
+  // Legacy effect removed (hooks handle fetching)
 
   // Listen for global events from header (new project shortcuts)
   useEffect(()=>{
