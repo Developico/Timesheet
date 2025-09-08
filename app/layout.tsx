@@ -24,7 +24,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable}`}>
-  <ClientRoot>{children}</ClientRoot>
+        <ClientRoot>
+          {/* Global centered width wrapper */}
+          <div className="mx-auto w-full max-w-[1600px] px-4 xl:px-8">
+            {children}
+          </div>
+        </ClientRoot>
         {/* Analytics component removed to fix import error */}
       </body>
     </html>

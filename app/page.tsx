@@ -84,7 +84,7 @@ export default function HomePage() {
           <ViewingBanner />
           <FilterBar />
           <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
-          <main className="container px-6 py-8">
+          <main className="py-8">
             {activeTab === "dashboard" && (
               <div className="space-y-6">
                 <KPICards />
