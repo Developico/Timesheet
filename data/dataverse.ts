@@ -1,72 +1,91 @@
 import type { IDataSource } from "./interfaces"
 import type { Consultant, Project, TimeEntry, TimeEntryFilters } from "@/types"
+import { DV } from "@/lib/dataverse-config"
+import { dataverseClient } from "@/lib/dataverse-client"
 
-// TODO: Implement Dataverse integration
-// This is a placeholder for future Dataverse implementation
+// Basic color palette for deterministic color assignment
+const PROJECT_COLORS = ["#01EED4", "#6366f1", "#f59e0b", "#dc2626", "#6B7280", "#10b981", "#8b5cf6"]
+const colorCache = new Map<string, string>()
+function assignColor(id: string) {
+  if (colorCache.has(id)) return colorCache.get(id) as string
+  const color = PROJECT_COLORS[colorCache.size % PROJECT_COLORS.length]
+  colorCache.set(id, color)
+  return color
+}
 
 export class DataverseDataSource implements IDataSource {
+  private ensureEnabled() {
+    if (!DV.baseUrl) throw new Error("Dataverse not configured (DATAVERSE_URL)")
+  }
+
   async getConsultants(): Promise<Consultant[]> {
-    // TODO: Implement Dataverse query
-    // Table: ts_Consultant
-    // Fields: fullname, internalemailaddress, avatar (optional)
-    // Query: SELECT fullname, internalemailaddress FROM ts_consultant WHERE statecode = 0
-    throw new Error("Dataverse integration not implemented yet")
+    this.ensureEnabled()
+    // For MVP: pull active users (statecode=0) limited fields
+    const select = [DV.consultant.id, DV.consultant.fullName, DV.consultant.email, DV.consultant.avatar].join(",")
+    const filter = `${DV.consultant.stateCode} eq 0`
+    const data = await dataverseClient.list(DV.consultant.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`)
+    const records: any[] = data.value || []
+    return records.map((r) => ({
+      id: r[DV.consultant.id],
+      name: r[DV.consultant.fullName],
+      email: r[DV.consultant.email],
+      avatarUrl: r[DV.consultant.avatar] || undefined,
+    }))
   }
 
   async getProjects(): Promise<Project[]> {
-    // TODO: Implement Dataverse query
-    // Table: ts_Project
-    // Fields: ts_code, ts_client, ts_name, ts_meta, ts_note, ts_billable
-    // Query: SELECT ts_code, ts_client, ts_name, ts_meta, ts_note, ts_billable FROM ts_project WHERE statecode = 0
-    throw new Error("Dataverse integration not implemented yet")
+    this.ensureEnabled()
+    const s = DV.project
+    const select = [s.id, s.name, s.code, s.client, s.billable, s.meta, s.note, s.createdOn].join(",")
+    const filter = `${s.stateCode} eq 0`
+    const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`)
+    const records: any[] = data.value || []
+    return records.map((r) => ({
+      id: r[s.id],
+      code: r[s.code],
+      client: r[s.client] || "",
+      name: r[s.name] || "(No Name)",
+      meta: r[s.meta] || undefined,
+      note: r[s.note] || undefined,
+      billable: !!r[s.billable],
+      assigned: true, // refined later via ProjectUser relation
+      color: assignColor(r[s.id]),
+    }))
   }
 
   async getTimeEntries(params: TimeEntryFilters): Promise<TimeEntry[]> {
-    // TODO: Implement Dataverse query with filters
-    // Table: ts_TimeEntry
-    // Fields: ts_date, ts_hours, ts_billable, ts_note
-    // Lookups: ts_Project (ts_project), ts_Consultant (ts_consultant)
-    // Query with $select, $expand, $filter for date range, consultant, projects, billable status
-    // Example: GET /api/data/v9.2/ts_timeentries?$select=ts_date,ts_hours,ts_billable,ts_note&$expand=ts_project,ts_consultant&$filter=ts_date ge '2024-01-01' and ts_date le '2024-01-31'
-    throw new Error("Dataverse integration not implemented yet")
+    this.ensureEnabled()
+    const tr = DV.timeRegister
+    const selects = [tr.id, tr.startDateTime, tr.durationMin, tr.projectLookup, tr.userLookup, tr.billable, tr.note].join(",")
+    const filters: string[] = []
+    // Date filter: convert date (YYYY-MM-DD) into bounds (inclusive start, inclusive end 23:59)
+    const fromIso = `${params.from}T00:00:00Z`
+    const toIso = `${params.to}T23:59:59Z`
+    filters.push(`${tr.startDateTime} ge ${fromIso} and ${tr.startDateTime} le ${toIso}`)
+    if (params.consultantId) filters.push(`${tr.userLookup} eq ${params.consultantId}`)
+    if (params.projectIds && params.projectIds.length > 0) {
+      // OData lacks direct IN; build (a eq x or a eq y ...)
+      const orExpr = params.projectIds.map((id) => `${tr.projectLookup} eq ${id}`).join(" or ")
+      filters.push(`(${orExpr})`)
+    }
+    if (params.billable !== undefined && params.billable !== "all") {
+      filters.push(`${tr.billable} eq ${params.billable ? 1 : 0}`)
+    }
+    const filter = encodeURIComponent(filters.join(" and "))
+    const data = await dataverseClient.list(tr.entitySet, `$select=${selects}&$filter=${filter}`)
+    const records: any[] = data.value || []
+    return records.map((r) => ({
+      id: r[tr.id],
+      date: (r[tr.startDateTime] || "").substring(0, 10),
+      consultantId: r[tr.userLookup],
+      projectId: r[tr.projectLookup],
+      hours: (r[tr.durationMin] || 0) / 60,
+      billable: !!r[tr.billable],
+      note: r[tr.note] || undefined,
+    }))
   }
 }
 
-// Mapper functions for future implementation
-export function mapDataverseConsultant(record: any): Consultant {
-  // TODO: Map Dataverse consultant record to Consultant interface
-  return {
-    id: record.ts_consultantid,
-    name: record.fullname,
-    email: record.internalemailaddress,
-    avatarUrl: record.avatar || undefined,
-  }
-}
+// (Optional) future explicit mapper exports if needed externally
+export const mapDataverseProject = () => { /* intentionally minimal for now */ }
 
-export function mapDataverseProject(record: any): Project {
-  // TODO: Map Dataverse project record to Project interface
-  return {
-    id: record.ts_projectid,
-    code: record.ts_code,
-    client: record.ts_client,
-    name: record.ts_name,
-    meta: record.ts_meta,
-    note: record.ts_note,
-    billable: record.ts_billable,
-    assigned: true, // TODO: Determine from relationship
-    color: "#01EED4", // TODO: Generate or store color
-  }
-}
-
-export function mapDataverseTimeEntry(record: any): TimeEntry {
-  // TODO: Map Dataverse time entry record to TimeEntry interface
-  return {
-    id: record.ts_timeentryid,
-    date: record.ts_date,
-    consultantId: record._ts_consultant_value,
-    projectId: record._ts_project_value,
-    hours: record.ts_hours,
-    billable: record.ts_billable,
-    note: record.ts_note,
-  }
-}
