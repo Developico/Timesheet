@@ -233,7 +233,7 @@ export function CalendarView() {
           const isToday = day.toDateString() === new Date().toDateString()
           const isWeekend = day.getDay()===0 || day.getDay()===6
           return (
-            <div key={day.toISOString()} className={`p-3 h-44 border rounded-lg flex flex-col overflow-hidden transition-colors ${isWeekend? 'bg-muted/40':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}>
+            <div key={day.toISOString()} className={`p-3 h-44 border rounded-lg flex flex-col overflow-hidden transition-colors bg-card ${isWeekend? 'bg-card/70':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}>
               <div className="flex items-start justify-between mb-1">
                 <div>
                   <div className="text-xs font-medium text-muted-foreground">{dayNames[(day.getDay()+6)%7]}</div>
@@ -298,7 +298,7 @@ export function CalendarView() {
           return (
             <div
               key={d}
-              className={`p-2 h-28 border rounded-lg hover:bg-muted/50 transition-colors overflow-hidden flex flex-col ${isWeekend? 'bg-muted/40':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
+              className={`p-2 h-28 border rounded-lg transition-colors overflow-hidden flex flex-col bg-card hover:bg-card/90 ${isWeekend? 'bg-card/70':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="text-sm font-medium">{d}</div>
