@@ -30,9 +30,9 @@ export function AppHeader() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/70 backdrop-blur-md backdrop-saturate-150 supports-[backdrop-filter]:bg-background/40 shadow-[0_4px_12px_-4px_rgb(0_0_0/0.08)] transition-colors"
+      className="sticky top-2 z-50 w-full bg-transparent transition-[padding,background] mb-4"
     >
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
+      <div className="h-16 w-full flex items-center justify-between rounded-xl border border-border/60 bg-background/80 backdrop-blur-md backdrop-saturate-150 shadow-sm px-4 md:px-6 supports-[backdrop-filter]:bg-background/60">
         {/* Logo & Title */}
         <div className="flex items-center gap-3 select-none">
           <div className="flex h-8 w-8 items-center justify-center">
@@ -48,7 +48,7 @@ export function AppHeader() {
           </div>
         </div>
 
-        {/* Search (desktop) */}
+    {/* Search (desktop) */}
   <div className="hidden md:block flex-1 max-w-md mx-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -62,7 +62,7 @@ export function AppHeader() {
           </div>
         </div>
 
-        {/* Actions */}
+    {/* Actions */}
   <div className="flex items-center gap-3">
           {mounted && (
             <Button
