@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useNewProjects } from "@/lib/use-new-projects"
+import { toast } from "@/hooks/use-toast"
 import type { Project } from "@/lib/data"
 
 interface EntryLike { hours: number; billable: boolean; isAbsence?: boolean }
@@ -57,7 +58,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               <span id="project-detail-title" className="font-mono text-sm font-semibold">{project.code}</span>
               <button
                 type="button"
-                onClick={()=>{ navigator.clipboard?.writeText(project.code).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),1500); markViewed(project.id); }); }}
+                onClick={()=>{ navigator.clipboard?.writeText(project.code).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),1500); markViewed(project.id); toast({ title: 'Copied', description: `${project.code} copied to clipboard`}); }); }}
                 className="text-[10px] px-1 py-0.5 rounded border bg-muted/50 hover:bg-muted transition-colors"
                 aria-label="Copy project code"
               >{copied? '✓':'Copy'}</button>
