@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { getDataSource } from "@/data/source"
 import { z } from "zod"
+import { getToken } from 'next-auth/jwt'
+import { mapAadOidToConsultantId } from '@/lib/dataverse-user-map'
+
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || ''
 
 export const revalidate = 0
 
@@ -12,7 +16,7 @@ const QuerySchema = z.object({
   projectIds: z.string().optional(), // comma separated
 })
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
     const parsed = QuerySchema.safeParse(Object.fromEntries(url.searchParams))
@@ -20,7 +24,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid query", details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { from, to, consultantId, billable, projectIds } = parsed.data
+    let { from, to, consultantId, billable, projectIds } = parsed.data
+    if (!consultantId && NEXTAUTH_SECRET) {
+      try {
+        const token = await getToken({ req, secret: NEXTAUTH_SECRET })
+        const oid = token?.sub
+        if (oid) {
+          const mapped = await mapAadOidToConsultantId(oid)
+          if (mapped) consultantId = mapped
+        }
+      } catch {/* ignore */}
+    }
     const ds = getDataSource()
     const params = {
       from,

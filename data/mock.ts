@@ -140,7 +140,7 @@ export class MockDataSource implements IDataSource {
     return [...this.consultants]
   }
 
-  async getProjects(): Promise<Project[]> {
+  async getProjects(_currentConsultantId?: string): Promise<Project[]> {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 100))
     return [...this.projects]
