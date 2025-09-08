@@ -17,7 +17,12 @@ interface ViewedMap { [projectId: string]: number }
 
 export function useNewProjects() {
   const { user } = useAuth();
-  const projects = dataService.getProjects();
+  let projects: any[] = []
+  try {
+    projects = dataService.getProjects();
+  } catch {
+    projects = [];
+  }
   const [viewed, setViewed] = useState<ViewedMap>({});
 
   // Load viewed from localStorage once user available

@@ -297,47 +297,37 @@ export class DataService {
   private useMock: boolean
 
   constructor() {
-    this.useMock = process.env.NEXT_PUBLIC_USE_MOCK !== "false"
+    // Legacy flag: real Dataverse integration for UI moved to /api/dataverse + dedicated hooks.
+    // Keep DataService always using mock data for now to avoid runtime throws when flag toggled.
+    // Once all components are migrated off DataService we can delete it.
+    const raw = process.env.NEXT_PUBLIC_USE_MOCK
+    this.useMock = true
+    if (raw === 'false') {
+      // Provide a dev console hint so testers know why data still appears.
+      if (typeof window !== 'undefined') {
+        console.warn('[DataService] Dataverse path not implemented; still serving mock data.')
+      }
+    }
   }
 
   async getTimeEntries(): Promise<TimeEntry[]> {
-    if (this.useMock) {
-      return Promise.resolve(mockTimeEntries)
-    }
-    // TODO: Implement Dataverse integration
-    throw new Error("Dataverse integration not implemented")
+  return Promise.resolve(mockTimeEntries)
   }
 
   getConsultants(): Consultant[] {
-    if (this.useMock) {
-      return mockConsultants
-    }
-    // TODO: Implement Dataverse integration
-    throw new Error("Dataverse integration not implemented")
+  return mockConsultants
   }
 
   getProjects(): Project[] {
-    if (this.useMock) {
-      return mockProjects
-    }
-    // TODO: Implement Dataverse integration
-    throw new Error("Dataverse integration not implemented")
+  return mockProjects
   }
 
   async getTimesheetEntries(): Promise<TimesheetEntry[]> {
-    if (this.useMock) {
-      return Promise.resolve(mockTimesheetEntries)
-    }
-    // TODO: Implement Dataverse integration
-    throw new Error("Dataverse integration not implemented")
+  return Promise.resolve(mockTimesheetEntries)
   }
 
   async getKPIData(): Promise<KPIData> {
-    if (this.useMock) {
-      return Promise.resolve(mockKPIData)
-    }
-    // TODO: Implement Dataverse integration
-    throw new Error("Dataverse integration not implemented")
+  return Promise.resolve(mockKPIData)
   }
 }
 
