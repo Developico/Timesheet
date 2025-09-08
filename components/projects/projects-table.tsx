@@ -118,7 +118,7 @@ export function ProjectsTable() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border bg-card/70">
             <Table>
               <TableHeader>
                 <TableRow>
