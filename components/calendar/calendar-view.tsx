@@ -10,7 +10,8 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [viewMode, setViewMode] = useState<"month" | "week">("week")
+  // Default to month view
+  const [viewMode, setViewMode] = useState<"month" | "week">("month")
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
@@ -292,8 +293,13 @@ export function CalendarView() {
           const billable = entries.filter(e=>e.billable && !e.isAbsence).reduce((s,e)=>s+e.hours,0)
           const nonBillable = total - billable - absence
           const reportedPct = (total/8)*100
+          const isToday = date.toDateString() === new Date().toDateString()
+          const isWeekend = date.getDay()===0 || date.getDay()===6
           return (
-            <div key={d} className="p-2 h-28 border rounded-lg hover:bg-muted/50 transition-colors overflow-hidden flex flex-col">
+            <div
+              key={d}
+              className={`p-2 h-28 border rounded-lg hover:bg-muted/50 transition-colors overflow-hidden flex flex-col ${isWeekend? 'bg-muted/40':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
+            >
               <div className="flex items-center justify-between mb-1">
                 <div className="text-sm font-medium">{d}</div>
                 {total>0 && <div className="text-[10px] text-muted-foreground font-medium">{total.toFixed(1)}h • {reportedPct.toFixed(0)}%</div>}
