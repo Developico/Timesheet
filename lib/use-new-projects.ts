@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-client";
  *  - A project is considered NEW if startDate within NEW_DAYS window AND not viewed.
  *  - Viewed state stored in localStorage (namespaced by user id).
  */
-const NEW_DAYS = 30;
+export const NEW_DAYS = 15;
 const STORAGE_PREFIX = "ts:viewedProjects:"; // ts:viewedProjects:<userId> -> JSON { [projectId]: timestamp }
 
 interface ViewedMap { [projectId: string]: number }
