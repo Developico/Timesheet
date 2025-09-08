@@ -4,10 +4,10 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useFilters } from "@/lib/filter-context"
-import { dataService } from "@/lib/data"
+// import { useFilters } from "@/lib/filter-context" // currently not used here
+import { useProjects } from "@/hooks/use-projects"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
-import { useDaysOff } from "@/hooks/use-days-off"
+import { useDaysOff } from "../../hooks/use-days-off"
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -16,8 +16,7 @@ export function CalendarView() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
-  const { filteredTimeEntries } = useFilters()
-  const projects = dataService.getProjects()
+  const { projects, loading: projectsLoading, error: projectsError } = useProjects()
 
   // Dynamic sample entries for the current month (deterministic pattern)
   interface SampleEntry {
@@ -142,7 +141,7 @@ export function CalendarView() {
   }
 
   // Selection + metrics (must be after getEntriesForDate)
-  const findProject = (id: string | null) => enhancedProjects.find(p=>p.id===id)
+  const findProject = (id: string | null) => (id ? enhancedProjects.find(p=>p.id===id) : undefined)
   const selectedProject = findProject(selectedProjectId || '') as any
   const currentScopeEntries = useMemo(()=>{
     if(!selectedProjectId) return []
@@ -392,6 +391,11 @@ export function CalendarView() {
 
   return (
   <div className="space-y-6">
+      {projectsError && (
+        <div className="text-sm text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 p-3 rounded">
+          Failed to load projects: {projectsError}
+        </div>
+      )}
       {/* Horizontal Summary Bar */}
       <Card>
         <CardContent className="py-4">
@@ -426,9 +430,9 @@ export function CalendarView() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <CardTitle className="flex items-center gap-2">
-                {viewMode === "week"
+                {projectsLoading ? 'Loading projects…' : (viewMode === "week"
                   ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}`
-                  : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
+                  : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`)}
               </CardTitle>
               <div className="flex gap-1 border rounded-lg p-1">
                 <Button
