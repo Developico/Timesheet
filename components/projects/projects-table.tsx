@@ -13,7 +13,7 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import type { Project } from "@/lib/data"
-import { useNewProjects } from "@/lib/use-new-projects"
+import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 
 export function ProjectsTable() {
   const { filteredProjects, filteredTimeEntries } = useFilters()
@@ -216,7 +216,7 @@ export function ProjectsTable() {
           </div>
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;=30 days)</span>
+              <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;={NEW_DAYS} days)</span>
             </div>
             {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
             <div>Scope: {projectScope==='my' ? 'projects you have time entries on (current filters applied)' : 'all filtered projects'}</div>
