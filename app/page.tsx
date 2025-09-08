@@ -50,6 +50,23 @@ export default function HomePage() {
     fetchData()
   }, [])
 
+  // Listen for global events from header (new project shortcuts)
+  useEffect(()=>{
+    const handleSetTab = (e: any) => {
+      if(e.detail?.tab) setActiveTab(e.detail.tab)
+    }
+    const handleOpenProject = (e: any) => {
+      // store project id temporarily in sessionStorage; ProjectsTable will read event
+      // (Direct open handled within its own listener already added earlier patch)
+    }
+    window.addEventListener('ts:setActiveTab', handleSetTab as any)
+    window.addEventListener('ts:openProject', handleOpenProject as any)
+    return ()=> {
+      window.removeEventListener('ts:setActiveTab', handleSetTab as any)
+      window.removeEventListener('ts:openProject', handleOpenProject as any)
+    }
+  },[])
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">

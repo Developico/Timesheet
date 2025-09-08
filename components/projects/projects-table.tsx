@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,9 +13,11 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import type { Project } from "@/lib/data"
+import { useNewProjects } from "@/lib/use-new-projects"
 
 export function ProjectsTable() {
   const { filteredProjects, filteredTimeEntries } = useFilters()
+  const { newProjects, isNew, markViewed } = useNewProjects()
   const [sortField, setSortField] = useState<keyof Project>("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -161,9 +163,9 @@ export function ProjectsTable() {
                     )
                   }
                   return visible.map(project => {
-                    const isNew = (now - new Date(project.startDate).getTime())/msPerDay <= NEW_DAYS
+                    const newForUser = isNew(project.id)
                     return (
-                      <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${isNew?'ring-1 ring-[#6eedd9]':''}`}>
+                      <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
                     <TableCell>
                       <Badge variant={project.billable ? "default" : "secondary"} className="text-xs">
                         {project.billable ? "Yes" : "No"}
@@ -174,8 +176,14 @@ export function ProjectsTable() {
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
                         <span className="font-mono text-sm flex items-center gap-1">
                           {project.code}
-                          {isNew && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
+                          {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
                         </span>
+                        <button
+                          type="button"
+                          onClick={()=>{navigator.clipboard?.writeText(project.code).catch(()=>{}); markViewed(project.id)}}
+                          className="text-[10px] px-1 py-0.5 rounded border bg-muted/40 hover:bg-muted transition-colors"
+                          title="Copy project code"
+                        >Copy</button>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{project.client}</TableCell>
@@ -195,7 +203,7 @@ export function ProjectsTable() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedProject(project)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedProject(project); markViewed(project.id) }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -210,6 +218,7 @@ export function ProjectsTable() {
             <div className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;=30 days)</span>
             </div>
+            {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
             <div>Scope: {projectScope==='my' ? 'projects you have time entries on (current filters applied)' : 'all filtered projects'}</div>
           </div>
         </CardContent>
