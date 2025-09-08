@@ -14,6 +14,7 @@ import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import type { Project } from "@/lib/data"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
+import { toast } from "@/hooks/use-toast"
 
 export function ProjectsTable() {
   const { filteredProjects, filteredTimeEntries } = useFilters()
@@ -180,7 +181,7 @@ export function ProjectsTable() {
                         </span>
                         <button
                           type="button"
-                          onClick={()=>{navigator.clipboard?.writeText(project.code).catch(()=>{}); markViewed(project.id)}}
+                          onClick={()=>{navigator.clipboard?.writeText(project.code).then(()=> toast({ title: 'Copied', description: `${project.code} copied to clipboard` })).catch(()=>{}); markViewed(project.id)}}
                           className="text-[10px] px-1 py-0.5 rounded border bg-muted/40 hover:bg-muted transition-colors"
                           title="Copy project code"
                         >Copy</button>
