@@ -18,6 +18,7 @@ export const DV = {
     email: process.env.DATAVERSE_FIELD_CONSULTANT_EMAIL || "internalemailaddress",
     avatar: process.env.DATAVERSE_FIELD_CONSULTANT_AVATAR || "tt_avatar", // optional custom
     stateCode: process.env.DATAVERSE_FIELD_CONSULTANT_STATE || "statecode",
+  azureAdObjectId: process.env.DATAVERSE_FIELD_CONSULTANT_AAD_OID || "azureactivedirectoryobjectid",
   },
   project: {
     entitySet: process.env.DATAVERSE_ENTITY_PROJECT || "tt_projects",

@@ -2,7 +2,8 @@ import type { Consultant, Project, TimeEntry, TimeEntryFilters } from "@/types"
 
 export interface IDataSource {
   getConsultants(): Promise<Consultant[]>
-  getProjects(): Promise<Project[]>
+  // Optionally pass current consultantId to mark assigned projects; if omitted implementation may still return all
+  getProjects(currentConsultantId?: string): Promise<Project[]>
   getTimeEntries(params: TimeEntryFilters): Promise<TimeEntry[]>
   // Returns array of project IDs the consultant is assigned to (ProjectUser relation)
   getProjectAssignments?(consultantId: string): Promise<string[]>
