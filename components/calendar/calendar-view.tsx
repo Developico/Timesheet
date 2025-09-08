@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useFilters } from "@/lib/filter-context"
 import { dataService } from "@/lib/data"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
+import { useDaysOff } from "@/hooks/use-days-off"
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -219,6 +220,28 @@ export function CalendarView() {
 
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+  const range = useMemo(() => {
+    if (viewMode === 'week') {
+      const week = getWeekDays(currentDate)
+      const from = week[0]
+      const to = week[6]
+      return {
+        from: `${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`,
+        to: `${to.getFullYear()}-${String(to.getMonth()+1).padStart(2,'0')}-${String(to.getDate()).padStart(2,'0')}`,
+      }
+    }
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const first = new Date(year, month, 1)
+    const last = new Date(year, month+1, 0)
+    return {
+      from: `${first.getFullYear()}-${String(first.getMonth()+1).padStart(2,'0')}-${String(first.getDate()).padStart(2,'0')}`,
+      to: `${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`,
+    }
+  }, [viewMode, currentDate])
+
+  const { isDayOff } = useDaysOff(range)
+
   const renderWeekView = () => {
     const weekDays = getWeekDays(currentDate)
     return (
@@ -232,16 +255,19 @@ export function CalendarView() {
           const reportedPct = (total/8)*100
           const isToday = day.toDateString() === new Date().toDateString()
           const isWeekend = day.getDay()===0 || day.getDay()===6
+          const dayIso = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`
+          const holiday = isDayOff(dayIso)
           return (
             <div
               key={day.toISOString()}
-              className={`p-3 h-44 border rounded-lg flex flex-col overflow-hidden transition-colors bg-card dark:bg-[oklch(0.14_0_0)] ${isWeekend? 'dark:!bg-[oklch(0.17_0_0)] bg-muted/20':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
+              className={`p-3 h-44 border rounded-lg flex flex-col overflow-hidden transition-colors bg-card dark:bg-[oklch(0.14_0_0)] ${isWeekend? 'dark:!bg-[oklch(0.17_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
             >
               <div className="flex items-start justify-between mb-1">
                 <div>
                   <div className="text-xs font-medium text-muted-foreground">{dayNames[(day.getDay()+6)%7]}</div>
                   <div className="text-base font-semibold">{day.getDate()}</div>
                 </div>
+                {holiday && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
                 {total>0 && <div className="text-[11px] text-muted-foreground font-medium text-right leading-tight">{total.toFixed(1)}h<br/>{reportedPct.toFixed(0)}%</div>}
               </div>
               {entries.length>0 ? (
@@ -298,14 +324,19 @@ export function CalendarView() {
           const reportedPct = (total/8)*100
           const isToday = date.toDateString() === new Date().toDateString()
           const isWeekend = date.getDay()===0 || date.getDay()===6
+          const dateIso = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+          const holiday = isDayOff(dateIso)
           return (
             <div
               key={d}
-              className={`p-2 h-28 border rounded-lg transition-colors overflow-hidden flex flex-col bg-card dark:bg-[oklch(0.14_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.15_0_0)] ${isWeekend? 'dark:!bg-[oklch(0.17_0_0)] bg-muted/20':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
+              className={`p-2 h-28 border rounded-lg transition-colors overflow-hidden flex flex-col bg-card dark:bg-[oklch(0.14_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.15_0_0)] ${isWeekend? 'dark:!bg-[oklch(0.17_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday? 'ring-2 ring-[#6eedd9]':''}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="text-sm font-medium">{d}</div>
-                {total>0 && <div className="text-[10px] text-muted-foreground font-medium">{total.toFixed(1)}h • {reportedPct.toFixed(0)}%</div>}
+                <div className="flex items-center gap-1">
+                  {holiday && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
+                  {total>0 && <div className="text-[10px] text-muted-foreground font-medium">{total.toFixed(1)}h • {reportedPct.toFixed(0)}%</div>}
+                </div>
               </div>
               {entries.length>0 ? (
                 <div className="space-y-1 flex-1 overflow-hidden">
