@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { AppHeader } from "@/components/layout/app-header"
 import { useAuth } from "@/lib/auth-client"
 import Link from "next/link"
@@ -11,31 +11,70 @@ import { KPICards } from "@/components/dashboard/kpi-cards"
 import { Charts } from "@/components/dashboard/charts"
 import { CalendarView } from "@/components/calendar/calendar-view"
 import { ProjectsTable } from "@/components/projects/projects-table"
-import { FilterProvider } from "@/lib/filter-context"
-import { ViewingScopeProvider } from "@/lib/viewing-scope"
 import { ViewingBanner } from "@/components/admin/viewing-banner"
 import { ConsultantDock } from "@/components/admin/consultant-dock"
 import { useProjects } from "@/hooks/use-projects"
 import { useConsultants } from "@/hooks/use-consultants"
 import { useTimeEntries } from "@/hooks/use-time-entries"
+import { useFilters, FilterProvider } from "@/lib/filter-context"
+import { usePathname, useRouter } from "next/navigation"
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "calendar" | "projects">("dashboard")
+  const pathname = usePathname() || '/'
+  const router = useRouter()
+  // Cookie helpers for tab persistence
+  const readCookie = (name: string) => {
+    if (typeof document === 'undefined') return null
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()\[\]\\/+^]/g, '\\$&') + '=([^;]*)'))
+    return match ? decodeURIComponent(match[1]) : null
+  }
+  const writeCookie = (name: string, value: string, days = 180) => {
+    if (typeof document === 'undefined') return
+    const d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000)
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`
+  }
+  // Compute initial tab from URL or cookie
+  const initialTab = useMemo(() => {
+    // Explicit routes
+    if (pathname.startsWith('/projects')) return 'projects' as const
+    if (pathname.startsWith('/calendar')) return 'calendar' as const
+    if (pathname.startsWith('/dashboard')) return 'dashboard' as const
+    // Root '/' should always open Dashboard (do not override with cookie)
+    if (pathname === '/') return 'dashboard' as const
+    // Fallback to cookie only for unknown paths
+    const saved = readCookie('tt_tab') as 'dashboard'|'calendar'|'projects'|null
+    if (saved === 'projects' || saved === 'calendar' || saved === 'dashboard') return saved
+    return 'dashboard' as const
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+  const [activeTab, setActiveTab] = useState<"dashboard" | "calendar" | "projects">(initialTab)
+  // Persist tab to cookie and optionally update URL
+  useEffect(() => {
+    writeCookie('tt_tab', activeTab)
+    // Keep URL in sync, but avoid rewriting between '/' and '/dashboard' unnecessarily.
+    if (activeTab === 'dashboard') {
+      if (pathname === '/' || pathname.startsWith('/dashboard')) return
+      router.replace('/dashboard')
+      return
+    }
+    if (activeTab === 'projects') {
+      if (!pathname.startsWith('/projects')) router.replace('/projects')
+      return
+    }
+    if (activeTab === 'calendar') {
+      if (!pathname.startsWith('/calendar')) router.replace('/calendar')
+      return
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
   // viewMode state reserved for future UI switcher (currently unused)
 
   const { user, isLoading: authLoading } = useAuth()
   // Data fetched via hooks (Dataverse or mock depending on feature flag)
   const { projects: rawProjects, loading: projectsLoading } = useProjects()
   const { consultants, loading: consultantsLoading } = useConsultants()
-  // Default time range: current month
-  const now = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1)
-  const to = new Date(now.getFullYear(), now.getMonth()+1, 0)
-  const range = {
-    from: `${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`,
-    to: `${to.getFullYear()}-${String(to.getMonth()+1).padStart(2,'0')}-${String(to.getDate()).padStart(2,'0')}`
-  }
-  const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
+  // Dynamic date range based on filter context (defaults handled inside provider)
+  // We consume filters after provider is mounted (render split pattern below).
   // Adapt raw projects to legacy Project shape expected by FilterProvider (fill safe defaults)
   const projects = rawProjects.map(p => ({
     id: p.id,
@@ -52,8 +91,10 @@ export default function HomePage() {
     assigned: (p as any).assigned ?? true,
     metaproject: (p as any).meta,
     note: (p as any).note,
+  allUsers: (p as any).allUsers,
   }))
-  const loading = projectsLoading || consultantsLoading || entriesLoading || authLoading
+  // We create a child component that consumes filters to avoid provider ordering issues
+  const loading = projectsLoading || consultantsLoading || authLoading
 
   // Legacy effect removed (hooks handle fetching)
 
@@ -77,7 +118,7 @@ export default function HomePage() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <FilterProvider timeEntries={[]} projects={[]}>
+  <FilterProvider initialTimeEntries={[]} projects={[]}>
           <AppHeader />
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
@@ -100,27 +141,77 @@ export default function HomePage() {
     )
   }
 
+  function RangeDrivenApp(){
+    const { filters, setTimeEntries } = useFilters()
+    const now = new Date()
+    function fmt(d: Date){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+    let start: Date; let end: Date
+    const currentQuarter = Math.floor(now.getMonth()/3)
+    switch(filters.dateRange){
+      case 'this-week': {
+        const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1)
+        start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
+      }
+      case 'this-quarter': {
+        start = new Date(now.getFullYear(), currentQuarter*3, 1)
+        end = new Date(now.getFullYear(), (currentQuarter+1)*3, 0); break
+      }
+      case 'this-year': {
+        start = new Date(now.getFullYear(),0,1); end = new Date(now.getFullYear(),11,31); break
+      }
+      case 'previous-week': {
+        const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1 -7)
+        start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
+      }
+      case 'previous-month': {
+        start = new Date(now.getFullYear(), now.getMonth()-1,1); end = new Date(now.getFullYear(), now.getMonth(),0); break
+      }
+      case 'previous-quarter': {
+        const prevQ = currentQuarter-1 < 0 ? 3 : currentQuarter-1
+        const year = currentQuarter-1 < 0 ? now.getFullYear()-1 : now.getFullYear()
+        start = new Date(year, prevQ*3,1); end = new Date(year,(prevQ+1)*3,0); break
+      }
+      case 'previous-year': {
+        start = new Date(now.getFullYear()-1,0,1); end = new Date(now.getFullYear()-1,11,31); break
+      }
+      case 'this-month':
+      default: {
+        start = new Date(now.getFullYear(), now.getMonth(),1); end = new Date(now.getFullYear(), now.getMonth()+1,0); break
+      }
+    }
+    const range = { from: fmt(start), to: fmt(end) }
+  const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
+  useEffect(()=>{ if(!entriesLoading) setTimeEntries(timeEntries) }, [entriesLoading, timeEntries, setTimeEntries])
+  const fullLoading = loading || entriesLoading
+    return (
+  <>
+        <AppHeader />
+        <ViewingBanner />
+        <FilterBar />
+        <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="py-8">
+          {fullLoading && (
+            <div className="text-sm text-muted-foreground px-6 pb-4">Loading time entries...</div>
+          )}
+          {!fullLoading && activeTab === "dashboard" && (
+            <div className="space-y-6">
+              <KPICards />
+              <Charts />
+            </div>
+          )}
+          {!fullLoading && activeTab === "calendar" && <CalendarView />}
+          {!fullLoading && activeTab === "projects" && <ProjectsTable />}
+        </main>
+        <ConsultantDock />
+      </>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <ViewingScopeProvider>
-        <FilterProvider timeEntries={timeEntries} projects={projects}>
-          <AppHeader />
-          <ViewingBanner />
-          <FilterBar />
-          <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
-          <main className="py-8">
-            {activeTab === "dashboard" && (
-              <div className="space-y-6">
-                <KPICards />
-                <Charts />
-              </div>
-            )}
-            {activeTab === "calendar" && <CalendarView />}
-            {activeTab === "projects" && <ProjectsTable />}
-          </main>
-          <ConsultantDock />
-        </FilterProvider>
-      </ViewingScopeProvider>
+      <FilterProvider initialTimeEntries={[]} projects={projects}>
+        <RangeDrivenApp />
+      </FilterProvider>
     </div>
   )
 }

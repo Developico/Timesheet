@@ -2,73 +2,116 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 // Sheet removed in favor of shared ProjectDetailPanel
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, ChevronUp, ChevronDown } from "lucide-react"
+import { Eye, ChevronUp, ChevronDown, Copy as CopyIcon } from "lucide-react"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { useConsultants } from "@/hooks/use-consultants"
+import { useViewingScope } from "@/lib/viewing-scope"
 import type { Project } from "@/lib/data"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
+import { useAuth } from "@/lib/auth-client"
 import { toast } from "@/hooks/use-toast"
 
 export function ProjectsTable() {
-  const { filteredProjects, filteredTimeEntries } = useFilters()
+  const { filteredProjects, filteredTimeEntries, filters } = useFilters()
   const { newProjects, isNew, markViewed } = useNewProjects()
-  const [sortField, setSortField] = useState<keyof Project>("name")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  // Sortable fields per requirement: Hours (computed), Name, Client, Code. Others static.
+  const [sortField, setSortField] = useState<keyof Project | 'hours'>("hours")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [projectScope, setProjectScope] = useState<"my"|"all">("my")
+  const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
+  const [onlyReported, setOnlyReported] = useState<boolean>(false)
   const [assignedIds, setAssignedIds] = useState<Set<string>|null>(null)
   const { consultants } = useConsultants()
-  const primaryConsultant = consultants[0] // TODO: replace with authenticated user principal
+  const { consultantId: scopedConsultant } = useViewingScope()
+  const { user } = useAuth()
 
+  // Persist toggle state between date range changes / navigation
+  useEffect(()=>{
+    try {
+      const raw = localStorage.getItem('projectsTablePrefsV1')
+      if(raw){
+        const parsed = JSON.parse(raw)
+        if(parsed.projectScope === 'my' || parsed.projectScope === 'all') setProjectScope(parsed.projectScope)
+        if(parsed.billableFilter === 'all' || parsed.billableFilter === 'yes' || parsed.billableFilter === 'no') setBillableFilter(parsed.billableFilter)
+        if(typeof parsed.onlyReported === 'boolean') setOnlyReported(parsed.onlyReported)
+        const allowedSortFields: Array<keyof Project | 'hours'> = ['name','client','code','hours']
+        if(parsed.sortField && allowedSortFields.includes(parsed.sortField)) {
+          setSortField(parsed.sortField)
+        } else {
+          setSortField('hours')
+        }
+  if(parsed.sortDirection === 'asc' || parsed.sortDirection === 'desc') setSortDirection(parsed.sortDirection)
+      } else {
+        setSortField('hours')
+        setSortDirection('desc')
+      }
+    } catch { /* ignore */ }
+  },[])
+  useEffect(()=>{
+    const store = { projectScope, billableFilter, onlyReported, sortField, sortDirection }
+    try { localStorage.setItem('projectsTablePrefsV1', JSON.stringify(store)) } catch {/* ignore */}
+  },[projectScope,billableFilter,onlyReported,sortField,sortDirection])
   useEffect(()=>{
     let ignore = false
-    if(!primaryConsultant) return
-    fetch(`/api/dataverse/project-assignments?consultantId=${primaryConsultant.id}`)
-      .then(r=> r.ok? r.json(): Promise.reject())
-      .then(json=>{ if(!ignore && json?.value) setAssignedIds(new Set(json.value)) })
-      .catch(()=>{})
+    const id = scopedConsultant
+    // Reset previous user's assignments immediately to avoid stale 'My Projects'
+    setAssignedIds(null)
+    if(!id) return () => { ignore = true }
+    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+    if(!guidRegex.test(id)) {
+      // Likely mock or unmapped user; skip assignment fetch
+      return () => { ignore = true }
+    }
+    // Debug info in console to trace chosen consultant
+    console.log('[projects-table] fetching assignments for consultant', { id })
+    fetch(`/api/dataverse/project-assignments?consultantId=${id}`)
+      .then(r=> r.ok? r.json(): Promise.reject(new Error('assignments '+r.status)))
+      .then(json=>{ if(!ignore && json?.value) setAssignedIds(new Set(json.value)); })
+      .catch(err=>{ if(!ignore) { console.warn('assignments fetch failed', err?.message) } })
     return ()=>{ ignore = true }
-  }, [primaryConsultant?.id])
+  }, [scopedConsultant])
   
 
-  const projectsWithMetrics = filteredProjects.map((project) => {
-    const projectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
-    const totalHours = projectEntries.reduce((sum, entry) => sum + entry.hours, 0)
-    const billableHours = projectEntries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.hours, 0)
-    const assignedConsultants = [...new Set(projectEntries.map((entry) => entry.consultantId))]
-
+  type PExt = Project & { allUsers?: boolean }
+  const currentUserId = scopedConsultant || undefined
+  const projectsWithMetrics = useMemo(()=> (filteredProjects as PExt[]).map((project) => {
+    const allProjectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
+    const userEntries = currentUserId ? allProjectEntries.filter(e=> e.consultantId === currentUserId) : []
+    const userHours = userEntries.reduce((sum,e)=> sum + e.hours, 0)
+    const userBillableHours = userEntries.filter(e=>e.billable).reduce((sum,e)=> sum + e.hours, 0)
+    const assignedConsultants = [...new Set(allProjectEntries.map(e=>e.consultantId))]
     return {
       ...project,
-      actualHours: totalHours,
-      billableHours,
+      actualHours: userHours,
+      billableHours: userBillableHours,
       assignedConsultants,
-      billablePercentage: totalHours > 0 ? (billableHours / totalHours) * 100 : 0,
+      billablePercentage: userHours > 0 ? (userBillableHours / userHours) * 100 : 0,
     }
-  })
+  }), [filteredProjects, filteredTimeEntries, currentUserId])
 
-  const filteredAndSortedProjects = projectsWithMetrics
-    .sort((a, b) => {
+  const filteredAndSortedProjects = useMemo(()=>{
+    const arr = [...projectsWithMetrics]
+    const direction = sortDirection === 'asc' ? 1 : -1
+    arr.sort((a,b)=>{
+      if (sortField === 'hours') return (a.actualHours - b.actualHours) * direction
       const aValue = a[sortField]
       const bValue = b[sortField]
-      const direction = sortDirection === "asc" ? 1 : -1
-
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return aValue.localeCompare(bValue) * direction
-      }
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return (aValue - bValue) * direction
-      }
+      if (typeof aValue === 'string' && typeof bValue === 'string') return aValue.localeCompare(bValue) * direction
+      if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * direction
       return 0
     })
+    return arr
+  }, [projectsWithMetrics, sortField, sortDirection])
 
-  const handleSort = (field: keyof Project) => {
+  const handleSort = (field: keyof Project | 'hours') => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
@@ -77,20 +120,9 @@ export function ProjectsTable() {
     }
   }
 
-  const getStatusColor = (status: Project["status"]) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-      case "completed":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
-      case "on-hold":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-    }
-  }
+  // Status column removed per requirement; helper no longer needed.
 
-  const SortButton = ({ field, children }: { field: keyof Project; children: React.ReactNode }) => (
+  const SortButton = ({ field, children }: { field: keyof Project | 'hours'; children: React.ReactNode }) => (
     <Button
       variant="ghost"
       size="sm"
@@ -105,12 +137,58 @@ export function ProjectsTable() {
     </Button>
   )
 
+  // Totals for summary bar (current filtered time entries for user)
+  // Scope summary to active consultant: ViewingScope overrides; else current user detected by email; else first consultant; else all
+  const primaryConsultantId = useMemo(()=>{
+    if(!consultants?.length) return null as string | null
+    if(user?.email){
+      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      if(found) return found.id
+    }
+    return consultants[0]?.id ?? null
+  }, [consultants, user?.email])
+
+  const userEntries = useMemo(()=>{
+    if(scopedConsultant) return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant)
+    if(primaryConsultantId) return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId)
+    return filteredTimeEntries
+  }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
+  const totalUserHours = userEntries.reduce((s,e)=>s+e.hours,0)
+  const totalBillableUserHours = userEntries.filter(e=>e.billable).reduce((s,e)=>s+e.hours,0)
+  const totalNonBillableUserHours = totalUserHours - totalBillableUserHours
+  // Absence hours: project code exactly 'Office.Absences' (or name containing 'absence')
+  const absenceProjectIds = filteredProjects.filter(p=> (p as any).code === 'Office.Absences' || (p as any).name?.toLowerCase().includes('absence')).map(p=>p.id)
+  const absenceUserHours = userEntries.filter(e=> absenceProjectIds.includes(e.projectId)).reduce((s,e)=>s+e.hours,0)
+
   return (
     <div className="space-y-6">
-      <Card>
+      {/* Summary metrics card (analogous to calendar view) */}
+  <Card className="dark:bg-[oklch(0.18_0_0)]">
+  <CardContent className="py-4">
+          <div className="grid grid-cols-4 gap-8 items-center">
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-purple-600 leading-none">{totalUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-foreground">Total Hours</div>
+            </div>
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-teal-700 dark:text-teal-400 leading-none">{totalBillableUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-foreground">Billable Hours</div>
+            </div>
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold leading-none" style={{color:'#174076'}}>{totalNonBillableUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-foreground">Non-billable Hours</div>
+            </div>
+            <div className="flex flex-col items-center justify-center text-center gap-1">
+              <div className="text-2xl font-bold text-red-600 leading-none">{absenceUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-foreground">Absence Hours</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+  <Card className="dark:bg-[oklch(0.18_0_0)]">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <CardTitle>Projects ({filteredAndSortedProjects.length})</CardTitle>
               <div className="flex items-center rounded-lg border p-1 bg-background">
                 <Button
@@ -128,18 +206,49 @@ export function ProjectsTable() {
                   onClick={()=>setProjectScope('all')}
                 >All</Button>
               </div>
+              <div className="flex items-center rounded-lg border p-1 bg-background">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={billableFilter==='all'? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setBillableFilter('all')}
+                >Billable: All</Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={billableFilter==='yes'? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setBillableFilter('yes')}
+                >Yes</Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={billableFilter==='no'? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setBillableFilter('no')}
+                >No</Button>
+              </div>
+              <div className="flex items-center rounded-lg border p-1 bg-background">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={onlyReported? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=>setOnlyReported(o=>!o)}
+                >Only Reported</Button>
+              </div>
             </div>
             <div />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border bg-card dark:bg-[oklch(0.14_0_0)]">
+          {/* (Summary moved to top card) */}
+          <div className="rounded-md border bg-card dark:bg-[oklch(0.19_0_0)]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
-                    <SortButton field="billable">Billable</SortButton>
-                  </TableHead>
+                  <TableHead>Billable</TableHead>
                   <TableHead>
                     <SortButton field="code">Code</SortButton>
                   </TableHead>
@@ -149,23 +258,25 @@ export function ProjectsTable() {
                   <TableHead>
                     <SortButton field="name">Name</SortButton>
                   </TableHead>
+                  <TableHead>All Users</TableHead>
                   <TableHead>
-                    <SortButton field="metaproject">Metaproject</SortButton>
+                    <SortButton field="hours">Hours</SortButton>
                   </TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(() => {
                   const myProjectIds = assignedIds || new Set(filteredTimeEntries.map(e=>e.projectId))
-                  const msPerDay = 1000*60*60*24
-                  const now = Date.now()
-                  const NEW_DAYS = 30
-      const visible = (projectScope==='my')
-                    ? filteredAndSortedProjects.filter(p=> myProjectIds.has(p.id))
+                  // If searching, show all filtered projects to present full results regardless of assignment scope
+                  const searching = (filters.searchQuery || '').trim().length > 0
+                  let base = (projectScope==='my' && !searching)
+                    ? filteredAndSortedProjects.filter(p=> p.allUsers || myProjectIds.has(p.id))
                     : filteredAndSortedProjects
+                  if(billableFilter==='yes') base = base.filter(p=>p.billable)
+                  else if(billableFilter==='no') base = base.filter(p=>!p.billable)
+                  if(onlyReported) base = base.filter(p=> filteredTimeEntries.some(e=> e.projectId===p.id))
+                  const visible = base
                   if(visible.length===0) {
                     return (
                       <TableRow>
@@ -186,7 +297,13 @@ export function ProjectsTable() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+                        {(() => {
+                          const isAbsence = (project as any).code === 'Office.Absences' || (project as any).name?.toLowerCase().includes('absence')
+                          // Use same palette as summary bar
+                          const color = isAbsence ? '#dc2626' : (project.billable ? '#14b8a6' : '#174076')
+                          const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
+                          return <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} title={label} aria-label={label} />
+                        })()}
                         <span className="font-mono text-sm flex items-center gap-1">
                           {project.code}
                           {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
@@ -194,26 +311,25 @@ export function ProjectsTable() {
                         <button
                           type="button"
                           onClick={()=>{navigator.clipboard?.writeText(project.code).then(()=> toast({ title: 'Copied', description: `${project.code} copied to clipboard` })).catch(()=>{}); markViewed(project.id)}}
-                          className="text-[10px] px-1 py-0.5 rounded border bg-muted/40 hover:bg-muted transition-colors"
+                          className="p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-border"
                           title="Copy project code"
-                        >Copy</button>
+                        >
+                          <CopyIcon className="h-3 w-3" />
+                          <span className="sr-only">Copy code {project.code}</span>
+                        </button>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{project.client}</TableCell>
                     <TableCell>{project.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{project.metaproject || "-"}</TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <div>{project.actualHours.toFixed(1)}h</div>
-                        {project.billableHours > 0 && (
-                          <div className="text-xs text-teal-600">{project.billableHours.toFixed(1)}h billable</div>
-                        )}
-                      </div>
+                      { (project as any).allUsers ? (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
+                      ) : <span className="text-muted-foreground text-xs">-</span> }
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(project.status)} variant="secondary">
-                        {project.status.replace("-", " ")}
-                      </Badge>
+                      <div className="text-sm">
+                            <div>{project.actualHours.toFixed(1)}h</div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedProject(project); markViewed(project.id) }}>
@@ -230,6 +346,11 @@ export function ProjectsTable() {
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;={NEW_DAYS} days)</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#14b8a6'}}></span> Billable</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#174076'}}></span> Non-billable</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#dc2626'}}></span> Absence</span>
             </div>
             {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
             <div>Scope: {projectScope==='my' ? (assignedIds? 'projects you are assigned to' : 'projects you have time entries on (current filters applied)') : 'all filtered projects'}</div>

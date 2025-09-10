@@ -1,5 +1,6 @@
 import type { IDataSource } from "./interfaces"
 import type { Consultant, Project, TimeEntry, TimeEntryFilters } from "@/types"
+import { appLog } from '@/lib/app-logger'
 
 export class MockDataSource implements IDataSource {
   private consultants: Consultant[] = [
@@ -137,18 +138,21 @@ export class MockDataSource implements IDataSource {
   async getConsultants(): Promise<Consultant[]> {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 100))
+  appLog('warn','mock consultants used')
     return [...this.consultants]
   }
 
   async getProjects(_currentConsultantId?: string): Promise<Project[]> {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 100))
+  appLog('warn','mock projects used')
     return [...this.projects]
   }
 
   async getTimeEntries(params: TimeEntryFilters): Promise<TimeEntry[]> {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 200))
+  appLog('warn','mock timeentries used')
 
     let entries = this.generateTimeEntries()
 
@@ -181,12 +185,22 @@ export class MockDataSource implements IDataSource {
   }
 
   async getProjectAssignments(consultantId: string): Promise<string[]> {
+  appLog('warn','mock project assignments used',{ consultantId })
     // Simple mock: user 1 & 2 assigned to first three projects, others to first two
     if (consultantId === "1" || consultantId === "2") return this.projects.slice(0, 3).map(p=>p.id)
     return this.projects.slice(0, 2).map(p=>p.id)
   }
 
+  async getProjectTeam(projectId: string): Promise<string[]> {
+    appLog('warn','mock project team used',{ projectId })
+    // Deterministic mock: first two consultants on first three projects, all consultants on proj-4, and only first on others
+    if (projectId === 'proj-4') return this.consultants.map(c=>c.id)
+    if (['proj-1','proj-2','proj-3'].includes(projectId)) return this.consultants.slice(0,2).map(c=>c.id)
+    return [this.consultants[0].id]
+  }
+
   async getDaysOff(from: string, to: string): Promise<{ date: string; name?: string }[]> {
+  appLog('warn','mock daysoff used',{ from, to })
     // simple deterministic mock: every 2nd Friday is day off
     const out: { date: string; name: string }[] = []
     const start = new Date(from)

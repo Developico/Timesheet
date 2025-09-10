@@ -1,4 +1,5 @@
 import { ConfidentialClientApplication } from "@azure/msal-node"
+import { appLog } from './app-logger'
 
 let cca: ConfidentialClientApplication | null = null
 
@@ -22,7 +23,13 @@ export async function getDataverseToken(): Promise<string> {
   const scopeBase = process.env.DATAVERSE_URL?.replace(/\/$/, "")
   if (!scopeBase) throw new Error("DATAVERSE_URL not set for token scope")
   const scopes = [`${scopeBase}/.default`]
-  const res = await getCCA().acquireTokenByClientCredential({ scopes })
-  if (!res?.accessToken) throw new Error("Failed to acquire Dataverse token")
-  return res.accessToken
+  try {
+    const res = await getCCA().acquireTokenByClientCredential({ scopes })
+    if (!res?.accessToken) throw new Error("Failed to acquire Dataverse token")
+    appLog('debug','dataverse token acquired',{ expiresOn: res.expiresOn?.toISOString?.(), tenant: process.env.DATAVERSE_TENANT_ID?.slice(0,8) })
+    return res.accessToken
+  } catch(e:any) {
+    appLog('error','dataverse token error',{ message: e.message, name: e.name, code: e.code })
+    throw e
+  }
 }

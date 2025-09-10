@@ -99,3 +99,20 @@ Dev script enforces `next dev -p 3000`. If port is busy, Next.js will error inst
 - Testy (Vitest + Testing Library)
 - CI (lint + typecheck + build) w GitHub Actions
 - Optymalizacja: RSC dla statycznych części
+
+## User Avatars via Microsoft Graph
+
+Endpoint `/api/avatar/[id]` pobiera zdjęcie użytkownika z Microsoft Graph (client credentials).
+
+Wymagane uprawnienia aplikacji (App Registration > API permissions):
+`User.ReadBasic.All` (czasem konieczne `User.Read.All`) + admin consent.
+
+Użycie w komponencie:
+
+```tsx
+// Użyj aadObjectId (nie systemuserid) dla Graph
+<img src={`/api/avatar/${consultant.aadObjectId}`} alt={consultant.name} className="h-8 w-8 rounded-full" />
+```
+
+Fallback: gdy 404 – pokaż inicjały lub placeholder.
+
