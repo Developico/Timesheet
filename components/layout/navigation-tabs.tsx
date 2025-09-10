@@ -51,18 +51,72 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
           </div>
 
           <div className="py-2">
-            <Select value={filters.dateRange} onValueChange={(value) => updateFilter("dateRange", value)}>
-              <SelectTrigger className="w-auto h-9 rounded-lg border bg-muted/50 hover:bg-background transition-colors">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {dateRangeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {(() => {
+              // Compute current date range boundaries to show in native tooltip
+              const now = new Date()
+              let start: Date | undefined
+              let end: Date | undefined
+              const dr = filters.dateRange
+              const startOfWeek = (base: Date) => {
+                const d = new Date(base)
+                // Make Monday the first day (ISO week)
+                const day = d.getDay() === 0 ? 7 : d.getDay() // Sunday -> 7
+                d.setDate(d.getDate() - day + 1)
+                d.setHours(0,0,0,0)
+                return d
+              }
+              if (dr === 'this-week') {
+                start = startOfWeek(now)
+                end = new Date(start)
+                end.setDate(start.getDate() + 6)
+              } else if (dr === 'previous-week') {
+                end = new Date(startOfWeek(now))
+                end.setDate(end.getDate() - 1)
+                start = new Date(end)
+                start.setDate(end.getDate() - 6)
+              } else if (dr === 'this-month') {
+                start = new Date(now.getFullYear(), now.getMonth(), 1)
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+              } else if (dr === 'previous-month' || dr === 'last-month') {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+                end = new Date(now.getFullYear(), now.getMonth(), 0)
+              } else if (dr === 'this-quarter') {
+                const q = Math.floor(now.getMonth() / 3)
+                start = new Date(now.getFullYear(), q * 3, 1)
+                end = new Date(now.getFullYear(), q * 3 + 3, 0)
+              } else if (dr === 'previous-quarter') {
+                const q = Math.floor(now.getMonth() / 3) - 1
+                const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear()
+                const effectiveQ = q < 0 ? 3 : q
+                start = new Date(year, effectiveQ * 3, 1)
+                end = new Date(year, effectiveQ * 3 + 3, 0)
+              } else if (dr === 'this-year') {
+                start = new Date(now.getFullYear(), 0, 1)
+                end = new Date(now.getFullYear(), 11, 31)
+              } else if (dr === 'previous-year') {
+                start = new Date(now.getFullYear() - 1, 0, 1)
+                end = new Date(now.getFullYear() - 1, 11, 31)
+              } else if (dr === 'custom' && filters.startDate && filters.endDate) {
+                start = filters.startDate
+                end = filters.endDate
+              }
+              const fmt = (d?: Date) => d ? d.toISOString().slice(0,10) : ''
+              const title = start && end ? `${fmt(start)} – ${fmt(end)}` : 'Select date range'
+              return (
+                <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
+                  <SelectTrigger title={title} className="w-auto h-9 rounded-lg border bg-muted/50 hover:bg-background transition-colors">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dateRangeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            })()}
           </div>
         </nav>
       </div>

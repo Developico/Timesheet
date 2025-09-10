@@ -2,71 +2,111 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import { createPortal } from "react-dom"
 import { useFilters } from "@/lib/filter-context"
-import { dataService } from "@/lib/data"
+import { useConsultants } from "@/hooks/use-consultants"
+import { useAuth } from "@/lib/auth-client"
+import { useViewingScope } from "@/lib/viewing-scope"
+import { useDaysOff } from "@/hooks/use-days-off"
+import { format, addDays } from "date-fns"
+import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 
 function useAnimatedCounter(end: number, duration = 1000) {
   const [count, setCount] = useState(0)
 
   useEffect(() => {
-    let startTime: number
-    let animationFrame: number
-
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime
-      const progress = Math.min((currentTime - startTime) / duration, 1)
-
-      setCount(Math.floor(progress * end))
-
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate)
-      }
+    let startTime: number | undefined
+    let raf = 0
+    const animate = (now: number) => {
+      if (startTime === undefined) startTime = now
+      const p = Math.min((now - startTime) / duration, 1)
+      // Preserve fractional part for accurate hour display
+      setCount(p * end)
+      if (p < 1) raf = requestAnimationFrame(animate)
     }
-
-    animationFrame = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(animationFrame)
+    raf = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(raf)
   }, [end, duration])
 
   return count
 }
 
 export function ActiveProjectsCard() {
-  const { filteredTimeEntries, filters } = useFilters()
-  const projects = dataService.getProjects()
+  const { filteredTimeEntries, filters, filteredProjects } = useFilters()
+  const { consultants } = useConsultants()
+  const { user } = useAuth()
+  const { consultantId: scopedConsultant } = useViewingScope()
 
-  const projectHours = filteredTimeEntries.reduce(
-    (acc, entry) => {
-      acc[entry.projectId] = (acc[entry.projectId] || 0) + entry.hours
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  // Determine primary consultant like Calendar
+  const primaryConsultantId = useMemo(()=>{
+    if(!consultants?.length) return null as string | null
+    if(user?.email){
+      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      if(found) return found.id
+    }
+    return consultants[0]?.id ?? null
+  }, [consultants, user?.email])
 
-  // Add sample data if no entries exist
-  const sampleProjectHours = {
-    "proj-1": 45.5,
-    "proj-2": 32.8,
-    "proj-3": 28.2,
-    "proj-4": 19.7,
-    "proj-5": 12.3,
+  // Scope entries: ViewingScope overrides, else current user; else all
+  const entriesForCard = useMemo(()=>{
+    if(scopedConsultant){ return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant) }
+    if(primaryConsultantId){ return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId) }
+    return filteredTimeEntries
+  }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
+
+  // Aggregate hours by project within range
+  const projectHours = useMemo(()=>{
+    const acc: Record<string, number> = {}
+    for(const e of entriesForCard){ acc[e.projectId] = (acc[e.projectId] || 0) + e.hours }
+    return acc
+  }, [entriesForCard])
+
+  const totalHours = useMemo(()=> Object.values(projectHours).reduce((s,h)=>s+h,0), [projectHours])
+
+  const sortedAll = useMemo(() => Object.entries(projectHours).sort(([,a],[,b])=> b-a), [projectHours])
+  const topN = Math.max(filters.topN, 5)
+  const sortedProjects = useMemo(()=> sortedAll.slice(0, topN), [sortedAll, topN])
+  const others = useMemo(()=> sortedAll.slice(topN), [sortedAll, topN])
+
+  // Utility: resolve project meta
+  const getProject = (id: string) => filteredProjects.find(p=> p.id === id)
+  const getBarColor = (id: string) => {
+    const p = getProject(id)
+    const codeLc = (p?.code || '').toLowerCase()
+    const nameLc = (p?.name || '').toLowerCase()
+    // Treat explicit id and any "Absence"-like project as absence
+    const isAbs = id === 'Office.Absences' || codeLc === 'office.absences' || codeLc === 'abs' || codeLc.includes('absence') ||
+      nameLc.includes('absence') || nameLc.includes('urlop') || nameLc.includes('vacation') || nameLc.includes('holiday') || nameLc.includes('leave')
+    if(isAbs) return '#e03768'
+    return p?.billable ? '#6eedd9' : '#174076'
   }
 
-  const finalProjectHours = Object.keys(projectHours).length > 0 ? projectHours : sampleProjectHours
+  const [isVisible, setIsVisible] = useState(false)
+  useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),100); return ()=>clearTimeout(t); },[])
 
-  const sortedProjects = Object.entries(finalProjectHours)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, Math.max(filters.topN, 5))
-
-  const totalHours = Object.values(finalProjectHours).reduce((sum, hours) => sum + hours, 0)
-
-  // Primary brand palette simplified; first color (turquoise) is dominant per design update
-  const brandColors = ["#6eedd9", "#174076", "#e03768", "#9169f4", "#150628"]
-
-  const [isVisible, setIsVisible] = useState(false);
-  useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),100); return ()=>clearTimeout(t); },[]);
+  // Local panel state
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const selectedProject = useMemo(() => filteredProjects.find(p => p.id === selectedProjectId), [filteredProjects, selectedProjectId])
+  const scopeLabel = useMemo(() => {
+    const dr = filters?.dateRange || 'this-week'
+    const labelMap: Record<string, string> = {
+      'this-week': 'this week',
+      'previous-week': 'previous week',
+      'this-month': 'this month',
+      'previous-month': 'previous month',
+      'last-month': 'last month',
+      'this-quarter': 'this quarter',
+      'previous-quarter': 'previous quarter',
+      'this-year': 'this year',
+      'previous-year': 'previous year',
+      'custom': 'custom range',
+    }
+    return labelMap[dr] || 'current range'
+  }, [filters?.dateRange])
 
   return (
+    <>
     <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900"
       style={{
         opacity: isVisible?1:0,
@@ -78,20 +118,19 @@ export function ActiveProjectsCard() {
           opacity: isVisible?1:0,
           transform: isVisible? 'translateX(0)':'translateX(-12px)'
         }}>
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Active Projects</CardTitle>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Average 72% completed</p>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Your Top 5 Active Projects</CardTitle>
+          {/* Progress subtitle removed as project progress isn't shown */}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {sortedProjects.map(([projectId, hours], index) => {
-          const project = projects.find((p) => p.id === projectId)
-          const projectNames = ["E-commerce Platform", "Mobile App", "API Integration", "Dashboard", "Website Redesign"]
-            const projectName = project?.name || projectNames[index] || `Project ${index + 1}`
-            const completionPercentages = [85, 72, 94, 58, 43]
-            const completion = completionPercentages[index] || Math.floor(Math.random() * 40) + 60
-          const color = project?.color || brandColors[index % brandColors.length];
+  {sortedProjects.map(([projectId, hours], index) => {
+          const project = getProject(projectId)
+          const projectName = project?.name || `Project ${index + 1}`
+          const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000)/10 : 0
+          const color = getBarColor(projectId)
           return (
-            <div key={projectId} className="space-y-3 transition-all duration-700"
+            <div key={projectId} className="space-y-3 transition-all duration-700 cursor-pointer"
+              onClick={() => setSelectedProjectId(projectId)}
               style={{
                 opacity: isVisible?1:0,
                 transform: isVisible? 'translateY(0)': 'translateY(14px)',
@@ -103,11 +142,11 @@ export function ActiveProjectsCard() {
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                   <div>
                     <div className="font-medium text-sm text-gray-900 dark:text-white">{projectName}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{project?.code || `PRJ-${index + 1}`}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{project?.code || projectId}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-white">{completion}%</div>
+                  <div className="font-semibold text-sm text-gray-900 dark:text-white">{percent}%</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">{hours.toFixed(1)}h</div>
                 </div>
               </div>
@@ -115,8 +154,8 @@ export function ActiveProjectsCard() {
                 <div
                   className="h-2 rounded-full transition-all duration-700 ease-out"
                   style={{
-                    width: isVisible ? `${completion}%` : '0%',
-                    backgroundColor: color === '#6eedd9' ? '#6eedd9' : color,
+                    width: isVisible ? `${percent}%` : '0%',
+                    backgroundColor: color,
                     transitionDelay: `${index * 120 + 300}ms`
                   }}
                 />
@@ -124,61 +163,333 @@ export function ActiveProjectsCard() {
             </div>
           )
         })}
+        {others.length>0 && (()=>{
+          const hours = others.reduce((s, [,h])=> s+h, 0)
+          const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000)/10 : 0
+          const index = sortedProjects.length
+          return (
+            <div key="__other__" className="space-y-3 transition-all duration-700"
+              style={{
+                opacity: isVisible?1:0,
+                transform: isVisible? 'translateY(0)': 'translateY(14px)',
+                transitionDelay: `${index*120 + 150}ms`
+              }}
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#9CA3AF' }} />
+                  <div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-white">Other Projects</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">OTHER</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-sm text-gray-900 dark:text-white">{percent}%</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{hours.toFixed(1)}h</div>
+                </div>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-2 rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: isVisible ? `${percent}%` : '0%',
+                    backgroundColor: '#9CA3AF',
+                    transitionDelay: `${index * 120 + 300}ms`
+                  }}
+                />
+              </div>
+            </div>
+          )
+        })()}
       </CardContent>
+      {/* Panel rendered via portal to avoid being constrained by card transforms/overflow */}
     </Card>
+    {selectedProject && typeof window !== 'undefined' && createPortal(
+        // @ts-ignore circular import types ok here
+        <ProjectDetailPanel project={selectedProject as any} scopeLabel={`current ${scopeLabel}`} onClose={() => setSelectedProjectId(null)} />,
+        document.body
+      )}
+    </>
   )
 }
 
 export function HoursSummaryChart() {
-  // const { filteredTimeEntries } = useFilters() // (reserved for future real data aggregation)
-  const [viewMode, setViewMode] = useState<"weekly" | "daily">("weekly")
+  const { filteredTimeEntries, effectiveRange, filteredProjects, filters } = useFilters()
+  const [viewMode, setViewMode] = useState<"weekly" | "daily" | "monthly">("weekly")
   const [isVisible, setIsVisible] = useState(false)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const svgWrapRef = useRef<HTMLDivElement | null>(null)
+  const [wrapWidth, setWrapWidth] = useState<number>(640)
+  useEffect(() => {
+    if (!svgWrapRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        if (e.contentRect.width) setWrapWidth(e.contentRect.width)
+      }
+    })
+    ro.observe(svgWrapRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
 
-  // Sample data for hours summary with absences
-  type WeeklyPoint = { week: string; billable: number; nonBillable: number; absence: number; total: number }
-  type DailyPoint = { day: string; billable: number; nonBillable: number; absence: number; total: number }
+  // Re-animate on view mode switch or layout width change
+  // (placed later after data is derived to avoid use-before-declare)
 
-  const weeklyData: WeeklyPoint[] = [
-    { week: "Week 1", billable: 32.5, nonBillable: 7.5, absence: 0, total: 40 },
-    { week: "Week 2", billable: 28.0, nonBillable: 4.0, absence: 8, total: 40 },
-    { week: "Week 3", billable: 35.2, nonBillable: 4.8, absence: 0, total: 40 },
-    { week: "Week 4", billable: 30.1, nonBillable: 5.9, absence: 4, total: 40 },
-  ]
+  // Real data aggregation: daily/weekly points + max capacity (8h per working day minus holidays)
+  interface UnifiedPoint { label: string; billable: number; nonBillable: number; absence: number; max: number; isFuture?: boolean }
 
-  const dailyData: DailyPoint[] = [
-    { day: "Mon", billable: 6.5, nonBillable: 1.5, absence: 0, total: 8.0 },
-    { day: "Tue", billable: 7.2, nonBillable: 0.8, absence: 0, total: 8.0 },
-    { day: "Wed", billable: 0, nonBillable: 0, absence: 8, total: 8.0 },
-    { day: "Thu", billable: 8.1, nonBillable: 0.4, absence: 0, total: 8.5 },
-    { day: "Fri", billable: 6.9, nonBillable: 1.1, absence: 0, total: 8.0 },
-  ]
+  const dateIso = (d: Date) => {
+    const dd = new Date(d)
+    dd.setHours(0, 0, 0, 0)
+    return dd.toISOString().slice(0, 10)
+  }
 
-  interface UnifiedPoint { label: string; billable: number; nonBillable: number; absence: number; total: number }
-  const base = viewMode === 'weekly' ? weeklyData : dailyData
-  const currentData: UnifiedPoint[] = base.map(p => ({
-    label: 'week' in p ? p.week : p.day,
-    billable: p.billable,
-    nonBillable: p.nonBillable,
-    absence: p.absence,
-    total: p.total,
-  }))
-  const maxTotal = Math.max(...currentData.map((d) => d.total))
+  const { isDayOff } = useDaysOff({ from: dateIso(effectiveRange.start), to: dateIso(effectiveRange.end) })
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+  const todayIso = dateIso(today)
+
+  // Scope to consultant (ViewingScope overrides; else current user; else all)
+  const { consultants } = useConsultants()
+  const { user } = useAuth()
+  const { consultantId: scopedConsultant } = useViewingScope()
+  const primaryConsultantId = useMemo(()=>{
+    if(!consultants?.length) return null as string | null
+    if(user?.email){
+      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      if(found) return found.id
+    }
+    return consultants[0]?.id ?? null
+  }, [consultants, user?.email])
+  const entriesForChart = useMemo(()=>{
+    if(scopedConsultant){ return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant) }
+    if(primaryConsultantId){ return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId) }
+    return filteredTimeEntries
+  }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
+
+  // Absence detection based on project metadata
+  const isAbsenceProject = (pid: string) => {
+    const p = filteredProjects.find(pp=> pp.id === pid)
+    const codeLc = (p?.code || '').toLowerCase()
+    const nameLc = (p?.name || '').toLowerCase()
+    return pid === 'Office.Absences' || codeLc === 'office.absences' || codeLc === 'abs' || codeLc.includes('absence') ||
+      nameLc.includes('absence') || nameLc.includes('urlop') || nameLc.includes('vacation') || nameLc.includes('holiday') || nameLc.includes('leave')
+  }
+  // Fast lookup for project metadata to classify billable vs non-billable consistently
+  const projectById = useMemo(() => new Map(filteredProjects.map(p => [p.id, p])), [filteredProjects])
+
+  const dailyPoints: UnifiedPoint[] = useMemo(() => {
+    const points: UnifiedPoint[] = []
+    const start = new Date(effectiveRange.start)
+    const end = new Date(effectiveRange.end)
+    let cursor = new Date(start)
+    while (cursor <= end) {
+      const dow = cursor.getDay()
+      // Monday..Friday only on axis
+      if (dow >= 1 && dow <= 5) {
+  const iso = dateIso(cursor)
+  // Treat today like future for capacity purposes (sync happens at night)
+  const isFuture = cursor >= today
+        const entries = entriesForChart.filter((e) => e.date === iso)
+        let billable = 0, nonBillable = 0, absence = 0
+        for (const e of entries) {
+          if (isAbsenceProject(e.projectId)) {
+            absence += e.hours
+          } else {
+            const proj = projectById.get(e.projectId)
+            const isBillable = proj ? proj.billable : e.billable
+            if (isBillable) billable += e.hours
+            else nonBillable += e.hours
+          }
+        }
+        const total = billable + nonBillable + absence
+    const maxCap = (isDayOff(iso) || isFuture) ? 0 : 8
+    points.push({ label: format(cursor, 'dd.MM'), billable, nonBillable, absence, max: maxCap, isFuture })
+      }
+      cursor = addDays(cursor, 1)
+    }
+    return points
+  }, [effectiveRange.start, effectiveRange.end, entriesForChart, isDayOff, filteredProjects, today])
+
+  const weeklyPoints: UnifiedPoint[] = useMemo(() => {
+    if (dailyPoints.length === 0) return []
+  const weeks = new Map<string, { label: string; billable: number; nonBillable: number; absence: number; max: number }>()
+    // Group days by week label (Mon..Sun bucket label by week start date)
+    // Label format: week starting dd.MM
+    let start = new Date(effectiveRange.start)
+    // normalize to Monday
+    const day = start.getDay() || 7
+    if (day !== 1) start.setDate(start.getDate() - (day - 1))
+
+    dailyPoints.forEach((p, idx) => {
+      // reconstruct date for this point from label by iterating original daily sequence index
+      // Safer: recompute week key from effectiveRange and index distance
+      // Instead, calculate the week key using a rolling cursor across original range
+    })
+    // Simpler: regen from effectiveRange again and parallel build to avoid fragile mapping
+  const map = new Map<string, { label: string; billable: number; nonBillable: number; absence: number; max: number; isFuture: boolean }>()
+    let cursor = new Date(effectiveRange.start)
+    while (cursor <= effectiveRange.end) {
+      const dow = cursor.getDay()
+      if (dow >= 1 && dow <= 5) {
+        const keyDate = new Date(cursor)
+        const keyDay = keyDate.getDay() || 7
+        if (keyDay !== 1) keyDate.setDate(keyDate.getDate() - (keyDay - 1))
+        const key = dateIso(keyDate)
+    if (!map.has(key)) map.set(key, { label: `Wk ${format(keyDate, 'ww')}`, billable: 0, nonBillable: 0, absence: 0, max: 0, isFuture: keyDate > today })
+        const iso = dateIso(cursor)
+        const entries = entriesForChart.filter((e) => e.date === iso)
+        let billable = 0, nonBillable = 0, absence = 0
+        for (const e of entries) {
+          if (isAbsenceProject(e.projectId)) {
+            absence += e.hours
+          } else {
+            const proj = projectById.get(e.projectId)
+            const isBillable = proj ? proj.billable : e.billable
+            if (isBillable) billable += e.hours
+            else nonBillable += e.hours
+          }
+        }
+  // Treat today like future for capacity purposes (sync happens at night)
+  const isFutureDay = new Date(iso) >= today
+    const maxCap = (isDayOff(iso) || isFutureDay) ? 0 : 8
+        const agg = map.get(key)!
+        agg.billable += billable
+        agg.nonBillable += nonBillable
+        agg.absence += absence
+        agg.max += maxCap
+      }
+      cursor = addDays(cursor, 1)
+    }
+    // round values to 1 decimal
+  const out: UnifiedPoint[] = []
+  map.forEach((v) => {
+      out.push({
+        label: v.label,
+        billable: Math.round(v.billable * 10) / 10,
+        nonBillable: Math.round(v.nonBillable * 10) / 10,
+        absence: Math.round(v.absence * 10) / 10,
+    max: v.max,
+    isFuture: v.isFuture,
+      })
+    })
+    // sort by label (week number)
+    out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+    return out
+  }, [dailyPoints, effectiveRange.start, effectiveRange.end, entriesForChart, isDayOff, filteredProjects, today])
+
+  // Monthly aggregation for year-long views
+  const monthlyPoints: UnifiedPoint[] = useMemo(() => {
+    const map = new Map<string, { label: string; billable: number; nonBillable: number; absence: number; max: number }>()
+    let cursor = new Date(effectiveRange.start)
+    while (cursor <= effectiveRange.end) {
+      const dow = cursor.getDay()
+      if (dow >= 1 && dow <= 5) {
+        const keyDate = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+        const key = `${keyDate.getFullYear()}-${String(keyDate.getMonth() + 1).padStart(2, '0')}-01`
+        const label = format(keyDate, 'LLL')
+        if (!map.has(key)) map.set(key, { label, billable: 0, nonBillable: 0, absence: 0, max: 0 })
+        const iso = dateIso(cursor)
+        const entries = entriesForChart.filter((e) => e.date === iso)
+        let billable = 0, nonBillable = 0, absence = 0
+        for (const e of entries) {
+          if (isAbsenceProject(e.projectId)) {
+            absence += e.hours
+          } else {
+            const proj = projectById.get(e.projectId)
+            const isBillable = proj ? proj.billable : e.billable
+            if (isBillable) billable += e.hours
+            else nonBillable += e.hours
+          }
+        }
+        const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+  const isFutureMonth = monthStart > today
+  // Treat today like future for capacity purposes (sync happens at night)
+  const isFutureDay = new Date(iso) >= today
+        // For future months: don't count max at all; for current/past, count only up to today
+        const maxCap = (isDayOff(iso) || isFutureMonth || isFutureDay) ? 0 : 8
+        const agg = map.get(key)!
+        agg.billable += billable
+        agg.nonBillable += nonBillable
+        agg.absence += absence
+        agg.max += maxCap
+      }
+      cursor = addDays(cursor, 1)
+    }
+    const out: UnifiedPoint[] = []
+    map.forEach((v, k) => {
+      const [y, m] = k.split('-').map((s) => parseInt(s, 10))
+      const isFuture = new Date(y, m - 1, 1) > today
+      out.push({
+        label: v.label,
+        billable: Math.round(v.billable * 10) / 10,
+        nonBillable: Math.round(v.nonBillable * 10) / 10,
+        absence: Math.round(v.absence * 10) / 10,
+        max: v.max,
+        isFuture,
+      })
+    })
+    // sort by year-month key to ensure chronological order
+    out.sort((a, b) => {
+      // reconstruct artificial key order by comparing month names within the same range
+      // since labels are LLL (locale short month), fallback to start->end iteration order by building keys again
+      // Simpler: re-walk the range months and map labels to order
+      const order: string[] = []
+      let mCursor = new Date(effectiveRange.start.getFullYear(), effectiveRange.start.getMonth(), 1)
+      const endMonth = new Date(effectiveRange.end.getFullYear(), effectiveRange.end.getMonth(), 1)
+      while (mCursor <= endMonth) {
+        order.push(format(mCursor, 'LLL'))
+        mCursor.setMonth(mCursor.getMonth() + 1)
+      }
+      return order.indexOf(a.label) - order.indexOf(b.label)
+    })
+    return out
+  }, [effectiveRange.start, effectiveRange.end, entriesForChart, isDayOff, filteredProjects, today])
+
+  // Decide which view modes to offer based on selected date range
+  const isYearRange = filters?.dateRange === 'this-year' || filters?.dateRange === 'previous-year'
+  const allowedModes: Array<'weekly' | 'daily' | 'monthly'> = isYearRange ? ['monthly', 'weekly'] : ['weekly', 'daily']
+  // Auto-correct current viewMode if it's not allowed for the current range
+  useEffect(() => {
+    if (!allowedModes.includes(viewMode)) {
+      setViewMode(allowedModes[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters?.dateRange])
+
+  const currentData: UnifiedPoint[] = viewMode === 'weekly' ? weeklyPoints : viewMode === 'daily' ? dailyPoints : monthlyPoints
+  const globalMax = Math.max(1, ...currentData.map((d) => d.max))
 
   // Calculate totals for the period
-  const totalBillable = currentData.reduce((sum, d) => sum + d.billable, 0)
-  const totalNonBillable = currentData.reduce((sum, d) => sum + d.nonBillable, 0)
-  const totalAbsence = currentData.reduce((sum, d) => sum + d.absence, 0)
-  const grandTotal = totalBillable + totalNonBillable + totalAbsence
+  // Summary totals must include all entries in range (including weekends) to match KPIs
+  let totalBillable = 0, totalNonBillable = 0, totalAbsence = 0
+  for (const e of entriesForChart) {
+    if (isAbsenceProject(e.projectId)) {
+      totalAbsence += e.hours
+    } else {
+      const proj = projectById.get(e.projectId)
+      const isBill = proj ? proj.billable : e.billable
+      if (isBill) totalBillable += e.hours
+      else totalNonBillable += e.hours
+    }
+  }
+  // Max capacity remains computed from working days in the frame (Mon-Fri, minus holidays)
+  const sumMax = currentData.reduce((sum, d) => sum + d.max, 0)
 
   const animatedBillable = useAnimatedCounter(totalBillable, 1200)
   const animatedNonBillable = useAnimatedCounter(totalNonBillable, 1400)
   const animatedAbsence = useAnimatedCounter(totalAbsence, 1600)
-  const animatedTotal = useAnimatedCounter(grandTotal, 1800)
+  const animatedMax = useAnimatedCounter(sumMax, 1800)
+
+  // Re-animate chart when layout or data framing changes to maximize perceived responsiveness
+  useEffect(() => {
+    setIsVisible(false)
+    const t = setTimeout(() => setIsVisible(true), 60)
+    return () => clearTimeout(t)
+  }, [viewMode, wrapWidth, currentData.length])
 
   return (
     <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
@@ -192,22 +503,46 @@ export function HoursSummaryChart() {
         <div
           className={`flex gap-1 transition-all duration-700 delay-200 ${isVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
         >
-          <Button
-            variant={viewMode === "weekly" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("weekly")}
-            className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-          >
-            Weekly
-          </Button>
-          <Button
-            variant={viewMode === "daily" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("daily")}
-            className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-          >
-            Daily
-          </Button>
+          {/* Switch button set based on date range: for year -> Monthly/Weekly; else -> Weekly/Daily */}
+          {isYearRange ? (
+            <>
+              <Button
+                variant={viewMode === "monthly" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("monthly")}
+                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
+              >
+                Monthly
+              </Button>
+              <Button
+                variant={viewMode === "weekly" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("weekly")}
+                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
+              >
+                Weekly
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant={viewMode === "weekly" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("weekly")}
+                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
+              >
+                Weekly
+              </Button>
+              <Button
+                variant={viewMode === "daily" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("daily")}
+                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
+              >
+                Daily
+              </Button>
+            </>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -261,9 +596,9 @@ export function HoursSummaryChart() {
           </div>
           <div className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold" style={{ color: "#7c3aed" }}>
-              {animatedTotal.toFixed(1)}h
+              {animatedMax.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500">Total</div>
+            <div className="text-xs text-gray-500">Max</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-1000 delay-1100"
@@ -276,93 +611,226 @@ export function HoursSummaryChart() {
           </div>
         </div>
 
-        <div className="space-y-3">
-          {currentData.map((item, index) => {
-            const billablePercentage = maxTotal > 0 ? (item.billable / maxTotal) * 100 : 0
-            const nonBillablePercentage = maxTotal > 0 ? (item.nonBillable / maxTotal) * 100 : 0
-            const absencePercentage = maxTotal > 0 ? (item.absence / maxTotal) * 100 : 0
+        {/* Column chart with dashed max line */}
+        {(() => {
+          const n = currentData.length
+          const padding = { top: 10, right: 16, bottom: 36, left: 36 }
+          const chartHeight = 240
+          // compute barWidth and gap to perfectly fill available width
+          const available = Math.max(200, wrapWidth - padding.left - padding.right)
+          const gapFactor = 0.6
+          let barWidth = (available / (n + (n - 1) * gapFactor)) || 6
+          barWidth = Math.max(4, barWidth) // no upper cap to fully use the width
+          const gap = Math.max(2, barWidth * gapFactor)
+          const width = Math.max(wrapWidth, padding.left + (n * barWidth + (n - 1) * gap) + padding.right)
+          const height = chartHeight + padding.top + padding.bottom
 
-            return (
-              <div
-                key={index}
-                className={`space-y-2 transition-all duration-500 hover:scale-[1.02] hover:shadow-md rounded-lg p-2 -m-2`}
-                style={{
-                  transitionDelay: `${index * 100 + 600}ms`,
-                  transform: isVisible ? "translateX(0)" : "translateX(-20px)",
-                  opacity: isVisible ? 1 : 0,
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {item.label}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white animate-pulse">
-                    {item.total.toFixed(1)}h
-                  </span>
-                </div>
-                <div className="flex w-full h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shadow-inner">
-                  <div
-                    className="transition-all duration-1000"
-                    style={{
-                      width: isVisible ? `${billablePercentage}%` : "0%",
-                      backgroundColor: "#6eedd9",
-                      transitionDelay: `${index * 150 + 800}ms`,
-                    }}
-                    title={`Billable: ${item.billable.toFixed(1)}h`}
-                  />
-                  <div
-                    className="transition-all duration-1000"
-                    style={{
-                      width: isVisible ? `${nonBillablePercentage}%` : "0%",
-                      backgroundColor: "#174076",
-                      transitionDelay: `${index * 150 + 900}ms`,
-                    }}
-                    title={`Non-billable: ${item.nonBillable.toFixed(1)}h`}
-                  />
-                  <div
-                    className="transition-all duration-1000"
-                    style={{
-                      width: isVisible ? `${absencePercentage}%` : "0%",
-                      backgroundColor: "#e03768",
-                      transitionDelay: `${index * 150 + 1000}ms`,
-                    }}
-                    title={`Absence: ${item.absence.toFixed(1)}h`}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span className="transition-colors" style={{ color: "#14b8a6" }}>
-                    B: {item.billable.toFixed(1)}h
-                  </span>
-                  <span className="transition-colors" style={{ color: "#174076" }}>
-                    NB: {item.nonBillable.toFixed(1)}h
-                  </span>
-                  {item.absence > 0 && (
-                    <span className="transition-colors" style={{ color: "#dc2626" }}>
-                      A: {item.absence.toFixed(1)}h
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+          // derive y-domain: maximize vertical usage with minimal headroom (20h increments)
+          const totals = currentData.map(d => d.billable + d.nonBillable + d.absence)
+          const capMax = Math.max(0, ...currentData.map(d => d.max))
+          const dataMax = Math.max(0, ...totals)
+          // Use 20-hour granularity on Y-axis
+          const baseStep = 20
+          const niceCeil = (v: number, step: number) => Math.ceil(v / step) * step
+          // For monthly we won't use a fixed baseline; we'll fit to data/capacity
+          const unitMax = viewMode === 'daily' ? 8 : viewMode === 'weekly' ? 40 : 0
+          const domainTopRaw = Math.max(unitMax, capMax, dataMax)
+          let yMax = domainTopRaw <= unitMax ? unitMax : niceCeil(domainTopRaw, baseStep)
+          // Ensure headroom so max line is not at the very top (so labels can sit above the line)
+          if (viewMode !== 'monthly') {
+            const minHeadroom = unitMax + (viewMode === 'daily' ? 4 : 10) // ~small headroom
+            yMax = Math.max(yMax, niceCeil(minHeadroom, baseStep))
+          }
 
-        <div
-          className={`flex gap-4 pt-2 border-t border-gray-100 dark:border-gray-800 transition-all duration-700 delay-1200 ${isVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}
-        >
-          <div className="flex items-center gap-2 text-sm hover:scale-110 transition-transform duration-200 cursor-pointer">
-            <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: "#6eedd9" }} />
-            <span className="text-gray-600 dark:text-gray-400 hover:text-teal-600 transition-colors">Billable</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm hover:scale-110 transition-transform duration-200 cursor-pointer">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#174076" }} />
-            <span className="text-gray-600 dark:text-gray-400 hover:text-blue-800 transition-colors">Non-billable</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm hover:scale-110 transition-transform duration-200 cursor-pointer">
-            <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: "#e03768" }} />
-            <span className="text-gray-600 dark:text-gray-400 hover:text-red-600 transition-colors">Absence</span>
-          </div>
-        </div>
+          const scaleY = (v: number) => (v / (yMax || 1)) * chartHeight
+          const xFor = (i: number) => padding.left + i * (barWidth + gap)
+          const xMidFor = (i: number) => xFor(i) + barWidth / 2
+
+          // y-axis ticks & grid lines
+          const tickStep = baseStep
+          const ticks: number[] = []
+          for (let t = 0; t <= yMax; t += tickStep) ticks.push(t)
+
+          // Max line(s): daily/weekly -> single baseline; monthly -> per-bar based on month's capacity
+          const maxY = padding.top + chartHeight - scaleY(unitMax)
+          const maxLineLen = width - padding.left - padding.right
+
+          return (
+            <div ref={svgWrapRef} className={`mt-2 transition-all duration-700 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+              <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="overflow-visible">
+                {/* y-axis ticks & grid */}
+                {ticks.map((t, idx) => {
+                  const y = padding.top + chartHeight - scaleY(t)
+                  const isZero = t === 0
+                  return (
+                    <g key={idx}>
+                      <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke={isZero ? '#d1d5db' : '#e5e7eb'} opacity={isZero ? 0.9 : 0.6} strokeDasharray={isZero ? '' : '4 4'} />
+                      <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-gray-500 dark:fill-gray-400 text-[10px]">{t}</text>
+                    </g>
+                  )
+                })}
+
+                {/* bars */}
+                {currentData.map((d, i) => {
+                  const x = xFor(i)
+                  const hBillable = scaleY(d.billable)
+                  const hNonBillable = scaleY(d.nonBillable)
+                  const hAbsence = scaleY(d.absence)
+                  const yBillable = padding.top + chartHeight - hBillable
+                  const yNonBillable = yBillable - hNonBillable
+                  const yAbsence = yNonBillable - hAbsence
+                  const ghost = !!d.isFuture
+                  return (
+                    <g
+                      key={i}
+                      className={`transition-all duration-700 ${isVisible ? "opacity-100" : "opacity-0"}`}
+                      style={{ transform: isVisible ? 'scaleY(1)' : 'scaleY(0.1)', transformOrigin: 'bottom center', transitionDelay: `${100 + i * 60}ms`, opacity: ghost ? 0.28 : 1 }}
+                    >
+                      {hBillable > 0 && (
+                        <rect x={x} y={yBillable} width={barWidth} height={hBillable} fill="#6eedd9" rx={4} />
+                      )}
+                      {hNonBillable > 0 && (
+                        <rect x={x} y={yNonBillable} width={barWidth} height={hNonBillable} fill="#174076" rx={4} />
+                      )}
+                      {hAbsence > 0 && (
+                        <rect x={x} y={yAbsence} width={barWidth} height={hAbsence} fill="#e03768" rx={4} />
+                      )}
+                      {/* hover capture */}
+                      <rect
+                        x={x}
+                        y={padding.top}
+                        width={barWidth}
+                        height={chartHeight}
+                        fill="transparent"
+                        pointerEvents="all"
+                        onMouseEnter={() => setHoverIndex(i)}
+                        onMouseLeave={() => setHoverIndex(null)}
+                        onFocus={() => setHoverIndex(i)}
+                        onBlur={() => setHoverIndex(null)}
+                        tabIndex={0}
+                        aria-label={`Details for ${d.label}`}
+                      />
+                    </g>
+                  )
+                })}
+
+                {/* dashed max line(s) */}
+                {viewMode !== 'monthly' ? (
+                  currentData.map((d, i) => {
+                    if (d.max <= 0) return null
+                    const y = padding.top + chartHeight - scaleY(d.max)
+                    const x1 = xFor(i)
+                    const x2 = x1 + barWidth
+                    const xm = xMidFor(i)
+                    const seg = Math.max(2, barWidth)
+                    const yText = Math.max(y - 2, padding.top + 8)
+                    return (
+                      <g key={`max-${i}`} className={isVisible ? 'opacity-100' : 'opacity-0'} style={{ transition: `opacity 400ms ease ${180 + i * 30}ms` }}>
+                        <line
+                          x1={x1}
+                          x2={x2}
+                          y1={y}
+                          y2={y}
+                          stroke="#9169f4"
+                          strokeWidth={2}
+                          strokeDasharray={`${seg}`}
+                          style={{ strokeDashoffset: isVisible ? 0 : seg, transition: `stroke-dashoffset 600ms ease ${200 + i * 30}ms` }}
+                        />
+                        <text x={xm} y={yText} textAnchor="middle" fontSize={9} fill="#9169f4" fillOpacity={0.5}>{d.max.toFixed(0)}</text>
+                      </g>
+                    )
+                  })
+                ) : (
+                  currentData.map((d, i) => {
+                    const y = padding.top + chartHeight - scaleY(d.max)
+                    const x1 = xFor(i)
+                    const x2 = x1 + barWidth
+                    const xm = xMidFor(i)
+                    const seg = Math.max(2, barWidth)
+                    const yText = Math.max(y - 2, padding.top + 8)
+                    if (d.max <= 0) return null
+                    return (
+                      <g key={`max-${i}`} className={isVisible ? 'opacity-100' : 'opacity-0'} style={{ transition: `opacity 400ms ease ${180 + i * 30}ms` }}>
+                        <line
+                          x1={x1}
+                          x2={x2}
+                          y1={y}
+                          y2={y}
+                          stroke="#9169f4"
+                          strokeWidth={2}
+                          strokeDasharray={`${seg}`}
+                          style={{ strokeDashoffset: isVisible ? 0 : seg, transition: `stroke-dashoffset 600ms ease ${200 + i * 30}ms` }}
+                        />
+                        <text x={xm} y={yText} textAnchor="middle" fontSize={9} fill="#9169f4" fillOpacity={0.5}>{d.max.toFixed(0)}</text>
+                      </g>
+                    )
+                  })
+                )}
+
+                {/* subtle Today marker between last to-date and future bars */}
+                {(() => {
+                  const firstFutureIdx = currentData.findIndex(d => d.isFuture)
+                  if (firstFutureIdx <= 0) return null
+                  const markerX = Math.max(padding.left, xFor(firstFutureIdx) - (gap / 2))
+                  return (
+                    <line
+                      x1={markerX}
+                      x2={markerX}
+                      y1={padding.top}
+                      y2={padding.top + chartHeight}
+                      stroke="#94a3b8"
+                      strokeWidth={1}
+                      strokeDasharray="2 6"
+                      opacity={0.35}
+                    />
+                  )
+                })()}
+
+                {/* tooltip */}
+                {hoverIndex !== null && currentData[hoverIndex] && (() => {
+                  const d = currentData[hoverIndex]
+                  const total = d.billable + d.nonBillable + d.absence
+                  const util = d.max > 0 ? Math.round((total / d.max) * 1000) / 10 : 0
+                  const mid = xMidFor(hoverIndex)
+                  const ttW = 180
+                  const ttH = 86 + (d.absence > 0 ? 14 : 0)
+                  const tx = Math.min(Math.max(mid - ttW / 2, padding.left), width - padding.right - ttW)
+                  const ty = padding.top + 8
+                  return (
+                    <g>
+                      <rect x={tx} y={ty} width={ttW} height={ttH} rx={8} fill="#111827" opacity={0.92} />
+                      <text x={tx + 10} y={ty + 16} fill="#ffffff" fontSize={12} fontWeight={600}>{d.label}</text>
+                      <circle cx={tx + 10} cy={ty + 30} r={3} fill="#6eedd9" />
+                      <text x={tx + 18} y={ty + 34} fill="#ffffff" fontSize={11}>Billable: {d.billable.toFixed(1)}h</text>
+                      <circle cx={tx + 10} cy={ty + 46} r={3} fill="#174076" />
+                      <text x={tx + 18} y={ty + 50} fill="#ffffff" fontSize={11}>Non-billable: {d.nonBillable.toFixed(1)}h</text>
+                      {d.absence > 0 && (
+                        <>
+                          <circle cx={tx + 10} cy={ty + 62} r={3} fill="#e03768" />
+                          <text x={tx + 18} y={ty + 66} fill="#ffffff" fontSize={11}>Absence: {d.absence.toFixed(1)}h</text>
+                        </>
+                      )}
+                      <text x={tx + 10} y={ty + ttH - 24} fill="#c7d2fe" fontSize={11}>Total: {total.toFixed(1)}h / Max: {d.max.toFixed(1)}h</text>
+                      <text x={tx + 10} y={ty + ttH - 8} fill="#c7d2fe" fontSize={11}>Utilization: {util.toFixed(1)}%</text>
+                    </g>
+                  )
+                })()}
+
+                {/* x labels */}
+                {(() => {
+                  const step = viewMode === 'monthly' ? 1 : Math.max(1, Math.ceil(n / 10))
+                  return currentData.map((d, i) => (
+                    i % step === 0 ? (
+                      <text key={i} x={xMidFor(i)} y={height - 8} textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-[10px]">{d.label}</text>
+                    ) : null
+                  ))
+                })()}
+              </svg>
+            </div>
+          )
+        })()}
+
+  {/* Legend removed to increase chart focus */}
       </CardContent>
     </Card>
   )

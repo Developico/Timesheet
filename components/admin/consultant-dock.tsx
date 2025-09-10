@@ -3,15 +3,19 @@
 import { useState, useEffect, useMemo } from "react"
 import { User, X, Search, ArrowLeft } from "lucide-react"
 import { useViewingScope } from "@/lib/viewing-scope"
-import { dataService } from "@/lib/data"
 import { useAuth } from "@/lib/auth-client"
+
+type GraphMember = { aadObjectId: string; name: string; email?: string; upn?: string; consultantId?: string }
 
 export function ConsultantDock() {
   const { user } = useAuth()
-  const isAdmin = user?.role === "Administrator"
+  const isAdmin = user?.role === "Administrator" || user?.roles?.includes("Administrator")
   const { consultantId, setConsultant, recent, clear } = useViewingScope()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [members, setMembers] = useState<GraphMember[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // keyboard shortcut Ctrl+Shift+F
   useEffect(() => {
@@ -25,16 +29,59 @@ export function ConsultantDock() {
     return () => window.removeEventListener("keydown", handler)
   }, [])
 
-  if (!isAdmin) return null
-
-  const consultants = dataService.getConsultants()
-  const active = consultants.find((c) => c.id === consultantId)
+  // Load Consultants group from Graph whenever opened
+  useEffect(() => {
+    if (!open || !isAdmin) return
+    let cancelled = false
+    async function load() {
+      setLoading(true); setError(null)
+      try {
+        const res = await fetch('/api/graph/consultants', { cache: 'no-store' })
+        const text = await res.text()
+        const json = (() => { try { return JSON.parse(text) } catch { return {} } })()
+        if (!res.ok) {
+          const msg = json?.error || json?.message || text || `HTTP ${res.status}`
+          throw new Error(`Consultants ${res.status}${msg ? `: ${msg}` : ''}`)
+        }
+        if (!cancelled) {
+          const arr = Array.isArray(json.value) ? json.value : []
+          setMembers(arr)
+          if (arr.length === 0) {
+            if (json?.hint === 'nested_members_denied') {
+              setError('Group has only nested groups. Grant Graph Group.Read.All (delegated) and re-login, or add users directly to the Consultants group.')
+            } else if (json?.transitiveTried && json?.transitiveDenied) {
+              setError('Cannot read nested members (transitive) due to missing consent. Ask admin to grant Group.Read.All.')
+            } else {
+              setError('No members found in the Consultants group.')
+            }
+          }
+        }
+      } catch (e:any) {
+        if (!cancelled) setError(e.message || 'Failed to load users')
+      } finally { if (!cancelled) setLoading(false) }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [open, isAdmin])
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return consultants
-    const q = query.toLowerCase()
-    return consultants.filter((c) => c.name.toLowerCase().includes(q))
-  }, [consultants, query])
+    const arr = [...members].sort((a,b)=>a.name.localeCompare(b.name))
+    const q = query.trim().toLowerCase()
+    if (!q) return arr
+    return arr.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      (m.email?.toLowerCase().includes(q)) ||
+      (m.upn?.toLowerCase().includes(q))
+    )
+  }, [members, query])
+
+  const activeName = useMemo(() => {
+    if (!consultantId) return null
+    const m = members.find(x => x.consultantId === consultantId)
+    return m?.name || null
+  }, [members, consultantId])
+
+  if (!isAdmin) return null
 
   return (
     <>
@@ -42,7 +89,7 @@ export function ConsultantDock() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={consultantId ? `Filtering by ${active?.name}. Change` : "Open consultant filter"}
+        aria-label={consultantId ? `Filtering by ${activeName ?? 'selected user'}. Change` : "Open consultant filter"}
         aria-pressed={open}
         className={`fixed z-50 bottom-6 right-6 h-12 w-12 rounded-full flex items-center justify-center border backdrop-blur-md bg-background/70 shadow-md transition-all hover:shadow-lg hover:scale-105 focus:outline-none focus-visible:ring-2 ring-offset-2 ring-[#6eedd9] ${consultantId ? "ring-2 ring-[#6eedd9]" : ""}`}
       >
@@ -96,37 +143,42 @@ export function ConsultantDock() {
             )}
             {recent.length > 0 && !query && (
               <div className="px-2 flex flex-wrap gap-2">
-                {recent.filter(r => consultants.some(c=>c.id===r)).map((id) => {
-                  const c = consultants.find(c=>c.id===id)!;
+                {recent.filter(r => members.some(m=>m.consultantId===r)).map((id) => {
+                  const m = members.find(m=>m.consultantId===id)!
                   return (
                     <button key={id} onClick={()=>{ setConsultant(id); setOpen(false) }}
                       className={`px-3 py-1 rounded-full text-xs border transition-colors hover:bg-muted ${consultantId===id? 'bg-[#6eedd9]/20 border-[#6eedd9]' : 'bg-muted/40'}`}
-                    >{c.name}</button>
+                    >{m.name}</button>
                   )
                 })}
               </div>
             )}
             <div className="overflow-y-auto max-h-[60vh] p-2">
-              {filtered.map((c) => {
-                const activeRow = c.id === consultantId
+              {loading && <div className="px-3 py-6 text-sm text-muted-foreground">Loading…</div>}
+              {error && <div className="px-3 py-2 text-sm text-red-600">{error}</div>}
+              {!loading && filtered.map((m) => {
+                const isActive = m.consultantId === consultantId
+                const selectable = !!m.consultantId
                 return (
                   <button
-                    key={c.id}
-                    onClick={() => { setConsultant(c.id); setOpen(false) }}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-md border bg-background/60 hover:bg-muted/70 transition-colors mb-1 ${activeRow ? 'border-[#6eedd9] ring-1 ring-[#6eedd9]' : 'border-transparent'}`}
+                    key={m.aadObjectId}
+                    onClick={() => { if (selectable) { setConsultant(m.consultantId!); setOpen(false) } }}
+                    disabled={!selectable}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-md border bg-background/60 transition-colors mb-1 ${isActive ? 'border-[#6eedd9] ring-1 ring-[#6eedd9]' : 'border-transparent'} ${selectable ? 'hover:bg-muted/70' : 'opacity-60 cursor-not-allowed'}`}
                   >
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-200 to-teal-500 text-teal-900 font-semibold flex items-center justify-center text-xs">
-                      {c.name.split(' ').map(p=>p[0]).slice(0,2).join('')}
+                      {m.name.split(' ').map(p=>p[0]).slice(0,2).join('')}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{c.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">Consultant</div>
+                      <div className="text-sm font-medium truncate">{m.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{m.email || m.upn || 'Member'}</div>
                     </div>
-                    {activeRow && <span className="text-[10px] uppercase tracking-wide text-teal-600">Active</span>}
+                    {!selectable && <span className="text-[10px] uppercase tracking-wide text-amber-600">No DV link</span>}
+                    {isActive && <span className="text-[10px] uppercase tracking-wide text-teal-600">Active</span>}
                   </button>
                 )
               })}
-              {filtered.length === 0 && (
+              {!loading && filtered.length === 0 && (
                 <div className="text-center py-10 text-sm text-muted-foreground">No consultants match.</div>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { ensureDataverseBaseUrl } from "./dataverse-config"
 import { getDataverseToken } from "./dataverse-auth"
+import { appLog } from './app-logger'
 
 const DEFAULT_HEADERS: Record<string, string> = {
   Accept: "application/json",
@@ -22,9 +23,11 @@ export class DataverseClient {
     if (!this.base) {
       throw new Error("Dataverse disabled: base URL not configured (DATAVERSE_URL)")
     }
-    const token = await getDataverseToken()
+  const token = await getDataverseToken()
     const method = (opts.method || "GET").toUpperCase()
     const url = `${this.base}/api/data/v9.2${path.startsWith("/") ? path : "/" + path}${opts.query ? (path.includes("?") ? "&" + opts.query : "?" + opts.query) : ""}`
+  const started = Date.now()
+  appLog('debug','dataverse request',{ method, path, query: opts.query, retry: opts.retry })
     const res = await fetch(url, {
       method,
       headers: {
@@ -47,8 +50,10 @@ export class DataverseClient {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "")
+      appLog('error','dataverse request error',{ status: res.status, statusText: res.statusText, snippet: text.slice(0,140) })
       throw new Error(`Dataverse ${res.status} ${res.statusText} ${text.slice(0, 500)}`)
     }
+    appLog('debug','dataverse response',{ ms: Date.now()-started, status: res.status })
 
     if (res.status === 204) return undefined
     const ct = res.headers.get("Content-Type") || ""

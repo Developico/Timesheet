@@ -11,11 +11,15 @@ const TTL_MS = 5 * 60 * 1000; // 5 minutes
  */
 export async function mapAadOidToConsultantId(aadOid: string): Promise<string | null> {
   if (!aadOid) return null;
+  // Ensure it's a GUID (azureactivedirectoryobjectid column type = Uniqueidentifier)
+  const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+  if (!guidRegex.test(aadOid)) return null; // can't query non-GUID value
   const now = Date.now();
   const hit = cache.get(aadOid);
   if (hit && now - hit.ts < TTL_MS) return hit.id;
   const c = DV.consultant;
   const select = c.id;
+  // For GUID equality do not wrap in quotes
   const filter = encodeURIComponent(`${c.azureAdObjectId} eq ${aadOid}`);
   try {
     const data = await dataverseClient.list(c.entitySet, `$select=${select}&$filter=${filter}`);

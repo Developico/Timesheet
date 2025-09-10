@@ -1,11 +1,14 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { useFilters } from "@/lib/filter-context"
-import { dataService } from "@/lib/data"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNewProjects } from '@/lib/use-new-projects'
+import { calculateKPIMetrics } from '@/lib/metrics'
+import { useConsultants } from '@/hooks/use-consultants'
+import { useAuth } from '@/lib/auth-client'
+import { useViewingScope } from '@/lib/viewing-scope'
+import { useDaysOff } from '@/hooks/use-days-off'
 
 function useCountUp(target: number, duration = 1100) {
   const [val, setVal] = useState(0);
@@ -24,49 +27,146 @@ function useCountUp(target: number, duration = 1100) {
 }
 
 export function KPICards() {
-  const { filteredTimeEntries } = useFilters()
+  const { filteredTimeEntries, filters, filteredProjects } = useFilters()
   const { newProjects } = useNewProjects()
-  const projects = dataService.getProjects()
-  const consultants = dataService.getConsultants()
+  const { consultants } = useConsultants()
+  const { user } = useAuth()
+  const { consultantId: scopedConsultant } = useViewingScope()
   const [isVisible, setIsVisible] = useState(false);
   useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),120); return ()=>clearTimeout(t); },[]);
 
-  const totalHours = Math.max(
-    filteredTimeEntries.reduce((sum, entry) => sum + entry.hours, 0),
-    168.5,
+  // Derive effective date range similar to calendar logic
+  const computeRange = () => {
+    const now = new Date();
+    const dr = filters.dateRange;
+    const r = { start: new Date(now), end: new Date(now) };
+    const startOfWeek = (b:Date)=>{ const d=new Date(b); const wd=d.getDay()===0?7:d.getDay(); d.setDate(d.getDate()-wd+1); d.setHours(0,0,0,0); return d };
+    if(dr==='this-week'){ r.start=startOfWeek(now); r.end=new Date(r.start); r.end.setDate(r.start.getDate()+6) }
+    else if(dr==='previous-week'){ r.end=new Date(startOfWeek(now)); r.end.setDate(r.end.getDate()-1); r.start=new Date(r.end); r.start.setDate(r.end.getDate()-6) }
+    else if(dr==='this-month'){ r.start=new Date(now.getFullYear(), now.getMonth(),1); r.end=new Date(now.getFullYear(), now.getMonth()+1,0) }
+    else if(dr==='previous-month'||dr==='last-month'){ r.start=new Date(now.getFullYear(), now.getMonth()-1,1); r.end=new Date(now.getFullYear(), now.getMonth(),0) }
+    else if(dr==='this-quarter'){ const q=Math.floor(now.getMonth()/3); r.start=new Date(now.getFullYear(), q*3,1); r.end=new Date(now.getFullYear(), q*3+3,0) }
+    else if(dr==='previous-quarter'){ const q=Math.floor(now.getMonth()/3)-1; const year=q<0? now.getFullYear()-1: now.getFullYear(); const eff=q<0?3:q; r.start=new Date(year, eff*3,1); r.end=new Date(year, eff*3+3,0) }
+    else if(dr==='this-year'){ r.start=new Date(now.getFullYear(),0,1); r.end=new Date(now.getFullYear(),11,31) }
+    else if(dr==='previous-year'){ r.start=new Date(now.getFullYear()-1,0,1); r.end=new Date(now.getFullYear()-1,11,31) }
+    else if(dr==='custom' && filters.startDate && filters.endDate){ r.start=filters.startDate; r.end=filters.endDate }
+    r.start.setHours(0,0,0,0); r.end.setHours(23,59,59,999); return r;
+  }
+  const range = computeRange();
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  const { isDayOff } = useDaysOff({ from: iso(range.start), to: iso(range.end) })
+  // Determine primary consultant (current user) similar to calendar view
+  const primaryConsultantId = useMemo(()=>{
+    if(!consultants?.length) return null as string | null
+    if(user?.email){
+      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      if(found) return found.id
+    }
+    return consultants[0]?.id ?? null
+  }, [consultants, user?.email])
+
+  // Entries used for KPI: if ViewingScope selects a consultant (admin use-case), trust it;
+  // otherwise scope to primary user to match Calendar behavior.
+  const entriesForKPI = useMemo(()=>{
+    if(scopedConsultant){
+      return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant)
+    }
+    if(primaryConsultantId){
+      return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId)
+    }
+    return filteredTimeEntries
+  }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
+
+  // Align billable classification with project metadata and exclude absences
+  const projectById = useMemo(()=> new Map(filteredProjects.map(p=> [p.id, p])), [filteredProjects])
+  const isAbsenceProject = (pid: string) => {
+    const p = projectById.get(pid)
+    const codeLc = (p?.code || '').toLowerCase()
+    const nameLc = (p?.name || '').toLowerCase()
+    return pid === 'Office.Absences' || codeLc === 'office.absences' || codeLc === 'abs' || codeLc.includes('absence') ||
+      nameLc.includes('absence') || nameLc.includes('urlop') || nameLc.includes('vacation') || nameLc.includes('holiday') || nameLc.includes('leave')
+  }
+  const entriesForKPIClassified = useMemo(()=> entriesForKPI.map(e=>{
+    const proj = projectById.get(e.projectId)
+    const isBillable = proj ? proj.billable : e.billable
+    // Exclude absence from billable and from non-billable calculation in KPI; reported hours remain as-is
+    return { ...e, billable: !isAbsenceProject(e.projectId) && isBillable }
+  }), [entriesForKPI, projectById])
+
+  const metrics = useMemo(()=> calculateKPIMetrics(entriesForKPIClassified, range.start.toISOString().slice(0,10), range.end.toISOString().slice(0,10)), [entriesForKPIClassified, range.start.getTime(), range.end.getTime()])
+
+  const totalHours = metrics.reportedHours
+  const billableHours = metrics.billableHours
+  // Recompute required hours to exclude today and DaysOff
+  const requiredHoursStrict = useMemo(() => {
+    const start = new Date(range.start)
+    const end = new Date(range.end)
+    let sum = 0
+    const cur = new Date(start)
+    cur.setHours(0,0,0,0)
+    const today = new Date(); today.setHours(0,0,0,0)
+    while (cur <= end) {
+      const dow = cur.getDay()
+      const curIso = iso(cur)
+      const isHoliday = isDayOff(curIso)
+      const isTodayOrFuture = cur >= today
+      if (dow >= 1 && dow <= 5 && !isHoliday && !isTodayOrFuture) {
+        sum += 8
+      }
+      cur.setDate(cur.getDate() + 1)
+    }
+    return sum
+  }, [range.start.getTime(), range.end.getTime(), isDayOff])
+  const requiredHours = requiredHoursStrict
+  const reportedKPI = requiredHours > 0 ? (totalHours / requiredHours) * 100 : 0
+  // Billable KPI relative to required hours; cannot exceed Reported KPI
+  const billableKPI = Math.min(
+    reportedKPI,
+    requiredHours > 0 ? (billableHours / requiredHours) * 100 : 0,
   )
-  const billableHours = Math.max(
-    filteredTimeEntries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.hours, 0),
-    142.3,
-  )
-  const billablePercentage = totalHours > 0 ? (billableHours / totalHours) * 100 : 84.5
+  const activeProjects = metrics.activeProjects
 
-  const activeProjects = Math.max(new Set(filteredTimeEntries.map((entry) => entry.projectId)).size, 8)
-  const activeConsultants = Math.max(new Set(filteredTimeEntries.map((entry) => entry.consultantId)).size, 12)
+  // Build micro chart data for Reported Hours: last 7 working days within range (skip weekends/holidays, no future days)
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+  const workingDaysIso = useMemo(() => {
+    const out: string[] = []
+    const cur = new Date(range.end)
+    cur.setHours(0,0,0,0)
+    const min = new Date(range.start)
+    min.setHours(0,0,0,0)
+    while (out.length < 7 && cur >= min) {
+      const dow = cur.getDay()
+      const isoStr = iso(cur)
+      const isHoliday = isDayOff(isoStr)
+      const inPastOrToday = cur <= today
+      if (dow >= 1 && dow <= 5 && !isHoliday && inPastOrToday) {
+        out.push(isoStr)
+      }
+      cur.setDate(cur.getDate() - 1)
+    }
+    return out.reverse()
+  }, [range.start.getTime(), range.end.getTime(), isDayOff, today])
 
-  const projectHours = [
-    { code: "WEB-2024", name: "Web Platform Redesign", hours: 42.5, color: "bg-blue-500", percentage: 85 },
-    { code: "API-CORE", name: "Core API Development", hours: 38.2, color: "bg-green-500", percentage: 76 },
-    { code: "MOBILE-V2", name: "Mobile App v2.0", hours: 28.7, color: "bg-purple-500", percentage: 57 },
-    { code: "DASH-PRO", name: "Dashboard Pro", hours: 24.1, color: "bg-orange-500", percentage: 48 },
-    { code: "E-COM", name: "E-commerce Platform", hours: 19.3, color: "bg-teal-500", percentage: 39 },
-    { code: "AUTH-SYS", name: "Authentication System", hours: 15.8, color: "bg-indigo-500", percentage: 32 },
-  ]
-
-  // Calculate required hours (8h per working day)
-  const today = new Date()
-  const currentMonth = today.getMonth()
-  const currentYear = today.getFullYear()
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const workingDays = Array.from({ length: daysInMonth }, (_, i) => {
-    const date = new Date(currentYear, currentMonth, i + 1)
-    return date.getDay() >= 1 && date.getDay() <= 5 // Monday to Friday
-  }).filter(Boolean).length
-  const requiredHours = workingDays * 8
-  const realizationPercentage = requiredHours > 0 ? (totalHours / requiredHours) * 100 : 92.4
-
-  const reportedKPI = Math.min((totalHours / requiredHours) * 100, 99.2) // Cap at realistic value
-  const billableKPI = billablePercentage
+  const microDaily = useMemo(() => {
+    // Fast lookup for project metadata to classify billable vs non-billable consistently
+    const projectById = new Map(filteredProjects.map(p => [p.id, p]))
+    const toLabel = (isoStr: string) => `${isoStr.slice(8,10)}.${isoStr.slice(5,7)}`
+    return workingDaysIso.map(dIso => {
+      let billable = 0, nonBillable = 0, absence = 0
+      for (const e of entriesForKPI) {
+        if (e.date !== dIso) continue
+        if (isAbsenceProject(e.projectId)) {
+          absence += e.hours
+        } else {
+          const proj = projectById.get(e.projectId)
+          const isBill = proj ? proj.billable : e.billable
+          if (isBill) billable += e.hours; else nonBillable += e.hours
+        }
+      }
+      const total = billable + nonBillable + absence
+      return { iso: dIso, label: toLabel(dIso), billable, nonBillable, absence, total }
+    })
+  }, [workingDaysIso, entriesForKPI, filteredProjects])
 
   // Color coding based on performance vs targets
   const getKPIColor = (value: number, target: number) => {
@@ -86,20 +186,20 @@ export function KPICards() {
       value: `${totalHours.toFixed(1)}h`,
       raw: totalHours,
       unit: 'h',
-      subtitle: `${Math.max(filteredTimeEntries.length, 47)} entries this period`,
+  subtitle: `${entriesForKPI.length} entries in range`,
       icon: "⏱",
       color: "text-blue-600",
       bgColor: "bg-blue-50 dark:bg-blue-950/20",
       trend: "+12.3%",
       trendColor: "text-green-600",
-      miniChart: [65, 72, 68, 85, 92, 88, 95],
+  // miniChart replaced by computed stacked micro-bars below
     },
     {
       title: "Reported KPI",
       value: `${reportedKPI.toFixed(1)}%`,
       raw: reportedKPI,
       unit: '%',
-      subtitle: `Target: 99% | ${totalHours.toFixed(1)}h of ${requiredHours}h`,
+  subtitle: `Target: 99% | ${totalHours.toFixed(1)}h / ${requiredHours}h`,
       icon: "📊",
       color: reportedColors.text,
       bgColor: reportedColors.bg,
@@ -114,7 +214,7 @@ export function KPICards() {
       value: `${billableKPI.toFixed(1)}%`,
   raw: billableKPI,
   unit: '%',
-      subtitle: `Target: 85% | ${billableHours.toFixed(1)}h billable`,
+  subtitle: `Target: 85% | ${billableHours.toFixed(1)}h billable`,
       icon: "💼",
       color: billableColors.text,
       bgColor: billableColors.bg,
@@ -234,21 +334,47 @@ export function KPICards() {
               </div>
             )}
 
-            {card.miniChart && (
-              <div className="flex items-end space-x-1 h-8">
-                {card.miniChart.map((value, i) => {
-                  const h = (value/100)*100;
+            {card.title === 'Reported Hours' && (
+              <div
+                className="grid h-10"
+                style={{ gridTemplateColumns: `repeat(${Math.max(microDaily.length,1)}, 1fr)`, gap: '4px' }}
+              >
+                {microDaily.map((d, i) => {
+                  const capacity = 8
+                  const scale = d.total > 0 ? Math.min(d.total, capacity) / d.total : 0
+                  const hB = (d.billable / capacity) * 100 * scale
+                  const hN = (d.nonBillable / capacity) * 100 * scale
+                  const hA = (d.absence / capacity) * 100 * scale
+                  const overflow = Math.max(0, d.total - capacity)
+                  const isToday = d.iso === iso(today)
+                  const title = `${d.label}: B ${d.billable.toFixed(1)}h, NB ${d.nonBillable.toFixed(1)}h, Abs ${d.absence.toFixed(1)}h — Total ${d.total.toFixed(1)}h / 8h`
+                  const baseDelay = index * 120 + i * 60
                   return (
                     <div
-                      key={i}
-                      className="rounded-sm flex-1 transition-all duration-700"
-                      style={{
-                        height: isVisible? `${h}%`:'0%',
-                        transitionDelay: `${index*120 + i*60}ms`,
-                        backgroundColor: '#6eedd9'
-                      }}
-                    />
-                  );
+                      key={d.iso}
+                      className="relative h-full rounded-sm overflow-hidden bg-gray-100 dark:bg-gray-800 flex flex-col justify-end"
+                      data-today={isToday ? true : undefined}
+                      title={title}
+                      aria-label={title}
+                      style={{ transition: 'transform 400ms ease, opacity 400ms ease', transitionDelay: `${baseDelay}ms`, opacity: isVisible ? 1 : 0.6 }}
+                    >
+                      {overflow > 0 && (
+                        <div className="absolute top-0 left-0 right-0" style={{ height: '2px', backgroundColor: '#9169f4', opacity: isVisible ? 1 : 0, transition: `opacity 500ms ease ${baseDelay+180}ms` }} />
+                      )}
+                      {/* Absence segment */}
+                      {hA > 0 && (
+                        <div style={{ height: isVisible ? `${hA}%` : '0%', backgroundColor: '#e03768', opacity: isVisible ? 1 : 0, transition: `height 600ms ease ${baseDelay+160}ms, opacity 600ms ease ${baseDelay+160}ms` }} />
+                      )}
+                      {/* Non-billable segment */}
+                      {hN > 0 && (
+                        <div style={{ height: isVisible ? `${hN}%` : '0%', backgroundColor: '#174076', opacity: isVisible ? 1 : 0, transition: `height 600ms ease ${baseDelay+80}ms, opacity 600ms ease ${baseDelay+80}ms` }} />
+                      )}
+                      {/* Billable segment */}
+                      {hB > 0 && (
+                        <div style={{ height: isVisible ? `${hB}%` : '0%', backgroundColor: '#6eedd9', opacity: isVisible ? 1 : 0, transition: `height 600ms ease ${baseDelay}ms, opacity 600ms ease ${baseDelay}ms` }} />
+                      )}
+                    </div>
+                  )
                 })}
               </div>
             )}

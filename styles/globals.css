@@ -123,3 +123,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Utility: hide scrollbar but keep scroll functionality (used in calendar day tiles) */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Subtle fade overlay helper (apply via absolute element) */
+.fade-bottom-mask {
+  pointer-events: none;
+  background: linear-gradient(to top, color-mix(in oklab, var(--background), white 8%) 60%, transparent);
+}

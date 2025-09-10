@@ -3,6 +3,7 @@ export interface Consultant {
   name: string
   email?: string
   avatarUrl?: string
+  aadObjectId?: string // Azure AD object id for Graph photo
 }
 
 export interface Project {
@@ -15,6 +16,7 @@ export interface Project {
   billable: boolean
   assigned: boolean
   color: string
+  allUsers?: boolean
 }
 
 export interface TimeEntry {
@@ -25,6 +27,7 @@ export interface TimeEntry {
   hours: number
   billable: boolean
   note?: string
+  task?: string
 }
 
 export interface TimeEntryFilters {

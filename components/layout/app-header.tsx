@@ -19,17 +19,27 @@ import {
 
 import { useAuth } from "@/lib/auth-client"
 import Link from "next/link"
+import { useFilters } from "@/lib/filter-context"
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [query, setQuery] = useState("")
+  // Try to access global filters if provider is mounted; fallback to local state otherwise
+  let filterCtx: ReturnType<typeof useFilters> | null = null
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    filterCtx = useFilters()
+  } catch { /* Header can render outside provider on sign-in screen */ }
+  const [localQuery, setLocalQuery] = useState("")
+  const query = filterCtx?.filters.searchQuery ?? localQuery
   const [logoOk, setLogoOk] = useState(true)
   useEffect(() => setMounted(true), [])
 
   const { user, isLoading, logout } = useAuth()
   const { newProjects } = useNewProjects()
   const [openNew, setOpenNew] = useState(false)
+  // Ensure popover is closed if there are no new projects
+  useEffect(()=>{ if(newProjects.length===0 && openNew) setOpenNew(false) }, [newProjects.length, openNew])
 
   return (
     <header
@@ -56,10 +66,24 @@ export function AppHeader() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder="Search projects… (client, code, name, description)"
               className="pl-10"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value
+                // Tiny debounce via microtask to avoid excessive updates when typing
+                queueMicrotask(() => {
+                  if (filterCtx) {
+                    filterCtx.updateFilter('searchQuery', val)
+                  } else {
+                    setLocalQuery(val)
+                  }
+                  const t = val.trim()
+                  if (t.length > 0) {
+                    window.dispatchEvent(new CustomEvent('ts:setActiveTab', { detail: { tab: 'projects' } }))
+                  }
+                })
+              }}
               aria-label="Search"
             />
           </div>
@@ -67,52 +91,55 @@ export function AppHeader() {
 
         {/* Actions */}
   <div className="flex items-center gap-3 relative">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="New project assignments"
-              className={`h-8 w-8 ${openNew? 'bg-muted':''}`}
-              onClick={()=>setOpenNew(o=>!o)}
-            >
-              <Sparkles className="h-4 w-4" />
-              {newProjects.length>0 && (
+          {newProjects.length>0 && (
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="New project assignments"
+                className={`h-8 w-8 ${openNew? 'bg-muted':''}`}
+                onClick={()=>setOpenNew(o=>!o)}
+              >
+                <Sparkles className="h-4 w-4" />
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-5 rounded-full bg-[#6eedd9] text-[10px] font-semibold flex items-center justify-center text-black px-1">
                   {newProjects.length}
                 </span>
-              )}
-            </Button>
-            {openNew && (
-              <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-background shadow-lg p-3 z-50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium tracking-wide">New Projects</span>
-                  <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+              </Button>
+              {openNew && (
+                <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-background shadow-lg p-3 z-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium tracking-wide">New Projects</span>
+                    <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                  </div>
+                  <ul className="space-y-2 max-h-56 overflow-auto">
+                    {newProjects.map(p=> {
+                      // Semantic coloring: absence (code ABS or name contains absence) red, billable green, else blue
+                      const isAbs = p.id === 'Office.Absences' || p.code === 'ABS' || p.name?.toLowerCase().includes('absence')
+                      const dotColor = isAbs ? '#ef4444' : p.billable ? '#16a34a' : '#174076'
+                      return (
+                      <li key={p.id} className="flex items-center gap-2 text-xs">
+                        <span className="w-2 h-2 rounded-full" style={{backgroundColor:dotColor}} />
+                        <button
+                          className="font-mono underline decoration-dotted hover:text-foreground"
+                          onClick={()=>{
+                            // Dispatch global events to change tab & open panel
+                            window.dispatchEvent(new CustomEvent('ts:setActiveTab', { detail: { tab: 'projects' }}));
+                            window.dispatchEvent(new CustomEvent('ts:openProject', { detail: { projectId: p.id }}));
+                            setOpenNew(false);
+                          }}
+                        >{p.code}</button>
+                        <button
+                          className="ml-auto px-1 py-0.5 border rounded hover:bg-muted"
+                          onClick={()=>{navigator.clipboard?.writeText(p.code || '').catch(()=>{});}}
+                          title="Copy code"
+                        >Copy</button>
+                      </li>
+                    )})}
+                  </ul>
                 </div>
-                {newProjects.length===0 && <div className="text-xs text-muted-foreground py-2">None</div>}
-                <ul className="space-y-2 max-h-56 overflow-auto">
-                  {newProjects.map(p=> (
-                    <li key={p.id} className="flex items-center gap-2 text-xs">
-                      <span className="w-2 h-2 rounded-full" style={{backgroundColor:p.color}} />
-                      <button
-                        className="font-mono underline decoration-dotted hover:text-foreground"
-                        onClick={()=>{
-                          // Dispatch global events to change tab & open panel
-                          window.dispatchEvent(new CustomEvent('ts:setActiveTab', { detail: { tab: 'projects' }}));
-                          window.dispatchEvent(new CustomEvent('ts:openProject', { detail: { projectId: p.id }}));
-                          setOpenNew(false);
-                        }}
-                      >{p.code}</button>
-                      <button
-                        className="ml-auto px-1 py-0.5 border rounded hover:bg-muted"
-                        onClick={()=>{navigator.clipboard?.writeText(p.code).catch(()=>{});}}
-                        title="Copy code"
-                      >Copy</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
           {mounted && (
             <Button
               variant="outline"

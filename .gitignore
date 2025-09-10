@@ -33,3 +33,7 @@ yarn-error.log*
 next-env.d.ts
 .env.local.example
 .env.production.example
+.env.local.template
+app-debug.log
+nextauth-debug.log
+nextauth-debug.log
