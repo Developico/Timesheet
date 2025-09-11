@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserAadAccessToken } from '@/lib/server-auth'
+// Switched to application (client credentials) token to avoid per-user expiry errors
+import { getAppGraphToken } from '@/lib/graph-app-token'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/pages/api/auth/[...nextauth]'
 import { mapAadOidToConsultantId } from '@/lib/dataverse-user-map'
 import { appLog } from '@/lib/app-logger'
 
@@ -27,7 +30,12 @@ export async function GET(req: NextRequest) {
         { status: 500 }
       )
     }
-    const at = await getUserAadAccessToken(req)
+    // Require user session (so only authenticated users can list consultants) but do NOT rely on delegated access token
+    const session = await getServerSession(authOptions as any)
+    if(!session){
+      return NextResponse.json({ error: 'unauthorized', cid, reason: 'no-session' }, { status: 401 })
+    }
+    const at = await getAppGraphToken()
 
     // Restrict to user objects only (exclude devices, groups, etc.)
     let url = `https://graph.microsoft.com/v1.0/groups/${GROUP_ID}/members/microsoft.graph.user?$select=id,displayName,mail,userPrincipalName`
@@ -90,7 +98,10 @@ export async function GET(req: NextRequest) {
   const hint = out.length === 0 && transitiveDenied ? 'nested_members_denied' : undefined
   return NextResponse.json({ value: out, cid, transitiveTried: triedTransitive, transitiveDenied, hint })
   } catch (e: any) {
-    appLog('error', 'graph_consultants err', { cid, msg: e?.message })
-    return NextResponse.json({ error: 'unauthorized', cid, message: e?.message }, { status: 401 })
+  appLog('error', 'graph_consultants err', { cid, msg: e?.message })
+  // Distinguish config vs auth vs generic
+  const msg = e?.message || 'internal error'
+  const status = msg.includes('Missing AZURE_AD_') ? 500 : 502
+  return NextResponse.json({ error: 'graph_failure', cid, message: msg }, { status })
   }
 }
