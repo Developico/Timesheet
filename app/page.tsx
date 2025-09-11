@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { AppHeader } from "@/components/layout/app-header"
+import { HeaderWrapper } from "@/components/layout/header-wrapper"
 import { useAuth } from "@/lib/auth-client"
 import Link from "next/link"
 import { SignInScreen } from "@/components/auth/signin-screen"
@@ -115,28 +116,57 @@ export default function HomePage() {
     }
   },[])
 
-  if (authLoading || loading) {
+  // While auth session resolving show minimal spinner only (no data providers)
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-background">
-  <FilterProvider initialTimeEntries={[]} projects={[]}>
-          <AppHeader />
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading timesheet data...</p>
-            </div>
-          </div>
-        </FilterProvider>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <p className="text-xs text-muted-foreground">Authenticating…</p>
+        </div>
       </div>
     )
   }
 
-  // Not authenticated -> show sign-in landing (no data exposure)
+  // Not authenticated -> show sign-in landing (no header, no providers required)
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <AppHeader />
         <SignInScreen productName="Timesheet" />
+      </div>
+    )
+  }
+
+  // Authenticated but lacking required app role (Unauthorized)
+  if (user.role === 'Unauthorized') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-sm text-center space-y-4">
+          <h1 className="text-xl font-semibold">Brak dostępu</h1>
+          <p className="text-sm text-muted-foreground">Twoje konto zostało poprawnie uwierzytelnione, ale nie znajduje się w wymaganych grupach aplikacji. Skontaktuj się z administratorem aby uzyskać dostęp.</p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={()=>{ window.location.href = '/api/auth/signout' }}
+              className="text-xs underline text-muted-foreground hover:text-foreground"
+            >Wyloguj</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Data loading (projects/consultants) after we know user is authorized
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <FilterProvider initialTimeEntries={[]} projects={[]}>
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Ładowanie danych…</p>
+            </div>
+          </div>
+        </FilterProvider>
       </div>
     )
   }
@@ -184,9 +214,9 @@ export default function HomePage() {
   useEffect(()=>{ if(!entriesLoading) setTimeEntries(timeEntries) }, [entriesLoading, timeEntries, setTimeEntries])
   const fullLoading = loading || entriesLoading
     return (
-  <>
-        <AppHeader />
-        <ViewingBanner />
+      <>
+  <HeaderWrapper />
+  <ViewingBanner />
         <FilterBar />
         <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <main className="py-8">

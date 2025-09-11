@@ -81,10 +81,20 @@ export function ProjectsTable() {
   
 
   type PExt = Project & { allUsers?: boolean }
-  const currentUserId = scopedConsultant || undefined
+  // Determine effective user for per-project hour aggregation (match summary logic)
+  const primaryConsultantId = useMemo(()=>{
+    if(!consultants?.length) return null as string | null
+    if(user?.email){
+      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      if(found) return found.id
+    }
+    return consultants[0]?.id ?? null
+  }, [consultants, user?.email])
+  const currentUserId = scopedConsultant || primaryConsultantId || undefined
   const projectsWithMetrics = useMemo(()=> (filteredProjects as PExt[]).map((project) => {
-    const allProjectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
-    const userEntries = currentUserId ? allProjectEntries.filter(e=> e.consultantId === currentUserId) : []
+  const allProjectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
+  // Aggregate hours for effective user (scoped or primary). If still none, fallback to 0.
+  const userEntries = currentUserId ? allProjectEntries.filter(e=> e.consultantId === currentUserId) : []
     const userHours = userEntries.reduce((sum,e)=> sum + e.hours, 0)
     const userBillableHours = userEntries.filter(e=>e.billable).reduce((sum,e)=> sum + e.hours, 0)
     const assignedConsultants = [...new Set(allProjectEntries.map(e=>e.consultantId))]
@@ -139,14 +149,7 @@ export function ProjectsTable() {
 
   // Totals for summary bar (current filtered time entries for user)
   // Scope summary to active consultant: ViewingScope overrides; else current user detected by email; else first consultant; else all
-  const primaryConsultantId = useMemo(()=>{
-    if(!consultants?.length) return null as string | null
-    if(user?.email){
-      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
-      if(found) return found.id
-    }
-    return consultants[0]?.id ?? null
-  }, [consultants, user?.email])
+  // primaryConsultantId already computed above for per-project aggregation
 
   const userEntries = useMemo(()=>{
     if(scopedConsultant) return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant)
@@ -267,7 +270,16 @@ export function ProjectsTable() {
               </TableHeader>
               <TableBody>
                 {(() => {
-                  const myProjectIds = assignedIds || new Set(filteredTimeEntries.map(e=>e.projectId))
+                  // Derive set of project IDs considered "mine":
+                  // 1. If assignments loaded => those IDs (assignment semantics independent of date range)
+                  // 2. Else if we know effective user => projects with that user's time entries in current filtered range
+                  // 3. Else fallback to all reported projects in range
+                  const effectiveUserId = currentUserId || null
+                  const myProjectIds = assignedIds
+                    ? assignedIds
+                    : effectiveUserId
+                      ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+                      : new Set(filteredTimeEntries.map(e=> e.projectId))
                   // If searching, show all filtered projects to present full results regardless of assignment scope
                   const searching = (filters.searchQuery || '').trim().length > 0
                   let base = (projectScope==='my' && !searching)
@@ -275,7 +287,10 @@ export function ProjectsTable() {
                     : filteredAndSortedProjects
                   if(billableFilter==='yes') base = base.filter(p=>p.billable)
                   else if(billableFilter==='no') base = base.filter(p=>!p.billable)
-                  if(onlyReported) base = base.filter(p=> filteredTimeEntries.some(e=> e.projectId===p.id))
+                  if(onlyReported) {
+                    const reportedIds = new Set(filteredTimeEntries.map(e=> e.projectId))
+                    base = base.filter(p=> reportedIds.has(p.id))
+                  }
                   const visible = base
                   if(visible.length===0) {
                     return (

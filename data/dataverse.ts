@@ -132,7 +132,7 @@ export class DataverseDataSource implements IDataSource {
         if (tr.billable) baseFields.push(tr.billable)
   baseFields.push(tr.note)
   if (tr.task) baseFields.push(tr.task)
-        const candidateList = (process.env.DATAVERSE_FIELD_TR_DURATION_CANDIDATES || 'tt_durationminutes,tt_duration,tt_minutes,tt_min').split(',').map(s=>s.trim()).filter(Boolean)
+  const candidateList = (process.env.DATAVERSE_FIELD_TR_DURATION_CANDIDATES || 'tt_durationminutes,tt_durationmh,tt_duration,tt_minutes,tt_min').split(',').map(s=>s.trim()).filter(Boolean)
         let chosen: string | null = null
         let candidateRecords: any[] | null = null
         for (const cand of candidateList) {
@@ -159,16 +159,21 @@ export class DataverseDataSource implements IDataSource {
           candidateRecords = d3.value || []
           appLog('warn','timeentries no duration candidates matched returning zero hours')
         }
-  return (candidateRecords || []).map(r=>({
-          id: r[tr.id],
-          date: (r[tr.startDateTime] || '').substring(0,10),
-          consultantId: r[tr.userLookup],
-          projectId: r[tr.projectLookup],
-          hours: chosen ? ((r[chosen] || 0)/60): 0,
-          billable: tr.billable ? !!r[tr.billable] : true,
-          note: r[tr.note] || undefined,
-          task: tr.task ? (r[tr.task] || undefined) : undefined,
-        }))
+  return (candidateRecords || []).map(r=>{
+          const raw = chosen ? (r[chosen] || 0) : 0
+          // Heuristic: fields ending with 'mh' already in hours (man-hours); others assumed minutes
+          const hrs = chosen && /mh$/i.test(chosen) ? raw : raw / 60
+          return {
+            id: r[tr.id],
+            date: (r[tr.startDateTime] || '').substring(0,10),
+            consultantId: r[tr.userLookup],
+            projectId: r[tr.projectLookup],
+            hours: hrs,
+            billable: tr.billable ? !!r[tr.billable] : true,
+            note: r[tr.note] || undefined,
+            task: tr.task ? (r[tr.task] || undefined) : undefined,
+          }
+        })
       }
       throw e
     }
@@ -202,7 +207,7 @@ export class DataverseDataSource implements IDataSource {
         date: (r[tr.startDateTime] || "").substring(0, 10),
         consultantId: r[tr.userLookup],
         projectId,
-        hours: (r[tr.durationMin] || 0) / 60,
+  hours: (()=>{ const raw = r[tr.durationMin] || 0; return /mh$/i.test(tr.durationMin) ? raw : raw / 60 })(),
         billable,
   note: r[tr.note] || undefined,
   task: tr.task ? (r[tr.task] || undefined) : undefined,
