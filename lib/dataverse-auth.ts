@@ -28,8 +28,9 @@ export async function getDataverseToken(): Promise<string> {
     if (!res?.accessToken) throw new Error("Failed to acquire Dataverse token")
     appLog('debug','dataverse token acquired',{ expiresOn: res.expiresOn?.toISOString?.(), tenant: process.env.DATAVERSE_TENANT_ID?.slice(0,8) })
     return res.accessToken
-  } catch(e:any) {
-    appLog('error','dataverse token error',{ message: e.message, name: e.name, code: e.code })
+  } catch(e: unknown) {
+    const err = e as { message?: string; name?: string; code?: unknown }
+    appLog('error','dataverse token error',{ message: err.message, name: err.name, code: err.code })
     throw e
   }
 }

@@ -7,7 +7,8 @@ export async function getUserAadAccessToken(req: NextRequest): Promise<string> {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) throw new Error('NEXTAUTH_SECRET not set');
   const token = await getToken({ req, secret });
-  const key = (token as any)?.aad_obo_key as string | undefined;
+  const keyRaw = (token as Record<string, unknown> | null)?.['aad_obo_key'];
+  const key = typeof keyRaw === 'string' ? keyRaw : undefined;
   if (!key) throw new Error('No aad_obo_key on token');
   const assertion = vsGet(key) ?? vsGetWithReload(key);
   if (!assertion) throw new Error('Access token not found (expired)');

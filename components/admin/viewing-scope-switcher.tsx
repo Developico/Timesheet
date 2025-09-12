@@ -26,8 +26,8 @@ export function ViewingScopeSwitcher() {
         if (!res.ok) throw new Error('Graph list failed')
         const json = await res.json()
         if (!cancelled) setMembers(Array.isArray(json.value) ? json.value : [])
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to load users')
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load users')
       } finally { if (!cancelled) setLoading(false) }
     }
     load()
@@ -87,6 +87,7 @@ export function ViewingScopeSwitcher() {
         className="text-sm border rounded px-2 py-1 bg-background"
         value={consultantId || ''}
         onChange={(e) => setConsultant(e.target.value || null)}
+        aria-label="Select consultant viewing scope"
       >
         <option value="">— Myself —</option>
         {members.sort((a,b)=>a.name.localeCompare(b.name)).map((m) => (

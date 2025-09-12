@@ -17,19 +17,24 @@ export async function GET(req: NextRequest) {
       if (NEXTAUTH_SECRET) {
         try {
           const token = await getToken({ req, secret: NEXTAUTH_SECRET })
-          const oid = (token as any)?.oid || (token as any)?.OID || (token as any)?.sub || null
+          const rawOid = (token as Record<string, unknown> | null)?.['oid'] || (token as Record<string, unknown> | null)?.['OID'] || (token as Record<string, unknown> | null)?.['sub'] || null
+          const oid = typeof rawOid === 'string' ? rawOid : null
           if (oid) {
             const mapped = await mapAadOidToConsultantId(oid)
             if (mapped) consultantId = mapped
-            appLog('debug','projects oid map',{ cid, oid, mapped: !!mapped })
+            appLog('debug','projects oid map',{ cid, hasOid: !!oid, mapped: !!mapped })
           }
-        } catch (err:any) { appLog('warn','projects oid map failed',{ cid, err: err.message }) }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'unknown'
+          appLog('warn','projects oid map failed',{ cid, msg })
+        }
       }
       const projects = await ds.getProjects(consultantId)
       appLog('info','projects ok',{ cid, ms: Date.now()-started, count: projects.length })
       return NextResponse.json({ value: projects, cid })
-    } catch (e:any) {
-      appLog('error','projects error',{ cid, ms: Date.now()-started, message: e.message })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      appLog('error','projects error',{ cid, ms: Date.now()-started, message: msg })
       return NextResponse.json({ error: 'Dataverse projects error', cid }, { status: 500 })
     }
   })

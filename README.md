@@ -116,3 +116,28 @@ Użycie w komponencie:
 
 Fallback: gdy 404 – pokaż inicjały lub placeholder.
 
+## Dynamic CSS Strategy
+
+W projekcie usunięto inline style na rzecz:
+
+1. Atrybutów `data-*` jako selektorów semantycznych.
+2. Wstrzykiwania CSS przez jeden skonsolidowany tag `<style id="app-dynamic-styles">` (hook `useAggregatedDynamicCss`).
+3. Własnych właściwości CSS (`--seg-0`, `--seg-1`, itp.) zamiast przestarzałego użycia `attr()`. Pozwala to animować długości, szerokości i offsety (np. rysowanie linii max na wykresie) bez inline style.
+4. Generowania opóźnień animacji i kolorów w jednym miejscu (deterministyczne i łatwe do diffu).
+
+Zalety:
+
+- Mniej szumów w JSX (brak obiektów `style={{...}}`).
+- Łatwiejsza inspekcja: przeglądarka pokazuje jeden blok z pogrupowanymi sekcjami (`/* key */`).
+- Możliwość garbage collection — usunięcie komponentu usuwa fragment CSS (cleanup w hooku).
+
+Dodawanie nowego fragmentu dynamicznego:
+
+```ts
+useAggregatedDynamicCss('unique-key', `#selector[data-state="x"]{opacity:0}`)
+```
+
+Klucz powinien być stabilny; przy unmount zostanie automatycznie usunięty.
+
+W przypadku konieczności debugowania można tymczasowo zalogować `document.getElementById('app-dynamic-styles')?.textContent`.
+

@@ -8,10 +8,10 @@ const DEFAULT_HEADERS: Record<string, string> = {
   "OData-MaxVersion": "4.0",
 }
 
-export interface DataverseRequestOptions {
+export interface DataverseRequestOptions<TBody = unknown> {
   method?: string
   query?: string
-  body?: any
+  body?: TBody
   headers?: Record<string, string>
   retry?: number
 }
@@ -19,7 +19,7 @@ export interface DataverseRequestOptions {
 export class DataverseClient {
   private base = ensureDataverseBaseUrl()
 
-  async request(path: string, opts: DataverseRequestOptions = {}): Promise<any> {
+  async request<TResponse = unknown, TBody = unknown>(path: string, opts: DataverseRequestOptions<TBody> = {}): Promise<TResponse | undefined> {
     if (!this.base) {
       throw new Error("Dataverse disabled: base URL not configured (DATAVERSE_URL)")
     }
@@ -55,18 +55,18 @@ export class DataverseClient {
     }
     appLog('debug','dataverse response',{ ms: Date.now()-started, status: res.status })
 
-    if (res.status === 204) return undefined
+  if (res.status === 204) return undefined
     const ct = res.headers.get("Content-Type") || ""
-    if (ct.includes("application/json")) return res.json()
-    return res.text()
+  if (ct.includes("application/json")) return res.json() as Promise<TResponse>
+  return res.text() as unknown as TResponse
   }
 
-  list(entitySet: string, query?: string) {
-    return this.request(`/${entitySet}`, { query })
+  list<T = unknown>(entitySet: string, query?: string) {
+    return this.request<T>(`/${entitySet}`, { query })
   }
 
-  getById(entitySet: string, id: string, query?: string) {
-    return this.request(`/${entitySet}(${id})`, { query })
+  getById<T = unknown>(entitySet: string, id: string, query?: string) {
+    return this.request<T>(`/${entitySet}(${id})`, { query })
   }
 }
 

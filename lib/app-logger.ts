@@ -6,7 +6,7 @@ type Level = 'debug'|'info'|'warn'|'error'
 const LOG_MODE = (process.env.LOG_MODE || 'console').toLowerCase()
 const logFilePath = path.join(process.cwd(), 'app-debug.log')
 
-function redact(v: any): any {
+function redact(v: unknown): unknown {
   if (!v) return v
   if (typeof v === 'string') {
     if (v.length > 60 && /^(eyJ|[A-Za-z0-9-_]+=*\.)/.test(v)) return v.slice(0,12) + '...redacted'
@@ -14,19 +14,21 @@ function redact(v: any): any {
   }
   if (Array.isArray(v)) return v.map(redact)
   if (typeof v === 'object') {
-    const out: any = {}
-    for (const k of Object.keys(v)) {
+    const out: Record<string, unknown> = {}
+    for (const k of Object.keys(v as Record<string, unknown>)) {
       if (/token|secret|password|authorization/i.test(k)) {
-        const val = (v as any)[k]
+        const val = (v as Record<string, unknown>)[k]
         out[k] = typeof val === 'string' ? (val.slice(0,8)+'...redacted') : '[redacted]'
-      } else out[k] = redact((v as any)[k])
+      } else out[k] = redact((v as Record<string, unknown>)[k])
     }
     return out
   }
   return v
 }
 
-export function appLog(level: Level, msg: string, data?: any){
+export interface LogDataBase { [k: string]: unknown }
+
+export function appLog<T extends LogDataBase>(level: Level, msg: string, data?: T){
   try {
     const rec = { ts: new Date().toISOString(), lvl: level, msg, ...(data? { data: redact(data) }: {}) }
     const line = JSON.stringify(rec)

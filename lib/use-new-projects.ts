@@ -15,6 +15,8 @@ const STORAGE_PREFIX = "ts:viewedProjects:"; // ts:viewedProjects:<userId> -> JS
 
 interface ViewedMap { [projectId: string]: number }
 
+type ProjectWithStartDate = { id: string; startDate?: string | null }
+
 export function useNewProjects() {
   const { user } = useAuth();
   const { projects } = useProjects();
@@ -41,13 +43,13 @@ export function useNewProjects() {
       persist(next);
       return next;
     });
-  },[user]);
+  },[user, persist]);
 
   const newProjects = useMemo(()=>{
     const now = Date.now();
     const msPerDay = 1000*60*60*24;
     return projects.filter(p=>{
-      const raw = (p as any).startDate
+      const raw = (p as ProjectWithStartDate).startDate
       if(!raw) return false
       const start = new Date(raw).getTime()
       if (isNaN(start)) return false

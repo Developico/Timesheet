@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useProjects } from "@/hooks/use-projects"
-import { useConsultants } from "@/hooks/use-consultants"
+import { useProjects, type BasicProject } from "@/hooks/use-projects"
+import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
@@ -12,6 +13,8 @@ import { useDaysOff } from "../../hooks/use-days-off"
 import { useFilters } from "@/lib/filter-context"
 
 interface CalendarEntry { id:string; date:string; projectId:string; hours:number; billable:boolean; description?:string }
+interface AggregatedDayEntry extends CalendarEntry { aggregated: true; count: number; project?: BasicProject }
+type DayDisplayEntry = CalendarEntry & { project?: BasicProject } | AggregatedDayEntry
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -30,7 +33,8 @@ export function CalendarView() {
   const primaryConsultantId = useMemo(()=>{
     if(!consultants?.length) return null as string | null
     if(user?.email){
-      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      const lower = user.email.toLowerCase()
+      const found = consultants.find(c=> c.email?.toLowerCase() === lower)
       if(found) return found.id
     }
     return consultants[0]?.id ?? null
@@ -46,7 +50,7 @@ export function CalendarView() {
     id:e.id, date:e.date, projectId:e.projectId, hours:e.hours, billable:e.billable, description:e.description
   })), [entriesForCalendarSrc])
 
-  const entriesByDate = useMemo(()=>{ const m:Record<string,CalendarEntry[]>= {} as any; for(const e of calendarEntries){ (m[e.date] ||= []).push(e) } return m }, [calendarEntries])
+  const entriesByDate = useMemo(()=>{ const m:Record<string,CalendarEntry[]> = {}; for(const e of calendarEntries){ (m[e.date] ||= []).push(e) } return m }, [calendarEntries])
 
   // Extend with absence pseudo project if not present
   const enhancedProjects = useMemo(()=>[
@@ -87,7 +91,21 @@ export function CalendarView() {
 
   // Project selection scope
   const findProject = (id: string | null) => (id ? enhancedProjects.find(p=>p.id===id) : undefined)
-  const selectedProject = findProject(selectedProjectId || '') as any
+  const selectedProjectRaw = findProject(selectedProjectId || '')
+  // Adapt BasicProject -> shape expected by ProjectDetailPanel (ensure required props present)
+  const selectedProject = useMemo(()=>{
+    if(!selectedProjectRaw) return undefined
+    return {
+      id: selectedProjectRaw.id,
+      code: selectedProjectRaw.code || selectedProjectRaw.id,
+      name: selectedProjectRaw.name,
+      color: selectedProjectRaw.color || '#174076',
+      billable: Boolean(selectedProjectRaw.billable),
+      client: selectedProjectRaw.client || '',
+      note: selectedProjectRaw.note,
+      assigned: Boolean(selectedProjectRaw.assigned),
+    }
+  }, [selectedProjectRaw])
   const currentScopeEntries = useMemo(()=>{
     // All entries in current visible scope
     const inScope = viewMode==='week'
@@ -148,15 +166,42 @@ export function CalendarView() {
     absenceHours: currentScopeEntriesAll.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0),
   }
 
+  // Precompute dynamic CSS for week and month fills (avoid calling hooks inside render helpers)
+  const weekCss = useMemo(()=>{
+    const weekDays = getWeekDays(currentDate)
+    return weekDays.map((day,i)=>{
+      const entries = getEntriesForDate(day)
+      const total = entries.reduce((s,e)=>s+e.hours,0)
+      const pct = Math.min((total/8)*100,125)
+      return `#calendar-week [data-week-fill="${i}"]{width:${pct.toFixed(2)}%;}`
+    }).join('\n')
+  }, [currentDate, entriesByDate])
+  useAggregatedDynamicCss('calendar-week', weekCss)
+
+  const monthCss = useMemo(()=>{
+    const days = getDaysInMonth(currentDate)
+    const out: string[] = []
+    days.forEach(d=>{
+      if(d===null) return
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d)
+      const entries = getEntriesForDate(date)
+      const total = entries.reduce((s,e)=>s+e.hours,0)
+      const pct = Math.min((total/8)*100,125)
+      out.push(`#calendar-month [data-month-fill="${d}"]{width:${pct.toFixed(2)}%;}`)
+    })
+    return out.join('\n')
+  }, [currentDate, entriesByDate])
+  useAggregatedDynamicCss('calendar-month', monthCss)
+
   const renderWeekView = () => {
     const weekDays = getWeekDays(currentDate)
     return (
-      <div className="grid grid-cols-7 gap-2">
+      <div id="calendar-week" className="grid grid-cols-7 gap-2">
         {weekDays.map(day=>{
           const entries = getEntriesForDate(day).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
-          let displayEntries:any[] = entries
+          let displayEntries:DayDisplayEntry[] = entries
           if(aggregateDayEntries && entries.length>0){
-            const grouped: { [projectId:string]: any } = {}
+            const grouped: Record<string, AggregatedDayEntry> = {}
             for(const e of entries){
               if(!grouped[e.projectId]) grouped[e.projectId] = { ...e, aggregated:true, count:1 }
               else { grouped[e.projectId].hours += e.hours; grouped[e.projectId].count += 1 }
@@ -184,19 +229,7 @@ export function CalendarView() {
             const b = parseInt(h.substring(4,6),16)
             return `rgba(${r},${g},${b},${alpha})`
           }
-          let fillColor = '#e5e7eb'
-          if(total>0){
-            if(total < kpiThreshold){
-              const alpha = 0.25 + Math.min(fillRatio, 0.99) * 0.45
-              fillColor = hexToRgba(baseHue, parseFloat(alpha.toFixed(3)))
-            } else if(total >= kpiThreshold && total <= targetHours * 1.10){
-              fillColor = '#059669'
-            } else if(total > targetHours * 1.10 && total <= targetHours * 1.25){
-              fillColor = '#f59e0b'
-            } else if(total > targetHours * 1.25){
-              fillColor = '#dc2626'
-            }
-          }
+          // removed unused fillColor logic (visual not applied)
           const weekdayShort = dayNames[(day.getDay()+6)%7]
           return (
             <div key={day.toISOString()} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'dark:!bg-[oklch(0.22_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
@@ -220,22 +253,21 @@ export function CalendarView() {
               {entries.length>0 && active ? (
                 <div className="flex-1 relative overflow-y-auto hide-scrollbar pr-1 space-y-1">
                   {displayEntries.map(e=>{
-                    const project:any = e.project
+                    const project = e.project as BasicProject | undefined
                     const tooltipParts = [project?.name||'Project']
                     if(project?.client) tooltipParts.push(`Client: ${project.client}`)
-                    if(typeof project?.progress==='number') tooltipParts.push(`Progress: ${project.progress}%`)
-                    if((e as any).aggregated){ tooltipParts.push(`Aggregated from ${(e as any).count} entries`) }
-                    const dotColor = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
-                      ? '#ef4444'
+                    if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
+                    const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
+                      ? 'absence'
                       : project?.billable
-                        ? '#16a34a'
-                        : '#174076'
+                        ? 'billable'
+                        : 'nonbillable'
                     return (
-                      <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor: dotColor}} />
+                          <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
-                            {project?.code||e.projectId}{(e as any).aggregated && (e as any).count>1 ? ` (${(e as any).count})` : ''}
+                            {project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? ` (${(e as AggregatedDayEntry).count})` : ''}
                           </button>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{e.hours.toFixed(1)}h</span></div>
@@ -249,7 +281,9 @@ export function CalendarView() {
               {/* Footer summary with KPI progress bar */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all" style={{width:`${Math.min(fillRatio,1)*100}%`, backgroundColor: fillColor}} />
+                  <div className="h-full transition-all bg-gray-200/40 dark:bg-white/10 relative overflow-hidden rounded-full">
+                    <div data-week-fill={weekDays.indexOf(day)} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
+                  </div>
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
                   {total>targetHours*1.10 && total <= targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-amber-500/40" />}
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
@@ -268,9 +302,9 @@ export function CalendarView() {
   }
 
   const renderMonthView = () => {
-  const days = getDaysInMonth(currentDate)
+    const days = getDaysInMonth(currentDate)
     return (
-      <div className="grid grid-cols-7 gap-2">
+      <div id="calendar-month" className="grid grid-cols-7 gap-2">
         {days.map((d,i)=>{
           if(d===null) return <div key={`pad-${i}`} className="p-2 h-28" />
           const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d)
@@ -285,16 +319,12 @@ export function CalendarView() {
           const holiday = isDayOff(dateIso(date))
           const active = isActiveDay(date)
           // Aggregation logic (group by projectId) if toggle enabled
-          let displayEntries = entries
+          let displayEntries:DayDisplayEntry[] = entries
           if(aggregateDayEntries && entries.length>0){
-            const grouped: { [projectId:string]: typeof entries[number] & { aggregated: true; count: number } } = {}
+            const grouped: Record<string, AggregatedDayEntry> = {}
             for(const e of entries){
-              if(!grouped[e.projectId]){
-                grouped[e.projectId] = { ...e, aggregated:true, count:1 }
-              } else {
-                grouped[e.projectId].hours += e.hours
-                grouped[e.projectId].count += 1
-              }
+              if(!grouped[e.projectId]) grouped[e.projectId] = { ...e, aggregated:true, count:1 }
+              else { grouped[e.projectId].hours += e.hours; grouped[e.projectId].count += 1 }
             }
             displayEntries = Object.values(grouped).sort((a,b)=> b.hours - a.hours)
           }
@@ -313,23 +343,7 @@ export function CalendarView() {
             const b = parseInt(h.substring(4,6),16)
             return `rgba(${r},${g},${b},${alpha})`
           }
-          let fillColor = '#e5e7eb' // empty day baseline
-          if(total>0){
-            if(total < kpiThreshold){
-              // Scale alpha 0.25 -> 0.7 as hours accumulate
-              const alpha = 0.25 + Math.min(fillRatio, 0.99) * 0.45
-              fillColor = hexToRgba(baseHue, parseFloat(alpha.toFixed(3)))
-            } else if(total >= kpiThreshold && total <= targetHours * 1.10){
-              // KPI met: solid green
-              fillColor = '#059669' // emerald-600
-            } else if(total > targetHours * 1.10 && total <= targetHours * 1.25){
-              // Moderate overtime
-              fillColor = '#f59e0b' // amber-500
-            } else if(total > targetHours * 1.25){
-              // Significant overtime
-              fillColor = '#dc2626' // red-600
-            }
-          }
+          // removed unused fillColor logic (visual not applied)
           return (
             <div key={d} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'dark:!bg-[oklch(0.22_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
               {/* Header */}
@@ -352,22 +366,21 @@ export function CalendarView() {
               {entries.length>0 && active ? (
                 <div className="flex-1 relative overflow-y-auto hide-scrollbar pr-1 space-y-1">
                   {displayEntries.map(e=>{
-                    const project:any = e.project
+                    const project = e.project as BasicProject | undefined
                     const tooltipParts = [project?.name||'Project']
                     if(project?.client) tooltipParts.push(`Client: ${project.client}`)
-                    if(typeof project?.progress==='number') tooltipParts.push(`Progress: ${project.progress}%`)
-                    if((e as any).aggregated){ tooltipParts.push(`Aggregated from ${(e as any).count} entries`) }
-                    const dotColor = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
-                      ? '#ef4444'
+                    if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
+                    const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
+                      ? 'absence'
                       : project?.billable
-                        ? '#16a34a'
-                        : '#174076'
+                        ? 'billable'
+                        : 'nonbillable'
                     return (
-                      <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor: dotColor}} />
+                          <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
-                            {project?.code||e.projectId}{(e as any).aggregated && (e as any).count>1 ? ` (${(e as any).count})` : ''}
+                            {project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? ` (${(e as AggregatedDayEntry).count})` : ''}
                           </button>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{e.hours.toFixed(1)}h</span></div>
@@ -382,7 +395,9 @@ export function CalendarView() {
               {/* Footer summary */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all" style={{width:`${Math.min(fillRatio,1)*100}%`, backgroundColor: fillColor}} />
+                  <div className="h-full transition-all bg-gray-200/40 dark:bg-white/10 relative overflow-hidden rounded-full">
+                    <div data-month-fill={d} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
+                  </div>
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
                   {total>targetHours*1.10 && total <= targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-amber-500/40" />}
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
@@ -419,7 +434,7 @@ export function CalendarView() {
               <div className="text-xs text-muted-foreground">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none" style={{color:'#174076'}}>{periodSummary.nonBillableHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{periodSummary.nonBillableHours.toFixed(1)}</div>
               <div className="text-xs text-muted-foreground">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -477,7 +492,7 @@ export function CalendarView() {
           )}
         </CardContent>
       </Card>
-      {selectedProject && (
+  {selectedProject && (
         <ProjectDetailPanel
           project={selectedProject}
           entries={currentScopeEntries}

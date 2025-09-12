@@ -12,8 +12,9 @@ export async function GET() {
       const consultants = await ds.getConsultants()
       appLog('info','consultants ok',{ cid, ms: Date.now()-started, count: consultants.length })
       return NextResponse.json({ value: consultants, cid })
-    } catch(e:any) {
-      appLog('error','consultants error',{ cid, ms: Date.now()-started, message: e.message })
+    } catch(e) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      appLog('error','consultants error',{ cid, ms: Date.now()-started, message: msg })
       return NextResponse.json({ error: 'Consultants error', cid }, { status: 500 })
     }
   })

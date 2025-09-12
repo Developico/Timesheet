@@ -25,8 +25,8 @@ export class DataverseDataSource implements IDataSource {
   const consultantSelectFields = [DV.consultant.id, DV.consultant.fullName, DV.consultant.email, DV.consultant.azureAdObjectId]
   if (DV.consultant.avatar) consultantSelectFields.push(DV.consultant.avatar)
   const select = consultantSelectFields.join(",")
-  const data = await dataverseClient.list(DV.consultant.entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`)
-    const records: any[] = data.value || []
+  const data = await dataverseClient.list(DV.consultant.entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`) as { value?: any[] }
+    const records: any[] = Array.isArray(data.value) ? data.value : []
     return records.map((r) => ({
       id: r[DV.consultant.id],
       name: r[DV.consultant.fullName],
@@ -48,15 +48,15 @@ export class DataverseDataSource implements IDataSource {
     const filter = `${s.stateCode} eq 0`
     let records: any[] = []
     try {
-      const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`)
-      records = data.value || []
+  const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
+  records = Array.isArray(data.value) ? data.value : []
     } catch(e:any) {
       const msg = e.message||''
       if (s.allUsers && msg.includes(s.allUsers)) {
         // Retry without allUsers field
         const fallbackSelect = projectSelectFields.filter(f=>f!==s.allUsers).join(',')
-        const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`)
-        records = data2.value || []
+  const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
+  records = Array.isArray(data2.value) ? data2.value : []
       } else throw e
     }
     let assignmentSet: Set<string> | null = null
@@ -120,8 +120,8 @@ export class DataverseDataSource implements IDataSource {
   let data: any
   let records: any[] = []
     try {
-      data = await dataverseClient.list(tr.entitySet, `$select=${selects}&$filter=${filter}`)
-      records = data.value || []
+  data = await dataverseClient.list(tr.entitySet, `$select=${selects}&$filter=${filter}`) as { value?: any[] }
+  records = Array.isArray(data.value) ? data.value : []
     } catch (e:any) {
       const msg = e.message || ''
       // Retry without duration field if that's the cause
@@ -138,8 +138,8 @@ export class DataverseDataSource implements IDataSource {
         for (const cand of candidateList) {
           try {
             const sel = [...baseFields, cand].join(',')
-            const d2 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`)
-            candidateRecords = d2.value || []
+            const d2 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`) as { value?: any[] }
+            candidateRecords = Array.isArray(d2.value) ? d2.value : []
             chosen = cand
             appLog('info','timeentries duration fallback selected',{ column: cand })
             break
@@ -155,8 +155,8 @@ export class DataverseDataSource implements IDataSource {
         // If none succeeded, do one query without any candidate to at least return skeleton rows
         if (!candidateRecords) {
           const sel = baseFields.join(',')
-          const d3 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`)
-          candidateRecords = d3.value || []
+          const d3 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`) as { value?: any[] }
+          candidateRecords = Array.isArray(d3.value) ? d3.value : []
           appLog('warn','timeentries no duration candidates matched returning zero hours')
         }
   return (candidateRecords || []).map(r=>{
@@ -189,8 +189,8 @@ export class DataverseDataSource implements IDataSource {
         for (const chunk of chunks) {
           const orExpr = chunk.map(id=>`${p.id} eq ${id}`).join(' or ')
           try {
-            const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('('+orExpr+')')}`)
-            for (const pr of projData.value || []) {
+            const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('('+orExpr+')')}`) as { value?: any[] }
+            for (const pr of (Array.isArray(projData.value) ? projData.value : [])) {
               projectBillableMap[pr[p.id]] = !!pr[p.billable]
             }
           } catch(e:any) {
@@ -222,8 +222,8 @@ export class DataverseDataSource implements IDataSource {
     const filter = encodeURIComponent(`${pu.userLookup} eq ${consultantId}`)
     const select = pu.projectLookup
   appLog('debug','assignments query',{ entity: pu.entitySet, filter: decodeURIComponent(filter) })
-  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`)
-    const records: any[] = data.value || []
+  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
+    const records: any[] = Array.isArray(data.value) ? data.value : []
     const ids = new Set<string>()
     for (const r of records) {
       const pid = r[pu.projectLookup]
@@ -240,8 +240,8 @@ export class DataverseDataSource implements IDataSource {
     const filter = encodeURIComponent(`${pu.projectLookup} eq ${projectId}`)
     const select = pu.userLookup
     appLog('debug','project team query',{ entity: pu.entitySet, filter: decodeURIComponent(filter) })
-    const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`)
-    const records: any[] = data.value || []
+  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
+  const records: any[] = Array.isArray(data.value) ? data.value : []
     const ids = new Set<string>()
     for (const r of records) {
       const uid = r[pu.userLookup]
@@ -257,8 +257,8 @@ export class DataverseDataSource implements IDataSource {
     const dateField = d.date
     const filter = encodeURIComponent(`${dateField} ge ${from} and ${dateField} le ${to}`)
     const select = [d.id, d.date, d.name].join(",")
-    const data = await dataverseClient.list(d.entitySet, `$select=${select}&$filter=${filter}`)
-    const records: any[] = data.value || []
+  const data = await dataverseClient.list(d.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
+  const records: any[] = Array.isArray(data.value) ? data.value : []
     return records.map(r=>({ date: r[d.date]?.substring(0,10), name: r[d.name] }))
   }
 }

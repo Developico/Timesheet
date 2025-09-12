@@ -2,15 +2,17 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useFilters } from "@/lib/filter-context"
-import { useConsultants } from "@/hooks/use-consultants"
+import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
 import { useDaysOff } from "@/hooks/use-days-off"
 import { format, addDays } from "date-fns"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
+import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
+import { computeBarGeometry } from "@/lib/chart-geometry"
 
 function useAnimatedCounter(end: number, duration = 1000) {
   const [count, setCount] = useState(0)
@@ -42,7 +44,8 @@ export function ActiveProjectsCard() {
   const primaryConsultantId = useMemo(()=>{
     if(!consultants?.length) return null as string | null
     if(user?.email){
-      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      const lower = user.email.toLowerCase()
+      const found = consultants.find(c=> c.email?.toLowerCase() === lower)
       if(found) return found.id
     }
     return consultants[0]?.id ?? null
@@ -70,24 +73,36 @@ export function ActiveProjectsCard() {
   const others = useMemo(()=> sortedAll.slice(topN), [sortedAll, topN])
 
   // Utility: resolve project meta
-  const getProject = (id: string) => filteredProjects.find(p=> p.id === id)
-  const getBarColor = (id: string) => {
+  const getProject = useCallback((id: string) => filteredProjects.find(p=> p.id === id), [filteredProjects])
+  const getBarColor = useCallback((id: string) => {
     const p = getProject(id)
     const codeLc = (p?.code || '').toLowerCase()
     const nameLc = (p?.name || '').toLowerCase()
-    // Treat explicit id and any "Absence"-like project as absence
     const isAbs = id === 'Office.Absences' || codeLc === 'office.absences' || codeLc === 'abs' || codeLc.includes('absence') ||
       nameLc.includes('absence') || nameLc.includes('urlop') || nameLc.includes('vacation') || nameLc.includes('holiday') || nameLc.includes('leave')
     if(isAbs) return '#e03768'
     return p?.billable ? '#6eedd9' : '#174076'
-  }
+  }, [getProject])
 
   const [isVisible, setIsVisible] = useState(false)
   useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),100); return ()=>clearTimeout(t); },[])
 
   // Local panel state
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const selectedProject = useMemo(() => filteredProjects.find(p => p.id === selectedProjectId), [filteredProjects, selectedProjectId])
+  const selectedProjectRaw = useMemo(() => filteredProjects.find(p => p.id === selectedProjectId), [filteredProjects, selectedProjectId])
+  const selectedProject = useMemo(()=>{
+    if(!selectedProjectRaw) return undefined
+    return {
+      id: selectedProjectRaw.id,
+      code: selectedProjectRaw.code,
+      name: selectedProjectRaw.name,
+      color: selectedProjectRaw.color || '#174076',
+      billable: selectedProjectRaw.billable ?? true,
+      client: selectedProjectRaw.client || '',
+      note: selectedProjectRaw.note,
+      assigned: selectedProjectRaw.assigned ?? false,
+    }
+  }, [selectedProjectRaw])
   const scopeLabel = useMemo(() => {
     const dr = filters?.dateRange || 'this-week'
     const labelMap: Record<string, string> = {
@@ -105,19 +120,34 @@ export function ActiveProjectsCard() {
     return labelMap[dr] || 'current range'
   }, [filters?.dateRange])
 
+  // (Geometry helper imported from lib/chart-geometry)
+
+  // Unified dynamic CSS for ActiveProjectsCard + HoursSummaryChart (reduces <style> tags)
+  const dynamicCss = useMemo(() => {
+    const lines: string[] = []
+    // Active projects bar animations & colors
+    sortedProjects.forEach(([projectId, hours], index) => {
+      const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000) / 10 : 0
+      const color = getBarColor(projectId)
+      lines.push(`#active-projects-list [data-bar="${projectId}"] .bar-fill{background:${color};width:${percent}%;transition-delay:${index * 120 + 300}ms}`)
+      lines.push(`#active-projects-list [data-bar="${projectId}"]{transition-delay:${index * 120 + 150}ms}`)
+    })
+    if (others.length) {
+      const hours = others.reduce((s, [, h]) => s + h, 0)
+      const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000) / 10 : 0
+      const index = sortedProjects.length
+      lines.push(`#active-projects-list [data-bar="__other__"] .bar-fill{background:#9CA3AF;width:${percent}%;transition-delay:${index * 120 + 300}ms}`)
+      lines.push(`#active-projects-list [data-bar="__other__"]{transition-delay:${index * 120 + 150}ms}`)
+    }
+    return lines.join('\n')
+  }, [sortedProjects, others, totalHours, getBarColor])
+  useAggregatedDynamicCss('charts-active-projects', dynamicCss)
+
   return (
     <>
-    <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900"
-      style={{
-        opacity: isVisible?1:0,
-        transform: isVisible? 'translateY(0)': 'translateY(18px)'
-      }}
-    >
+    <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}>
       <CardHeader className="pb-3">
-        <div className="transition-all duration-700" style={{
-          opacity: isVisible?1:0,
-          transform: isVisible? 'translateX(0)':'translateX(-12px)'
-        }}>
+  <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
           <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Your Top 5 Active Projects</CardTitle>
           {/* Progress subtitle removed as project progress isn't shown */}
         </div>
@@ -129,17 +159,15 @@ export function ActiveProjectsCard() {
           const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000)/10 : 0
           const color = getBarColor(projectId)
           return (
-            <div key={projectId} className="space-y-3 transition-all duration-700 cursor-pointer"
+            <div
+              key={projectId}
+              data-bar={projectId}
+              className={`space-y-3 transition-all duration-700 cursor-pointer ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[14px]'}`}
               onClick={() => setSelectedProjectId(projectId)}
-              style={{
-                opacity: isVisible?1:0,
-                transform: isVisible? 'translateY(0)': 'translateY(14px)',
-                transitionDelay: `${index*120 + 150}ms`
-              }}
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                  <div className="w-3 h-3 rounded-full" data-color role="presentation" />
                   <div>
                     <div className="font-medium text-sm text-gray-900 dark:text-white">{projectName}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{project?.code || projectId}</div>
@@ -151,14 +179,9 @@ export function ActiveProjectsCard() {
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-2 rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: isVisible ? `${percent}%` : '0%',
-                    backgroundColor: color,
-                    transitionDelay: `${index * 120 + 300}ms`
-                  }}
-                />
+                <div className="h-2 rounded-full transition-all duration-700 ease-out bg-gray-200/40 overflow-hidden">
+                  <div className={`bar-fill h-full rounded-full ${isVisible? 'w-full':'w-0'} transition-all duration-700 ease-out`} />
+                </div>
               </div>
             </div>
           )
@@ -168,16 +191,14 @@ export function ActiveProjectsCard() {
           const percent = totalHours > 0 ? Math.round((hours / totalHours) * 1000)/10 : 0
           const index = sortedProjects.length
           return (
-            <div key="__other__" className="space-y-3 transition-all duration-700"
-              style={{
-                opacity: isVisible?1:0,
-                transform: isVisible? 'translateY(0)': 'translateY(14px)',
-                transitionDelay: `${index*120 + 150}ms`
-              }}
+            <div
+              key="__other__"
+              data-bar="__other__"
+              className={`space-y-3 transition-all duration-700 ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[14px]'}`}
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#9CA3AF' }} />
+                  <div className="w-3 h-3 rounded-full dot-other" role="presentation" />
                   <div>
                     <div className="font-medium text-sm text-gray-900 dark:text-white">Other Projects</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">OTHER</div>
@@ -189,14 +210,9 @@ export function ActiveProjectsCard() {
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-2 rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: isVisible ? `${percent}%` : '0%',
-                    backgroundColor: '#9CA3AF',
-                    transitionDelay: `${index * 120 + 300}ms`
-                  }}
-                />
+                <div className="h-2 rounded-full transition-all duration-700 ease-out bg-gray-200/40 overflow-hidden">
+                  <div className={`bar-fill h-full rounded-full dot-other ${isVisible? 'w-full':'w-0'} transition-all duration-700 ease-out`} />
+                </div>
               </div>
             </div>
           )
@@ -205,8 +221,7 @@ export function ActiveProjectsCard() {
       {/* Panel rendered via portal to avoid being constrained by card transforms/overflow */}
     </Card>
     {selectedProject && typeof window !== 'undefined' && createPortal(
-        // @ts-ignore circular import types ok here
-        <ProjectDetailPanel project={selectedProject as any} scopeLabel={`current ${scopeLabel}`} onClose={() => setSelectedProjectId(null)} />,
+        <ProjectDetailPanel project={selectedProject} scopeLabel={`current ${scopeLabel}`} onClose={() => setSelectedProjectId(null)} />,
         document.body
       )}
     </>
@@ -216,6 +231,7 @@ export function ActiveProjectsCard() {
 export function HoursSummaryChart() {
   const { filteredTimeEntries, effectiveRange, filteredProjects, filters } = useFilters()
   const [viewMode, setViewMode] = useState<"weekly" | "daily" | "monthly">("weekly")
+  // width + data dependencies used inside dynamicCss
   const [isVisible, setIsVisible] = useState(false)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const svgWrapRef = useRef<HTMLDivElement | null>(null)
@@ -250,7 +266,7 @@ export function HoursSummaryChart() {
 
   const { isDayOff } = useDaysOff({ from: dateIso(effectiveRange.start), to: dateIso(effectiveRange.end) })
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
-  const todayIso = dateIso(today)
+  // todayIso not used; removed for lint cleanliness
 
   // Scope to consultant (ViewingScope overrides; else current user; else all)
   const { consultants } = useConsultants()
@@ -259,7 +275,8 @@ export function HoursSummaryChart() {
   const primaryConsultantId = useMemo(()=>{
     if(!consultants?.length) return null as string | null
     if(user?.email){
-      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      const lower = user.email.toLowerCase()
+      const found = consultants.find(c=> c.email?.toLowerCase() === lower)
       if(found) return found.id
     }
     return consultants[0]?.id ?? null
@@ -269,6 +286,40 @@ export function HoursSummaryChart() {
     if(primaryConsultantId){ return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId) }
     return filteredTimeEntries
   }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
+
+  // (Uses shared computeBarGeometry)
+
+  // Dynamic CSS for HoursSummaryChart (segments + max lines + metric bar colors)
+  const hoursChartCss = useMemo(()=>{
+    const lines: string[] = []
+    lines.push(`#hours-summary-metrics [data-metric="billable"] .metric-bar-fill{background:#6eedd9}`)
+    lines.push(`#hours-summary-metrics [data-metric="nonbillable"] .metric-bar-fill{background:#174076}`)
+    lines.push(`#hours-summary-metrics [data-metric="absence"] .metric-bar-fill{background:#e03768}`)
+    lines.push(`#hours-summary-metrics [data-metric="max"] .metric-bar-fill{background:#9169f4}`)
+    for(let i=0;i<120;i++){
+      lines.push(`#hours-summary-chart [data-seg="${i}"]{transform-origin:bottom center;transition:transform 600ms ease,opacity 600ms ease;transition-delay:${100 + i * 60}ms}`)
+      lines.push(`#hours-summary-chart[data-visible="false"] [data-seg="${i}"]{transform:scaleY(.1);opacity:0}`)
+      lines.push(`#hours-summary-chart[data-visible="true"] [data-seg="${i}"]{transform:scaleY(1);opacity:1}`)
+      const delay = 200 + i * 30
+      lines.push(`#hours-summary-chart [data-max-line="${i}"]{transition:stroke-dashoffset 600ms ease ${delay}ms}`)
+      lines.push(`#hours-summary-chart[data-visible="false"] [data-max-line="${i}"]{stroke-dashoffset:var(--seg-${i},0)}`)
+      lines.push(`#hours-summary-chart[data-visible="true"] [data-max-line="${i}"]{stroke-dashoffset:0}`)
+      lines.push(`#hours-summary-chart [data-max-group="${i}"]{transition:opacity 400ms ease ${180 + i * 30}ms}`)
+      lines.push(`#hours-summary-chart[data-visible="false"] [data-max-group="${i}"]{opacity:0}`)
+      lines.push(`#hours-summary-chart[data-visible="true"] [data-max-group="${i}"]{opacity:1}`)
+    }
+    lines.push(`#hours-summary-chart [data-seg][data-ghost="true"]{opacity:.28}`)
+    const n = entriesForChart.length
+    if(n){
+      const { barWidth } = computeBarGeometry(n, wrapWidth)
+      const seg = Math.max(2, barWidth)
+      for(let i=0;i<n;i++){ lines.push(`#hours-summary-chart [data-max-line="${i}"]{--seg-${i}:${seg};}`) }
+    }
+    return lines.join('\n')
+  }, [entriesForChart, wrapWidth, computeBarGeometry])
+  useAggregatedDynamicCss('charts-hours-summary', hoursChartCss)
+
+    // (Merged variable CSS into main dynamicCss below)
 
   // Absence detection based on project metadata
   const isAbsenceProject = (pid: string) => {
@@ -319,7 +370,7 @@ export function HoursSummaryChart() {
   const weeks = new Map<string, { label: string; billable: number; nonBillable: number; absence: number; max: number }>()
     // Group days by week label (Mon..Sun bucket label by week start date)
     // Label format: week starting dd.MM
-    let start = new Date(effectiveRange.start)
+  const start = new Date(effectiveRange.start)
     // normalize to Monday
     const day = start.getDay() || 7
     if (day !== 1) start.setDate(start.getDate() - (day - 1))
@@ -438,7 +489,7 @@ export function HoursSummaryChart() {
       // since labels are LLL (locale short month), fallback to start->end iteration order by building keys again
       // Simpler: re-walk the range months and map labels to order
       const order: string[] = []
-      let mCursor = new Date(effectiveRange.start.getFullYear(), effectiveRange.start.getMonth(), 1)
+  const mCursor = new Date(effectiveRange.start.getFullYear(), effectiveRange.start.getMonth(), 1)
       const endMonth = new Date(effectiveRange.end.getFullYear(), effectiveRange.end.getMonth(), 1)
       while (mCursor <= endMonth) {
         order.push(format(mCursor, 'LLL'))
@@ -457,7 +508,8 @@ export function HoursSummaryChart() {
     if (!allowedModes.includes(viewMode)) {
       setViewMode(allowedModes[0])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Intentionally only re-run when allowedModes changes via dateRange; viewMode reset side-effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters?.dateRange])
 
   const currentData: UnifiedPoint[] = viewMode === 'weekly' ? weeklyPoints : viewMode === 'daily' ? dailyPoints : monthlyPoints
@@ -547,67 +599,36 @@ export function HoursSummaryChart() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div
+          id="hours-summary-metrics"
           className={`grid grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg transition-all duration-700 delay-300 ${isVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}
         >
-          <div className="text-center group hover:scale-110 transition-transform duration-300">
-            <div className="text-lg font-bold animate-pulse" style={{ color: "#14b8a6" }}>
+          <div data-metric="billable" className="text-center group hover:scale-110 transition-transform duration-300">
+            <div className="text-lg font-bold animate-pulse text-billable">
               {animatedBillable.toFixed(1)}h
             </div>
             <div className="text-xs text-gray-500">Billable</div>
-            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000 delay-500"
-                style={{
-                  width: isVisible ? "100%" : "0%",
-                  backgroundColor: "#6eedd9",
-                }}
-              />
-            </div>
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-500 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
-          <div className="text-center group hover:scale-110 transition-transform duration-300">
-            <div className="text-lg font-bold" style={{ color: "#174076" }}>
+          <div data-metric="nonbillable" className="text-center group hover:scale-110 transition-transform duration-300">
+            <div className="text-lg font-bold text-nonbillable">
               {animatedNonBillable.toFixed(1)}h
             </div>
             <div className="text-xs text-gray-500">Non-billable</div>
-            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000 delay-700"
-                style={{
-                  width: isVisible ? "100%" : "0%",
-                  backgroundColor: "#174076",
-                }}
-              />
-            </div>
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-700 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
-          <div className="text-center group hover:scale-110 transition-transform duration-300">
-            <div className="text-lg font-bold" style={{ color: "#dc2626" }}>
+          <div data-metric="absence" className="text-center group hover:scale-110 transition-transform duration-300">
+            <div className="text-lg font-bold text-absence">
               {animatedAbsence.toFixed(1)}h
             </div>
             <div className="text-xs text-gray-500">Absence</div>
-            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000 delay-900"
-                style={{
-                  width: isVisible ? "100%" : "0%",
-                  backgroundColor: "#e03768",
-                }}
-              />
-            </div>
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-900 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
-          <div className="text-center group hover:scale-110 transition-transform duration-300">
-            <div className="text-lg font-bold" style={{ color: "#7c3aed" }}>
+          <div data-metric="max" className="text-center group hover:scale-110 transition-transform duration-300">
+            <div className="text-lg font-bold text-max">
               {animatedMax.toFixed(1)}h
             </div>
             <div className="text-xs text-gray-500">Max</div>
-            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000 delay-1100"
-                style={{
-                  width: isVisible ? "100%" : "0%",
-                  backgroundColor: "#9169f4",
-                }}
-              />
-            </div>
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-1100 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
         </div>
 
@@ -656,7 +677,7 @@ export function HoursSummaryChart() {
           const maxLineLen = width - padding.left - padding.right
 
           return (
-            <div ref={svgWrapRef} className={`mt-2 transition-all duration-700 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+            <div id="hours-summary-chart" data-visible={isVisible? 'true':'false'} ref={svgWrapRef} className={`mt-2 transition-all duration-700 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
               <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="overflow-visible">
                 {/* y-axis ticks & grid */}
                 {ticks.map((t, idx) => {
@@ -683,8 +704,10 @@ export function HoursSummaryChart() {
                   return (
                     <g
                       key={i}
-                      className={`transition-all duration-700 ${isVisible ? "opacity-100" : "opacity-0"}`}
-                      style={{ transform: isVisible ? 'scaleY(1)' : 'scaleY(0.1)', transformOrigin: 'bottom center', transitionDelay: `${100 + i * 60}ms`, opacity: ghost ? 0.28 : 1 }}
+                      data-seg={i}
+                      data-visible={isVisible? 'true':'false'}
+                      data-ghost={ghost || undefined}
+                      className="transition-all duration-700"
                     >
                       {hBillable > 0 && (
                         <rect x={x} y={yBillable} width={barWidth} height={hBillable} fill="#6eedd9" rx={4} />
@@ -715,57 +738,32 @@ export function HoursSummaryChart() {
                 })}
 
                 {/* dashed max line(s) */}
-                {viewMode !== 'monthly' ? (
-                  currentData.map((d, i) => {
-                    if (d.max <= 0) return null
-                    const y = padding.top + chartHeight - scaleY(d.max)
-                    const x1 = xFor(i)
-                    const x2 = x1 + barWidth
-                    const xm = xMidFor(i)
-                    const seg = Math.max(2, barWidth)
-                    const yText = Math.max(y - 2, padding.top + 8)
-                    return (
-                      <g key={`max-${i}`} className={isVisible ? 'opacity-100' : 'opacity-0'} style={{ transition: `opacity 400ms ease ${180 + i * 30}ms` }}>
-                        <line
-                          x1={x1}
-                          x2={x2}
-                          y1={y}
-                          y2={y}
-                          stroke="#9169f4"
-                          strokeWidth={2}
-                          strokeDasharray={`${seg}`}
-                          style={{ strokeDashoffset: isVisible ? 0 : seg, transition: `stroke-dashoffset 600ms ease ${200 + i * 30}ms` }}
-                        />
-                        <text x={xm} y={yText} textAnchor="middle" fontSize={9} fill="#9169f4" fillOpacity={0.5}>{d.max.toFixed(0)}</text>
-                      </g>
-                    )
-                  })
-                ) : (
-                  currentData.map((d, i) => {
-                    const y = padding.top + chartHeight - scaleY(d.max)
-                    const x1 = xFor(i)
-                    const x2 = x1 + barWidth
-                    const xm = xMidFor(i)
-                    const seg = Math.max(2, barWidth)
-                    const yText = Math.max(y - 2, padding.top + 8)
-                    if (d.max <= 0) return null
-                    return (
-                      <g key={`max-${i}`} className={isVisible ? 'opacity-100' : 'opacity-0'} style={{ transition: `opacity 400ms ease ${180 + i * 30}ms` }}>
-                        <line
-                          x1={x1}
-                          x2={x2}
-                          y1={y}
-                          y2={y}
-                          stroke="#9169f4"
-                          strokeWidth={2}
-                          strokeDasharray={`${seg}`}
-                          style={{ strokeDashoffset: isVisible ? 0 : seg, transition: `stroke-dashoffset 600ms ease ${200 + i * 30}ms` }}
-                        />
-                        <text x={xm} y={yText} textAnchor="middle" fontSize={9} fill="#9169f4" fillOpacity={0.5}>{d.max.toFixed(0)}</text>
-                      </g>
-                    )
-                  })
-                )}
+                {currentData.map((d, i) => {
+                  const y = padding.top + chartHeight - scaleY(d.max)
+                  const x1 = xFor(i)
+                  const x2 = x1 + barWidth
+                  const xm = xMidFor(i)
+                  const seg = Math.max(2, barWidth)
+                  const yText = Math.max(y - 2, padding.top + 8)
+                  if (d.max <= 0) return null
+                  return (
+                    <g key={`max-${i}`} data-max-group={i} className="opacity-0">
+                      <line
+                        data-max-line={i}
+                        /* data-seg-val removed (legacy attr() replacement no longer needed) */
+                        x1={x1}
+                        x2={x2}
+                        y1={y}
+                        y2={y}
+                        className="chart-max-line"
+                        strokeWidth={2}
+                        strokeDasharray={`${seg} ${seg}`}
+                        strokeDashoffset={seg}
+                      />
+                      <text x={xm} y={yText} textAnchor="middle" fontSize={9} fill="#9169f4" fillOpacity={0.5}>{d.max.toFixed(0)}</text>
+                    </g>
+                  )
+                })}
 
                 {/* subtle Today marker between last to-date and future bars */}
                 {(() => {

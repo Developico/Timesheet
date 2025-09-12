@@ -21,7 +21,8 @@ export async function GET(req: Request) {
     if (!ds.getDaysOff) return NextResponse.json({ value: [] })
     const value = await ds.getDaysOff(parsed.data.from, parsed.data.to)
     return NextResponse.json({ value })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'DaysOff error' }, { status: 500 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'DaysOff error'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

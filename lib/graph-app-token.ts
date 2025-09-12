@@ -26,9 +26,11 @@ async function requestNew(): Promise<CachedToken> {
     const txt = await res.text().catch(()=> '')
     throw new Error(`App token request failed ${res.status}: ${txt}`)
   }
-  const json = await res.json() as any
-  const expiresIn = typeof json.expires_in === 'number' ? json.expires_in : 3600
-  return { accessToken: json.access_token, expiresAt: Date.now() + expiresIn * 1000 }
+  interface TokenResponse { access_token: string; expires_in: number }
+  const json: unknown = await res.json()
+  const tr = json as Partial<TokenResponse>
+  const expiresIn = typeof tr.expires_in === 'number' ? tr.expires_in : 3600
+  return { accessToken: tr.access_token || '', expiresAt: Date.now() + expiresIn * 1000 }
 }
 
 export async function getAppGraphToken(): Promise<string> {

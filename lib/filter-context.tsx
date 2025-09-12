@@ -4,6 +4,9 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { useViewingScope } from "./viewing-scope"
 import type { TimeEntry, Project } from "@/lib/data"
 
+// Extend Project for optional note/metaproject fields if present in backend
+type ProjectExt = Project & { note?: string | null; metaproject?: string | null }
+
 export interface FilterState {
   dateRange: string
   startDate?: Date
@@ -162,14 +165,8 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
       const project = projects.find((p) => p.id === entry.projectId)
-      const fields = [
-        project?.name,
-        project?.client,
-        project?.code,
-        (project as any)?.note,
-        (project as any)?.metaproject,
-        entry.description,
-      ]
+  const pExt = project as ProjectExt | undefined
+  const fields = [pExt?.name, pExt?.client, pExt?.code, pExt?.note ?? null, pExt?.metaproject ?? null, entry.description]
       const searchText = fields.filter(Boolean).join(' ').toLowerCase()
       if (!searchText.includes(query)) return false
     }
@@ -184,13 +181,8 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
   const filteredProjects = projects.filter((project) => {
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
-      const fields = [
-        project.name,
-        project.client,
-        project.code,
-        (project as any)?.note,
-        (project as any)?.metaproject,
-      ]
+  const pExt = project as ProjectExt
+  const fields = [pExt.name, pExt.client, pExt.code, pExt.note ?? null, pExt.metaproject ?? null]
       const searchText = fields.filter(Boolean).join(" ").toLowerCase()
       const projectFieldsMatch = searchText.includes(query)
       const entryDescriptionMatch = filteredTimeEntries.some(

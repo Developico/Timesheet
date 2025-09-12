@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { AppHeader } from "@/components/layout/app-header"
 import { HeaderWrapper } from "@/components/layout/header-wrapper"
 import { useAuth } from "@/lib/auth-client"
-import Link from "next/link"
 import { SignInScreen } from "@/components/auth/signin-screen"
 import { FilterBar } from "@/components/layout/filter-bar"
 import { NavigationTabs } from "@/components/layout/navigation-tabs"
@@ -77,23 +75,27 @@ export default function HomePage() {
   // Dynamic date range based on filter context (defaults handled inside provider)
   // We consume filters after provider is mounted (render split pattern below).
   // Adapt raw projects to legacy Project shape expected by FilterProvider (fill safe defaults)
-  const projects = rawProjects.map(p => ({
-    id: p.id,
-    name: p.name,
-    client: (p as any).client || '',
-    code: p.code || p.id.slice(0,6),
-    color: (p as any).color || '#6366f1',
-  status: 'active' as const,
-    totalHours: 0,
-    budget: 0,
-    progress: 0,
-    startDate: new Date().toISOString().substring(0,10),
-    billable: (p as any).billable ?? true,
-    assigned: (p as any).assigned ?? true,
-    metaproject: (p as any).meta,
-    note: (p as any).note,
-  allUsers: (p as any).allUsers,
-  }))
+  interface RawProjectLike { id: string; name: string; code?: string | null; client?: string | null }
+  const projects = rawProjects.map(p => {
+    const rp = p as RawProjectLike & { color?: string; billable?: boolean; assigned?: boolean; meta?: string; note?: string; allUsers?: string[] }
+    return {
+      id: rp.id,
+      name: rp.name,
+      client: rp.client || '',
+      code: rp.code || rp.id.slice(0,6),
+      color: rp.color || '#6366f1',
+      status: 'active' as const,
+      totalHours: 0,
+      budget: 0,
+      progress: 0,
+      startDate: new Date().toISOString().substring(0,10),
+      billable: rp.billable ?? true,
+      assigned: rp.assigned ?? true,
+      metaproject: rp.meta,
+      note: rp.note,
+      allUsers: rp.allUsers,
+    }
+  })
   // We create a child component that consumes filters to avoid provider ordering issues
   const loading = projectsLoading || consultantsLoading || authLoading
 
@@ -101,18 +103,19 @@ export default function HomePage() {
 
   // Listen for global events from header (new project shortcuts)
   useEffect(()=>{
-    const handleSetTab = (e: any) => {
-      if(e.detail?.tab) setActiveTab(e.detail.tab)
+    type TabDetail = { tab?: 'dashboard' | 'calendar' | 'projects' }
+    const handleSetTab = (e: Event) => {
+      const de = e as CustomEvent<TabDetail>
+      if(de.detail?.tab) setActiveTab(de.detail.tab)
     }
-    const handleOpenProject = (e: any) => {
-      // store project id temporarily in sessionStorage; ProjectsTable will read event
-      // (Direct open handled within its own listener already added earlier patch)
+    const handleOpenProject = (_e: Event) => {
+      /* placeholder for project open side effects */
     }
-    window.addEventListener('ts:setActiveTab', handleSetTab as any)
-    window.addEventListener('ts:openProject', handleOpenProject as any)
+    window.addEventListener('ts:setActiveTab', handleSetTab)
+    window.addEventListener('ts:openProject', handleOpenProject)
     return ()=> {
-      window.removeEventListener('ts:setActiveTab', handleSetTab as any)
-      window.removeEventListener('ts:openProject', handleOpenProject as any)
+      window.removeEventListener('ts:setActiveTab', handleSetTab)
+      window.removeEventListener('ts:openProject', handleOpenProject)
     }
   },[])
 

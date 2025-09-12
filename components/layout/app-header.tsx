@@ -118,7 +118,7 @@ export function AppHeader() {
                       const dotColor = isAbs ? '#ef4444' : p.billable ? '#16a34a' : '#174076'
                       return (
                       <li key={p.id} className="flex items-center gap-2 text-xs">
-                        <span className="w-2 h-2 rounded-full" style={{backgroundColor:dotColor}} />
+                        <span className={`w-2 h-2 rounded-full ${dotColor==='#ef4444'?'bg-red-500':dotColor==='#16a34a'?'bg-emerald-500':dotColor==='#174076'?'bg-[#174076]':'bg-gray-400'}`} />
                         <button
                           className="font-mono underline decoration-dotted hover:text-foreground"
                           onClick={()=>{
