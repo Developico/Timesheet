@@ -19,10 +19,8 @@ export async function GET() {
   const dv = checkDataverse()
   let dsName: string = 'unknown'
   let ok = false
-  let sample: any = null
+  let sample: { projects: unknown[] } | null = null
   let error: string | undefined
-  let version: string | undefined
-  let tokenAcquired = false
   try {
     let ds: IDataSource
     if (dv.enabled) {
@@ -32,18 +30,22 @@ export async function GET() {
         const projects = await ds.getProjects(undefined)
         sample = { projects: projects.slice(0, 1) }
         ok = true
-      } catch (e: any) {
-        error = e.message
+      } catch (e) {
+        error = e instanceof Error ? e.message : 'unknown'
       }
     } else {
       ds = new MockDataSource()
       dsName = 'mock'
-      const projects = await ds.getProjects(undefined)
-      sample = { projects: projects.slice(0, 1) }
-      ok = true
+      try {
+        const projects = await ds.getProjects(undefined)
+        sample = { projects: projects.slice(0, 1) }
+        ok = true
+      } catch (e) {
+        error = e instanceof Error ? e.message : 'unknown'
+      }
     }
-  } catch (e: any) {
-    error = e.message
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'unknown'
   }
   const body = {
     ok,

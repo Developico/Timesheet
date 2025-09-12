@@ -14,15 +14,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(()=>{
     if (loading) return;
     if (session?.user){
-      const role = (session.user as any).role || 'Unauthorized';
-      const roles = Array.isArray((session.user as any).roles) ? (session.user as any).roles : [role];
-      const baseUser = {
-        id: (session.user as any).id || '',
-        name: session.user.name || '',
-        email: session.user.email || '',
+      const su = session.user as Record<string, unknown>;
+      const role = typeof su.role === 'string' ? su.role : 'Unauthorized';
+      const rawRoles = su.roles;
+      const roles = Array.isArray(rawRoles) ? (rawRoles.filter(r=> typeof r === 'string') as string[]) : [role];
+      const baseUser: AppUser = {
+        id: typeof su.id === 'string' ? su.id : '',
+        name: typeof session.user.name === 'string' ? session.user.name : '',
+        email: typeof session.user.email === 'string' ? session.user.email : '',
         role,
         roles,
-        avatar: (session.user as any).image || '/placeholder.svg'
+        avatar: typeof su.image === 'string' ? su.image : '/placeholder.svg'
       };
       setUser(baseUser);
       // Attempt to fetch Graph photo (fire and forget)

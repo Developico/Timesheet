@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { createPortal } from "react-dom"
 import { useNewProjects } from "@/lib/use-new-projects"
 import { toast } from "@/hooks/use-toast"
@@ -14,13 +15,16 @@ import { Copy as CopyIcon } from "lucide-react"
 interface EntryLike { id?: string; date?: string; consultantId?: string; hours: number; billable: boolean; isAbsence?: boolean; note?: string; task?: string; description?: string }
 
 interface ProjectDetailPanelProps {
-  project: Project | (Partial<Project> & { id: string; code: string; name: string; color: string; billable: boolean })
+  project: Project | (Partial<Project> & { id: string; code: string; name: string; color: string; billable: boolean; allUsers?: boolean })
   entries?: EntryLike[]
   scopeLabel?: string
   onClose: () => void
 }
 
 export function ProjectDetailPanel({ project, entries, scopeLabel = "Current scope", onClose }: ProjectDetailPanelProps) {
+  const hasAllUsers = (p: ProjectDetailPanelProps['project']): p is Project & { allUsers: boolean } => {
+    return (p as { allUsers?: unknown }).allUsers === true
+  }
   const panelRef = useRef<HTMLDivElement | null>(null)
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
   const { markViewed } = useNewProjects()
@@ -41,7 +45,8 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   const currentConsultant = useMemo(() => {
     if (!consultants?.length) return null
     if (user?.email) {
-      const found = consultants.find(c => (c as any).email?.toLowerCase() === user.email!.toLowerCase())
+      const lower = user.email.toLowerCase()
+      const found = consultants.find(c => c.email?.toLowerCase() === lower)
       if (found) return found
     }
     return consultants[0]
@@ -118,14 +123,21 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose, markViewed, project.id])
 
+  // Dynamic CSS for project color & share width
+  useAggregatedDynamicCss(`project-panel-${project.id}`, `#project-panel-${project.id} [data-project-color]{background:${project.color};} #project-panel-${project.id} [data-share]{width:${mySharePct.toFixed(2)}%;}`)
   const content = (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className="fixed top-0 right-0 h-full w-[400px] bg-background border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
+      <div id={`project-panel-${project.id}`} ref={panelRef} className="fixed top-0 right-0 h-full w-[400px] bg-background border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
         <div className="p-5 border-b flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+              {/* eslint-disable-next-line */}
+              <span
+                className="w-4 h-4 rounded-full shrink-0"
+                data-project-color
+                aria-hidden="true"
+              />
               <span id="project-detail-title" className="font-mono text-sm font-semibold truncate">{project.code}</span>
               <button
                 type="button"
@@ -138,7 +150,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               </button>
             </div>
             <h2 className="font-semibold leading-tight break-words">{project.name}</h2>
-            {"client" in project && (project as any).client && <p className="text-xs text-muted-foreground truncate">{(project as any).client}</p>}
+            {"client" in project && (project as Project).client && <p className="text-xs text-muted-foreground truncate">{(project as Project).client}</p>}
           </div>
           <button ref={closeBtnRef} onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/60" aria-label="Close project details">✕</button>
         </div>
@@ -154,7 +166,14 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             </div>
             <div>
               <div className="flex items-center justify-between mb-1 text-xs"><span>Your share</span><span className="font-medium">{mySharePct.toFixed(1)}%</span></div>
-              <div className="h-2 w-full rounded bg-muted overflow-hidden"><div className="h-full bg-[#6eedd9]" style={{ width: `${mySharePct}%` }} /></div>
+              <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                {/* eslint-disable-next-line */}
+                <div
+                  className="h-full bg-[#6eedd9]"
+                  data-share
+                  aria-label="Your share percentage"
+                />
+              </div>
             </div>
           </div>
 
@@ -162,15 +181,15 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                Team{((project as any).allUsers === true) ? '' : ` (${teamByConsultant.length})`}
+                Team{hasAllUsers(project) ? '' : ` (${teamByConsultant.length})`}
               </h3>
-              {((project as any).allUsers !== true) && teamByConsultant.length > 8 && (
+              {!hasAllUsers(project) && teamByConsultant.length > 8 && (
                 <button className="text-xs text-muted-foreground hover:text-foreground" onClick={()=>setShowAllTeam(s=>!s)}>
                   {showAllTeam ? 'Pokaż mniej' : 'Pokaż wszystkich'}
                 </button>
               )}
             </div>
-             {((project as any).allUsers === true) ? (
+             {hasAllUsers(project) ? (
                <div className="text-sm text-muted-foreground">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
              ) : (
                (teamIds && teamIds.length === 0) ? (
@@ -217,7 +236,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               ) : (
         <div className="space-y-1 flex-1 min-h-0 overflow-auto pr-1">
                   {myEntriesSorted.slice(0, 30).map(e => {
-                    const taskText = (e as any).Task ?? e.task ?? e.note ?? e.description ?? '(no task name)'
+                    const taskText = (e as EntryLike & { Task?: string }).Task ?? e.task ?? e.note ?? e.description ?? '(no task name)'
                     return (
                       <div key={e.id || Math.random().toString(36)} className="flex items-center justify-between text-[12px] rounded-md px-2 py-1 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10">
                         <div className="flex items-center gap-2 min-w-0">
@@ -237,10 +256,10 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             )}
           </div>
 
-          {"note" in project && (project as any).note && (
+      {"note" in project && (project as Project).note && (
             <div className="space-y-2">
               <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Notes</h3>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{(project as any).note}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{(project as Project).note}</p>
             </div>
           )}
 

@@ -56,8 +56,8 @@ export function ConsultantDock() {
             }
           }
         }
-      } catch (e:any) {
-        if (!cancelled) setError(e.message || 'Failed to load users')
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load users')
       } finally { if (!cancelled) setLoading(false) }
     }
     load()
@@ -90,7 +90,6 @@ export function ConsultantDock() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={consultantId ? `Filtering by ${activeName ?? 'selected user'}. Change` : "Open consultant filter"}
-        aria-pressed={open}
         className={`fixed z-50 bottom-6 right-6 h-12 w-12 rounded-full flex items-center justify-center border backdrop-blur-md bg-background/70 shadow-md transition-all hover:shadow-lg hover:scale-105 focus:outline-none focus-visible:ring-2 ring-offset-2 ring-[#6eedd9] ${consultantId ? "ring-2 ring-[#6eedd9]" : ""}`}
       >
         <div className="relative">

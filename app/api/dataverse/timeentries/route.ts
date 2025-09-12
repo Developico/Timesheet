@@ -28,11 +28,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid query", cid, details: parsed.error.flatten() }, { status: 400 })
     }
 
-    let { from, to, consultantId, billable, projectIds } = parsed.data
+  // Prefer const for immutable fields; consultantId may be inferred later
+  const { from, to, billable, projectIds } = parsed.data
+  let { consultantId } = parsed.data
     if (!consultantId && NEXTAUTH_SECRET) {
       try {
-        const token = await getToken({ req, secret: NEXTAUTH_SECRET })
-        const oid = (token as any)?.oid || (token as any)?.OID || null
+  const token = await getToken({ req, secret: NEXTAUTH_SECRET })
+  const rec = token as Record<string, unknown> | null
+  const rawOid = rec?.['oid'] || rec?.['OID'] || null
+  const oid = typeof rawOid === 'string' ? rawOid : null
         if (oid) {
           const mapped = await mapAadOidToConsultantId(oid)
           if (mapped) consultantId = mapped
@@ -47,18 +51,21 @@ export async function GET(req: NextRequest) {
       billable: billable === undefined ? undefined : billable === "all" ? "all" : billable === "true",
       projectIds: projectIds ? projectIds.split(",").filter(Boolean) : undefined,
     } as const
-  appLog('debug','timeentries params',{ cid, from, to, consultantId, billable, projectIds })
-  let entries
+    appLog('debug','timeentries params',{ cid, from, to, consultantId, billable, projectIds })
+    let entries: unknown[]
     try {
       entries = await ds.getTimeEntries(params)
-    } catch (e:any) {
-      appLog('error','timeentries fetch error',{ cid, message: e.message })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      appLog('error','timeentries fetch error',{ cid, message: msg })
       throw e
     }
     appLog('info','timeentries ok',{ cid, ms: Date.now()-started, count: entries.length })
     return NextResponse.json({ value: entries, cid })
-  } catch (e: any) {
-    appLog('error','timeentries unhandled',{ cid, message: e?.message, stack: e?.stack?.split('\n').slice(0,4).join(' | ') })
-    return NextResponse.json({ error: e.message || "Dataverse time entries error", cid }, { status: 500 })
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : 'Dataverse time entries error'
+    const stack = e instanceof Error && e.stack ? e.stack.split('\n').slice(0,4).join(' | ') : undefined
+    appLog('error','timeentries unhandled',{ cid, message: errMsg, stack })
+    return NextResponse.json({ error: errMsg, cid }, { status: 500 })
   }
 }

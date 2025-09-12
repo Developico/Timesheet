@@ -10,7 +10,8 @@
     "build": "next build",
     "dev": "next dev -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+  "typecheck": "tsc --noEmit",
+  "test:geom": "ts-node ./scripts/verify-chart-geometry.ts",
     "start": "next start"
   },
   "dependencies": {
@@ -74,9 +75,12 @@
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "15.5.3",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
+  "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

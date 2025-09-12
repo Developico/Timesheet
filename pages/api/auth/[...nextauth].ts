@@ -10,7 +10,7 @@ import { vsSet } from '@/lib/volatile-store';
 const LOG_MODE = (process.env.LOG_MODE || (process.env.NODE_ENV === 'production' ? 'console':'file')).toLowerCase();
 const logFilePath = path.join(process.cwd(), 'nextauth-debug.log');
 
-interface LogPayload { level?: 'debug'|'info'|'warn'|'error'; msg: string; data?: any; }
+interface LogPayload { level?: 'debug'|'info'|'warn'|'error'; msg: string; data?: unknown; }
 function writeStructured({ level='debug', msg, data }: LogPayload){
   try {
     const out = JSON.stringify({ ts: new Date().toISOString(), lvl: level, msg, ...(data? { data }: {}) });
@@ -21,12 +21,21 @@ function writeStructured({ level='debug', msg, data }: LogPayload){
     }
   } catch { /* ignore logging errors */ }
 }
-const logDebug = (msg: string, data?: any)=> writeStructured({ level: 'debug', msg, data });
-const logInfo  = (msg: string, data?: any)=> writeStructured({ level: 'info', msg, data });
-const logWarn  = (msg: string, data?: any)=> writeStructured({ level: 'warn', msg, data });
-const logError = (msg: string, err?: any)=> writeStructured({ level: 'error', msg, data: sanitizeError(err) });
+const logDebug = (msg: string, data?: unknown)=> writeStructured({ level: 'debug', msg, data });
+const logInfo  = (msg: string, data?: unknown)=> writeStructured({ level: 'info', msg, data });
+const logWarn  = (msg: string, data?: unknown)=> writeStructured({ level: 'warn', msg, data });
+const logError = (msg: string, err?: unknown)=> writeStructured({ level: 'error', msg, data: sanitizeError(err) });
 
-function sanitizeError(e: any){ if(!e) return undefined; return { name: e.name, message: e.message, stack: typeof e.stack==='string'? e.stack.split('\n').slice(0,6).join('\n'): undefined, code: (e as any).code }; }
+function sanitizeError(e: unknown){
+  if(!e || typeof e !== 'object') return undefined
+  const err = e as { name?: string; message?: string; stack?: unknown; code?: unknown }
+  return {
+    name: err.name,
+    message: err.message,
+    stack: typeof err.stack === 'string' ? err.stack.split('\n').slice(0,6).join('\n') : undefined,
+    code: err.code
+  }
+}
 
 function normalizeAppScope(raw: string | undefined){ const val=(raw||'').trim(); if(!val) return null; const needs=/^api:\/\/[0-9a-f-]+\/?$/i.test(val); const base=val.replace(/\/$/,''); return needs? `${base}/access_as_user`: val; }
 
@@ -68,7 +77,7 @@ export const authOptions: NextAuthOptions = {
   secret: rawSecret || undefined,
   debug: process.env.NODE_ENV !== 'production',
   callbacks: {
-    async jwt({ token, account, profile, user }) {
+  async jwt({ token, account }) {
       if (account) {
   logDebug('JWT account received', { provider: account.provider, hasIdToken: !!account.id_token, hasAccess: !!account.access_token, scope: account.scope });
       }
@@ -77,19 +86,19 @@ export const authOptions: NextAuthOptions = {
         const now = Math.floor(Date.now()/1000);
         const exp = (account.expires_at && typeof account.expires_at==='number') ? account.expires_at : now+3600;
         vsSet(key, account.access_token, exp, true);
-        (token as any).aad_obo_key = key;
+  (token as Record<string, unknown>).aad_obo_key = key;
   logDebug('Stored access token pointer', { exp, keyLen: key.length });
       }
       if (account?.refresh_token) {
         const rtKey = crypto.randomBytes(12).toString('base64url');
         const now = Math.floor(Date.now()/1000);
         vsSet(rtKey, account.refresh_token, now + 60*60*24*30, true);
-        (token as any).aad_rt_key = rtKey;
+  (token as Record<string, unknown>).aad_rt_key = rtKey;
   logDebug('Stored refresh token pointer', { keyLen: rtKey.length });
       }
       // Roles from group claims (id_token) only computed on fresh OAuth callback (when account present)
       // Preserve previously computed roles on silent subsequent jwt callbacks.
-      const existingRoles: string[] | undefined = (token as any).roles;
+  const existingRoles = (token as Record<string, unknown>).roles as string[] | undefined;
       if (!account) {
         if (existingRoles && existingRoles.length) {
           // Nothing to recompute
@@ -118,39 +127,51 @@ export const authOptions: NextAuthOptions = {
       if (groupIds.admin && resolvedGroups.includes(groupIds.admin)) nextRoles.push('Administrator');
       if (groupIds.consultant && resolvedGroups.includes(groupIds.consultant)) nextRoles.push('Consultant');
       if (nextRoles.length === 0) nextRoles.push('Unauthorized');
-      (token as any).role = nextRoles[0];
-      (token as any).roles = nextRoles;
-      logInfo('JWT roles assigned', { roles: (token as any).roles, primary: (token as any).role, adminSet: !!groupIds.admin, consultantSet: !!groupIds.consultant, sampledGroups: resolvedGroups.slice(0,5) });
+      (token as Record<string, unknown>).role = nextRoles[0];
+      (token as Record<string, unknown>).roles = nextRoles;
+      logInfo('JWT roles assigned', { roles: nextRoles, primary: nextRoles[0], adminSet: !!groupIds.admin, consultantSet: !!groupIds.consultant, sampledGroups: resolvedGroups.slice(0,5) });
       return token as JWT;
     },
     async session({ session, token }) {
-      (session.user as any).role = (token as any).role;
-      (session.user as any).roles = (token as any).roles;
-      (session.user as any).id = token.sub;
-      logDebug('Session issued', { role: (token as any).role, user: (session.user as any).email });
+      const rec = token as Record<string, unknown>
+      const userRec = session.user as Record<string, unknown>
+      userRec.role = rec.role
+      userRec.roles = rec.roles
+      userRec.id = token.sub
+      logDebug('Session issued', { role: rec.role, user: userRec.email });
       return session;
     }
   },
   logger: {
     error(code, meta){
       // meta may be Error or { error: Error; [k:string]:unknown }
-      let safe: any = meta;
+      let safe: unknown = meta;
       if (meta && typeof meta === 'object' && 'error' in meta) {
-        const m: any = meta as any;
+        const m = meta as { [k:string]: unknown; error?: unknown }
         safe = { ...m, error: sanitizeError(m.error) };
-      } else if (meta instanceof Error) {
-        safe = sanitizeError(meta);
-      }
+      } else if (meta instanceof Error) safe = sanitizeError(meta);
       logError('NextAuth logger error', { code, meta: safe });
     },
     warn(code){ logWarn('NextAuth logger warn', { code }); },
     debug(code, meta){ logDebug('NextAuth logger debug', { code, meta }); }
   },
   events: {
-    async signIn(message: any){ logInfo('Event signIn', { user: message?.user?.email, account: message?.account?.provider }); },
-    async signOut(message: any){ logInfo('Event signOut', { tokenSub: message?.token?.sub }); },
-    async session(message: any){ logDebug('Event session', { user: message?.session?.user?.email }); },
-    async linkAccount(message: any){ logInfo('Event linkAccount', { provider: message?.account?.provider }); }
+    async signIn(message: unknown){
+      const m = message as { user?: { email?: string }; account?: { provider?: string } } | undefined
+      logInfo('Event signIn', { user: m?.user?.email, account: m?.account?.provider });
+    },
+    async signOut(message: unknown){
+      const m = message as { token?: { sub?: string } } | undefined
+      logInfo('Event signOut', { tokenSub: m?.token?.sub });
+    },
+    async session(message: unknown){
+      const m = message as { session?: { user?: { email?: string } } } | undefined
+      logDebug('Event session', { user: m?.session?.user?.email });
+    },
+    async linkAccount(message: unknown){
+      const m = message as { account?: { provider?: string } } | undefined
+      logInfo('Event linkAccount', { provider: m?.account?.provider });
+    }
   },
 };
 

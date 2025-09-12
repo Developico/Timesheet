@@ -25,20 +25,23 @@ export async function GET(req: NextRequest) {
     if (NEXTAUTH_SECRET) {
       try {
         const token = await getToken({ req, secret: NEXTAUTH_SECRET })
-        const oid = (token as any)?.oid || (token as any)?.OID || (token as any)?.sub || null
+        const rawOid = (token as Record<string, unknown> | null)?.['oid'] || (token as Record<string, unknown> | null)?.['OID'] || (token as Record<string, unknown> | null)?.['sub'] || null
+        const oid = typeof rawOid === 'string' ? rawOid : null
         if (oid) {
           const mapped = await mapAadOidToConsultantId(oid)
-          appLog('debug','project-team caller',{ mapped: !!mapped })
+          appLog('debug','project-team caller',{ hasOid: !!oid, mapped: !!mapped })
         }
-      } catch (e:any) {
-        appLog('warn','project-team token map fail',{ message: e.message })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'unknown'
+        appLog('warn','project-team token map fail',{ msg })
       }
     }
     const ids = await ds.getProjectTeam(projectId)
     appLog('info','project-team ok',{ ms: Date.now()-started, count: ids.length })
     return NextResponse.json({ value: ids, projectId })
-  } catch (e:any) {
-    appLog('error','project-team error',{ message: e.message })
-    return NextResponse.json({ error: e.message || 'Project team error' }, { status: 500 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Project team error'
+    appLog('error','project-team error',{ message: msg })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

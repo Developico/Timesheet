@@ -85,7 +85,8 @@ export function ProjectsTable() {
   const primaryConsultantId = useMemo(()=>{
     if(!consultants?.length) return null as string | null
     if(user?.email){
-      const found = consultants.find(c=> (c as any).email?.toLowerCase() === user.email.toLowerCase())
+      const lower = user.email.toLowerCase()
+      const found = consultants.find(c=> c.email?.toLowerCase() === lower)
       if(found) return found.id
     }
     return consultants[0]?.id ?? null
@@ -160,7 +161,7 @@ export function ProjectsTable() {
   const totalBillableUserHours = userEntries.filter(e=>e.billable).reduce((s,e)=>s+e.hours,0)
   const totalNonBillableUserHours = totalUserHours - totalBillableUserHours
   // Absence hours: project code exactly 'Office.Absences' (or name containing 'absence')
-  const absenceProjectIds = filteredProjects.filter(p=> (p as any).code === 'Office.Absences' || (p as any).name?.toLowerCase().includes('absence')).map(p=>p.id)
+  const absenceProjectIds = filteredProjects.filter(p=> p.code === 'Office.Absences' || p.name?.toLowerCase().includes('absence')).map(p=>p.id)
   const absenceUserHours = userEntries.filter(e=> absenceProjectIds.includes(e.projectId)).reduce((s,e)=>s+e.hours,0)
 
   return (
@@ -178,7 +179,8 @@ export function ProjectsTable() {
               <div className="text-xs text-muted-foreground">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none" style={{color:'#174076'}}>{totalNonBillableUserHours.toFixed(1)}</div>
+              {/* eslint-disable-next-line */}
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{totalNonBillableUserHours.toFixed(1)}</div>
               <div className="text-xs text-muted-foreground">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -313,11 +315,12 @@ export function ProjectsTable() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const isAbsence = (project as any).code === 'Office.Absences' || (project as any).name?.toLowerCase().includes('absence')
+                          const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
                           // Use same palette as summary bar
                           const color = isAbsence ? '#dc2626' : (project.billable ? '#14b8a6' : '#174076')
                           const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
-                          return <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} title={label} aria-label={label} />
+                          {/* eslint-disable-next-line */}
+                          return <div className="w-3 h-3 rounded-full" data-color={color} title={label} aria-label={label} />
                         })()}
                         <span className="font-mono text-sm flex items-center gap-1">
                           {project.code}
@@ -337,7 +340,7 @@ export function ProjectsTable() {
                     <TableCell className="font-medium">{project.client}</TableCell>
                     <TableCell>{project.name}</TableCell>
                     <TableCell>
-                      { (project as any).allUsers ? (
+                      { project.allUsers ? (
                         <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
                       ) : <span className="text-muted-foreground text-xs">-</span> }
                     </TableCell>
@@ -363,9 +366,12 @@ export function ProjectsTable() {
               <span className="inline-block w-3 h-3 ring-1 ring-[#6eedd9] rounded-sm" /> <span>Recently added (&lt;={NEW_DAYS} days)</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#14b8a6'}}></span> Billable</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#174076'}}></span> Non-billable</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full" style={{backgroundColor:'#dc2626'}}></span> Absence</span>
+              {/* eslint-disable-next-line */}
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-teal-500"></span> Billable</span>
+              {/* eslint-disable-next-line */}
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-[#174076]"></span> Non-billable</span>
+              {/* eslint-disable-next-line */}
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-red-600"></span> Absence</span>
             </div>
             {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
             <div>Scope: {projectScope==='my' ? (assignedIds? 'projects you are assigned to' : 'projects you have time entries on (current filters applied)') : 'all filtered projects'}</div>

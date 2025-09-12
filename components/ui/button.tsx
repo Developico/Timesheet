@@ -43,12 +43,13 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button'
+    // Use a generic ElementType instead of 'any' to avoid explicit any while keeping polymorphism
+    const Comp: React.ElementType = asChild ? Slot : 'button'
     return (
       <Comp
         data-slot="button"
         className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref as any}
+        ref={ref}
         {...props}
       />
     )

@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
         'Cache-Control': 'private, max-age=300'
       }
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: 'unauthorized', message: e?.message }, { status: 401 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'unauthorized'
+    return NextResponse.json({ error: 'unauthorized', message }, { status: 401 });
   }
 }

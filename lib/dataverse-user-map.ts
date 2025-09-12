@@ -22,16 +22,16 @@ export async function mapAadOidToConsultantId(aadOid: string): Promise<string | 
   // For GUID equality do not wrap in quotes
   const filter = encodeURIComponent(`${c.azureAdObjectId} eq ${aadOid}`);
   try {
-    const data = await dataverseClient.list(c.entitySet, `$select=${select}&$filter=${filter}`);
-    const records: any[] = data.value || [];
+    const data = await dataverseClient.list(c.entitySet, `$select=${select}&$filter=${filter}`) as { value?: Array<Record<string, unknown>> }
+    const records = Array.isArray(data.value) ? data.value : []
     if (records.length) {
-      const id = records[0][c.id];
-      if (id) cache.set(aadOid, { id, ts: now });
-      return id || null;
+      const first = records[0]
+      const id = typeof first[c.id] === 'string' ? String(first[c.id]) : null
+      if (id) cache.set(aadOid, { id, ts: now })
+      return id
     }
-    return null;
-  } catch (e) {
-    // swallow to avoid breaking API routes; return null triggers mock/empty fallbacks
-    return null;
+    return null
+  } catch (_e: unknown) {
+    return null
   }
 }

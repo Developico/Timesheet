@@ -18,14 +18,16 @@ export async function GET(req: NextRequest) {
     if (!consultantId && NEXTAUTH_SECRET) {
       try {
         const token = await getToken({ req, secret: NEXTAUTH_SECRET })
-        const oid = (token as any)?.oid || (token as any)?.OID || (token as any)?.sub || null
+        const rawOid = (token as Record<string, unknown> | null)?.['oid'] || (token as Record<string, unknown> | null)?.['OID'] || (token as Record<string, unknown> | null)?.['sub'] || null
+        const oid = typeof rawOid === 'string' ? rawOid : null
         if (oid) {
           const mapped = await mapAadOidToConsultantId(oid)
           consultantId = mapped
-          appLog('debug','assignments oid map',{ oid, mapped: !!mapped })
+          appLog('debug','assignments oid map',{ hasOid: !!oid, mapped: !!mapped })
         }
-      } catch (e:any) {
-        appLog('warn','assignments token map fail',{ message: e.message })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'unknown'
+        appLog('warn','assignments token map fail',{ msg })
       }
     }
     if (!consultantId) {
@@ -40,8 +42,9 @@ export async function GET(req: NextRequest) {
     const ids = await ds.getProjectAssignments(consultantId)
     appLog('info','assignments ok',{ ms: Date.now()-started, count: ids.length })
     return NextResponse.json({ value: ids, consultantId })
-  } catch (e: any) {
-    appLog('error','assignments error',{ message: e.message })
-    return NextResponse.json({ error: e.message || "Assignments error" }, { status: 500 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Assignments error'
+    appLog('error','assignments error',{ message: msg })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
