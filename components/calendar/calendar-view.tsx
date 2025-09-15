@@ -19,6 +19,9 @@ type DayDisplayEntry = CalendarEntry & { project?: BasicProject } | AggregatedDa
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<"month" | "week">("month")
+  // Gesture + keyboard navigation refs/state ----------------------------------
+  const gestureRef = useRef<HTMLDivElement | null>(null)
+  const dragStart = useRef<{x:number; y:number; t:number} | null>(null)
   // Simple responsive detection (no SSR impact – guarded by typeof window)
   const [isMobile, setIsMobile] = useState<boolean>(false)
   useEffect(()=>{
@@ -137,6 +140,16 @@ export function CalendarView() {
   const navigateMonth = (dir:"prev"|"next") => setCurrentDate(prev=>{ const d=new Date(prev); d.setMonth(d.getMonth() + (dir==='prev'? -1:1)); return d })
   const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 
+  // Live region for announcing navigation changes
+  const liveRef = useRef<HTMLDivElement | null>(null)
+  useEffect(()=>{
+    if(!liveRef.current) return
+    const label = viewMode==='week'
+      ? `Week starting ${getWeekDays(currentDate)[0].toLocaleDateString()}`
+      : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+    liveRef.current.textContent = label
+  }, [currentDate, viewMode])
+
   const scopeRange = useMemo(()=>{
     if(viewMode==='week') { const w=getWeekDays(currentDate); return {from:w[0], to:w[6]} }
     const y=currentDate.getFullYear(); const m=currentDate.getMonth(); return {from:new Date(y,m,1), to:new Date(y,m+1,0)}
@@ -186,6 +199,27 @@ export function CalendarView() {
   }, [currentDate, entriesByDate])
   useAggregatedDynamicCss('calendar-week', weekCss)
 
+  // Prefetch next/previous week CSS (lightweight) to avoid layout flash on fast navigation
+  const weekCssPrefetchRef = useRef<Record<string,string>>({})
+  useEffect(()=>{
+    const key = currentDate.toISOString().slice(0,10)+':'+viewMode
+    if(!weekCssPrefetchRef.current[key]) weekCssPrefetchRef.current[key]=weekCss
+    if(viewMode==='week'){
+      const prev = new Date(currentDate); prev.setDate(prev.getDate()-7)
+      const next = new Date(currentDate); next.setDate(next.getDate()+7)
+      ;[prev,next].forEach(d=>{
+        const w = getWeekDays(d)
+        const css = w.map((day,i)=>{
+          const entries = getEntriesForDate(day)
+          const total = entries.reduce((s,e)=>s+e.hours,0)
+          const pct = Math.min((total/8)*100,125)
+          return `#calendar-week [data-week-fill="${i}"]{width:${pct.toFixed(2)}%;}`
+        }).join('\n')
+        weekCssPrefetchRef.current[d.toISOString().slice(0,10)+':week']=css
+      })
+    }
+  }, [currentDate, viewMode, weekCss, getWeekDays])
+
   const monthCss = useMemo(()=>{
     const days = getDaysInMonth(currentDate)
     const out: string[] = []
@@ -201,10 +235,31 @@ export function CalendarView() {
   }, [currentDate, entriesByDate])
   useAggregatedDynamicCss('calendar-month', monthCss)
 
+  // Prefetch previous/next month CSS similarly (cheap computation)
+  const monthCssPrefetchRef = useRef<Record<string,string>>({})
+  useEffect(()=>{
+    const key = `${currentDate.getFullYear()}-${currentDate.getMonth()}`
+    if(!monthCssPrefetchRef.current[key]) monthCssPrefetchRef.current[key]=monthCss
+    if(viewMode==='month'){
+      const prev = new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1)
+      const next = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1)
+      ;[prev,next].forEach(m=>{
+        const days = getDaysInMonth(m)
+        const out: string[] = []
+        days.forEach(d=>{ if(d===null) return; const date=new Date(m.getFullYear(), m.getMonth(), d); const entries=getEntriesForDate(date); const total=entries.reduce((s,e)=>s+e.hours,0); const pct=Math.min((total/8)*100,125); out.push(`#calendar-month [data-month-fill="${d}"]{width:${pct.toFixed(2)}%;}`) })
+        monthCssPrefetchRef.current[`${m.getFullYear()}-${m.getMonth()}`]=out.join('\n')
+      })
+    }
+  }, [currentDate, viewMode, monthCss])
+
   const renderWeekView = () => {
     const weekDays = getWeekDays(currentDate)
     return (
-      <div id="calendar-week" className="grid grid-cols-7 gap-2">
+      <div
+        id="calendar-week"
+        className="grid grid-cols-7 gap-2 md:gap-2 relative"
+        data-compact=""
+      >
         {weekDays.map(day=>{
           const entries = getEntriesForDate(day).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
           let displayEntries:DayDisplayEntry[] = entries
@@ -486,8 +541,60 @@ export function CalendarView() {
     )
   }
 
+  // Keyboard & pointer (swipe) navigation -------------------------------------
+  useEffect(()=>{
+    const el = gestureRef.current
+    if(!el) return
+    const handlePointerDown = (e:PointerEvent)=>{
+      // Only primary button / touch
+      if(e.isPrimary) dragStart.current = { x:e.clientX, y:e.clientY, t:Date.now() }
+    }
+    const handlePointerUp = (e:PointerEvent)=>{
+      if(!dragStart.current) return
+      const dx = e.clientX - dragStart.current.x
+      const dy = e.clientY - dragStart.current.y
+      const dt = Date.now() - dragStart.current.t
+      dragStart.current = null
+      // Basic swipe heuristic: horizontal, short duration, sufficient distance
+      const threshold = 48
+      if(Math.abs(dx) > threshold && Math.abs(dy) < 80 && dt < 1000){
+        if(dx < 0){
+          // swipe left -> go forward
+          viewMode==='week' ? navigateWeek('next') : navigateMonth('next')
+        } else {
+          // swipe right -> go backward
+          viewMode==='week' ? navigateWeek('prev') : navigateMonth('prev')
+        }
+      }
+    }
+    el.addEventListener('pointerdown', handlePointerDown, { passive:true })
+    el.addEventListener('pointerup', handlePointerUp)
+    return ()=>{
+      el.removeEventListener('pointerdown', handlePointerDown)
+      el.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [viewMode])
+
+  const handleKeyNav = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if(e.key === 'ArrowLeft'){
+      e.preventDefault(); viewMode==='week'? navigateWeek('prev'): navigateMonth('prev')
+    } else if(e.key === 'ArrowRight') {
+      e.preventDefault(); viewMode==='week'? navigateWeek('next'): navigateMonth('next')
+    } else if(e.key === 'Home') {
+      e.preventDefault(); setCurrentDate(new Date())
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div
+      ref={gestureRef}
+      className="space-y-6"
+      tabIndex={0}
+      onKeyDown={handleKeyNav}
+      aria-label="Calendar view. Use left and right arrow keys or swipe horizontally to change the visible period. Press Home to jump to today."
+      role="region"
+    >
+      <div aria-live="polite" aria-atomic="true" className="sr-only" ref={liveRef} />
       {projectsError && (
         <div className="text-sm text-red-600 border border-red-200 bg-red-50 dark:bg-red-900/20 p-3 rounded">
           Failed to load projects: {projectsError}
