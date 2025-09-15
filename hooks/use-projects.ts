@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { getOrLoad, peekState } from '@/lib/client-cache'
 
 export interface BasicProject {
   id: string
@@ -17,26 +18,39 @@ export function useProjects() {
   const [projects, setProjects] = useState<BasicProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(()=>{
     let cancelled = false
-    async function load(){
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch('/api/dataverse/projects', { cache: 'no-store' })
+    setError(null)
+    // Attempt to get or load with cache (fresh 15m, stale window 2h)
+    const key = 'projects:v1'
+    const stateBefore = peekState(key)
+    if (stateBefore === 'stale') setRefreshing(true)
+    getOrLoad<BasicProject[]>(
+      key,
+      async () => {
+        const res = await fetch('/api/dataverse/projects')
         if (!res.ok) throw new Error(`Projects ${res.status}`)
         const json = await res.json()
-        if (!cancelled) setProjects(Array.isArray(json.value)? json.value: [])
-      } catch(e: any) {
-        if (!cancelled) setError(e.message || 'Failed to load projects')
-      } finally {
-        if (!cancelled) setLoading(false)
+        return Array.isArray(json.value) ? json.value : []
+      },
+      {
+        ttlMs: 15 * 60_000,
+        staleWindowMs: 2 * 60 * 60_000,
+        onBackgroundRefresh: (fresh) => { if(!cancelled){ setProjects(fresh); setRefreshing(false) } }
       }
-    }
-    load()
-    return ()=>{ cancelled = true }
+    )
+      .then(({ value, from }) => {
+        if (cancelled) return
+        setProjects(value)
+        if(stateBefore !== 'stale') setRefreshing(false)
+        setLoading(false)
+      })
+      .catch(e => { if(!cancelled){ setError(e.message||'Failed to load projects'); setLoading(false) } })
+
+    return () => { cancelled = true }
   },[])
 
-  return { projects, loading, error }
+  return { projects, loading, error, refreshing }
 }

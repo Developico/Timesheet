@@ -4,6 +4,8 @@ export interface Consultant {
   email?: string
   avatarUrl?: string
   aadObjectId?: string // Azure AD object id for Graph photo
+  /** Active (enabled) account in Entra/Dataverse (statecode==0). If undefined treat as active for backwards compatibility. */
+  isActive?: boolean
 }
 
 export interface Project {

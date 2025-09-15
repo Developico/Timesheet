@@ -19,6 +19,14 @@ type DayDisplayEntry = CalendarEntry & { project?: BasicProject } | AggregatedDa
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<"month" | "week">("month")
+  // Simple responsive detection (no SSR impact – guarded by typeof window)
+  const [isMobile, setIsMobile] = useState<boolean>(false)
+  useEffect(()=>{
+    const mq = () => setIsMobile(typeof window!=='undefined' && window.innerWidth < 640)
+    mq();
+    window.addEventListener('resize', mq)
+    return ()=> window.removeEventListener('resize', mq)
+  },[])
   // Aggregation now defaults ON per request
   const [aggregateDayEntries, setAggregateDayEntries] = useState(true)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
@@ -415,6 +423,69 @@ export function CalendarView() {
     )
   }
 
+  // Mobile list fallback (grouped by day within active scope range)
+  const renderMobileList = () => {
+    // Determine days in current visible frame (week or month) similar to grid logic
+    const days: Date[] = viewMode==='week'
+      ? getWeekDays(currentDate)
+      : (()=>{ const arr:Date[]=[]; const base=new Date(currentDate.getFullYear(), currentDate.getMonth(),1); const end=new Date(currentDate.getFullYear(), currentDate.getMonth()+1,0); for(let d=1; d<=end.getDate(); d++){ arr.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), d)) } return arr })()
+    return (
+      <div className="space-y-3">
+        {days.map(day=>{
+          const dateKey = dateIso(day)
+          const entriesRaw = (entriesByDate[dateKey]||[]).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+          const total = entriesRaw.reduce((s,e)=>s+e.hours,0)
+          if(!isActiveDay(day) && total===0) return null
+          // Aggregation reuse
+          let displayEntries:DayDisplayEntry[] = entriesRaw
+          if(aggregateDayEntries && entriesRaw.length>0){
+            const grouped: Record<string, AggregatedDayEntry> = {}
+            for(const e of entriesRaw){ if(!grouped[e.projectId]) grouped[e.projectId]={...e, aggregated:true, count:1}; else { grouped[e.projectId].hours+=e.hours; grouped[e.projectId].count+=1 } }
+            displayEntries = Object.values(grouped).sort((a,b)=> b.hours - a.hours)
+          }
+          const absence = entriesRaw.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0)
+          const billable = entriesRaw.filter(e=>e.billable && e.projectId!=='Office.Absences').reduce((s,e)=>s+e.hours,0)
+          const nonBillable = total - billable - absence
+          const weekdayShort = dayNames[(day.getDay()+6)%7]
+          const isToday = day.toDateString()=== new Date().toDateString()
+          return (
+            <div key={dateKey} className={`border rounded-lg p-3 ${isToday? 'ring-1 ring-[#6eedd9]':''} bg-card dark:bg-[oklch(0.19_0_0)]`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{weekdayShort}</span>
+                  <span className="font-semibold text-sm">{dateKey}</span>
+                </div>
+                {total>0 && <div className="text-xs font-medium tabular-nums">{total.toFixed(1)}h</div>}
+              </div>
+              {displayEntries.length>0 ? (
+                <div className="space-y-1">
+                  {displayEntries.map(e=>{
+                    const project = (e as any).project as BasicProject | undefined
+                    const dotType = project?.id === 'Office.Absences' || project?.code==='ABS' || project?.name?.toLowerCase().includes('absence') ? 'absence' : project?.billable ? 'billable':'nonbillable'
+                    return (
+                      <div key={e.id} className="flex items-center justify-between text-[12px] bg-background/50 dark:bg-white/10 rounded-md px-2 py-1">
+                        <button type="button" onClick={()=> setSelectedProjectId(project?.id||null)} className="flex items-center gap-2 truncate max-w-[180px]">
+                          <span className={`w-2 h-2 rounded-full dot-${dotType}`}/>
+                          <span className="truncate font-mono text-[11px]">{project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? `(${(e as AggregatedDayEntry).count})`: ''}</span>
+                        </button>
+                        <span className="tabular-nums">{e.hours.toFixed(1)}h</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : <div className="text-[11px] text-muted-foreground">No entries</div>}
+              <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground/80 tabular-nums">
+                <span>B {billable.toFixed(1)}</span>
+                <span>NB {nonBillable.toFixed(1)}</span>
+                <span>A {absence.toFixed(1)}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {projectsError && (
@@ -475,7 +546,9 @@ export function CalendarView() {
           </div>
         </CardHeader>
         <CardContent>
-          {viewMode==='week' ? (
+          {isMobile ? (
+            renderMobileList()
+          ) : viewMode==='week' ? (
             <>
               <div className="grid grid-cols-7 gap-2 mb-4">
                 {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-foreground">{d}</div>)}

@@ -100,6 +100,88 @@ Dev script enforces `next dev -p 3000`. If port is busy, Next.js will error inst
 - CI (lint + typecheck + build) w GitHub Actions
 - Optymalizacja: RSC dla statycznych części
 
+## Client-side Caching (Quick Win Layer)
+
+Dodano lekki cache w pamięci przeglądarki (`lib/client-cache.ts`) aby uniknąć irytującego ponownego ładowania danych przy każdym powrocie do zakładki/okna.
+
+### Zasada działania
+
+1. Każdy hook (projects, consultants, days off, time entries) woła `getOrLoad(key, loader, { ttlMs, staleWindowMs })`.
+2. Jeśli dane są świeże (w `ttlMs`) – zwraca natychmiast (brak spinnera).
+3. Jeśli dane są „stale” (po `ttlMs`, ale przed końcem `staleWindowMs`) – zwraca stare dane i *w tle* robi odświeżenie (SWR) aktualizując stan gdy gotowe.
+4. Jeśli brak lub przeterminowane poza okno – robi normalny fetch.
+
+### Klucze i TTL
+
+| Dataset | Key format | Fresh TTL | Stale window |
+|---------|------------|-----------|--------------|
+| Projects | `projects:v1` | 15 min | 2 h |
+| Consultants | `consultants:v1` | 15 min | 2 h |
+| DaysOff | `daysoff:v1:FROM:TO` | 12 h | 7 dni |
+| TimeEntries | `timeEntries:v1:FROM:TO:PROJECT_IDS:BILLABLE` | 30 s | 5 min |
+
+### Prefetch
+
+`ClientRoot` po montażu równolegle pobiera `projects` i `consultants` i zasila cache (`prime`). Dzięki temu pierwszy widok korzysta z już dostępnych danych.
+
+### Invalidacja
+
+Funkcja `invalidate(prefix)` usuwa wpisy których klucz zaczyna się od `prefix`. Na razie niewykorzystana (brak mutacji), ale gotowa pod przyszłe operacje add/update.
+
+### Rozszerzenia (opcjonalnie w przyszłości)
+
+- Persistencja (IndexedDB / localStorage) – cold start bez fetch.
+- BroadcastChannel dla synchronizacji wielu kart.
+- Migracja do TanStack Query jeśli pojawią się złożone mutacje / optimistic UI.
+
+Kod: `lib/client-cache.ts` – ~200 linii, brak zewnętrznych zależności.
+
+### (Nowe) Flaga `refreshing`
+
+Hooki (`useProjects`, `useConsultants`, `useDaysOff`, `useTimeEntries`) zwracają dodatkowo `refreshing: boolean`:
+
+- `true` gdy dane pochodziły ze stanu `stale` i trwa background fetch.
+- Można użyć do subtelnego badge (np. "Aktualizuję…").
+
+Przykład użycia z komponentem `RefreshingBadge`:
+
+```tsx
+import { RefreshingBadge } from '@/components/ui/refreshing-badge';
+import { useProjects } from '@/hooks/use-projects';
+
+export function ProjectsHeader(){
+	const { refreshing } = useProjects();
+	return (
+		<div className="flex items-center gap-2">
+			<h2 className="text-lg font-semibold">Projekty</h2>
+			<RefreshingBadge refreshing={refreshing} />
+		</div>
+	);
+}
+```
+
+### (Nowe) Persistencja localStorage
+
+Wybrane prefiksy (`projects:v1`, `consultants:v1`, `daysoff:v1`) są zapisywane w `localStorage`:
+
+- Przy starcie odczyt + filtracja przeterminowanych wpisów.
+- Zmniejsza koszt pierwszego ładowania po F5.
+- Dane dynamiczne (`timeEntries`) nie są utrwalane (zbyt częste zmiany / ryzyko staleness).
+
+### (Nowe) Invalidation helpers
+
+`lib/cache-invalidation.ts` udostępnia proste funkcje:
+
+```ts
+invalidateProjects();
+invalidateConsultants();
+invalidateTimeEntries();
+invalidateDaysOffRange(from, to);
+```
+
+Na razie niepodłączone do mutacji (brak mutacji). Można je wywołać po implementacji POST/PUT/DELETE.
+
+
 ## User Avatars via Microsoft Graph
 
 Endpoint `/api/avatar/[id]` pobiera zdjęcie użytkownika z Microsoft Graph (client credentials).

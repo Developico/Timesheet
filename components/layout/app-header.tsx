@@ -173,8 +173,15 @@ export function AppHeader() {
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { /* profile later */ }}>
-                  <User className="mr-2 h-4 w-4" /> Profile
+                <DropdownMenuItem asChild>
+                  <a
+                    href="https://myaccount.microsoft.com/?ref=MeControl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center"
+                  >
+                    <User className="mr-2 h-4 w-4" /> Profile
+                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => logout()} className="text-destructive">
