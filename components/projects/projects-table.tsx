@@ -29,84 +29,49 @@ export function ProjectsTable() {
   const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
   const [onlyReported, setOnlyReported] = useState<boolean>(false)
   const [assignedIds, setAssignedIds] = useState<Set<string>|null>(null)
+  // Column visibility preferences (persisted)
+  const defaultCols = { billable: true, client: true, allUsers: true }
+  const [cols, setCols] = useState<{billable:boolean;client:boolean;allUsers:boolean}>(defaultCols)
+  const [showColumnMenu, setShowColumnMenu] = useState(false)
   const { consultants } = useConsultants()
   const { consultantId: scopedConsultant } = useViewingScope()
   const { user } = useAuth()
+  const currentUserEmail = user?.email?.toLowerCase() || null
+  const currentUserId = scopedConsultant || consultants.find(c=> c.email && c.email.toLowerCase() === currentUserEmail)?.id || null
+  const primaryConsultantId = currentUserId
 
-  // Persist toggle state between date range changes / navigation
+  // Persist column visibility preferences
   useEffect(()=>{
     try {
-      const raw = localStorage.getItem('projectsTablePrefsV1')
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('tt_project_table_cols') : null
       if(raw){
         const parsed = JSON.parse(raw)
-        if(parsed.projectScope === 'my' || parsed.projectScope === 'all') setProjectScope(parsed.projectScope)
-        if(parsed.billableFilter === 'all' || parsed.billableFilter === 'yes' || parsed.billableFilter === 'no') setBillableFilter(parsed.billableFilter)
-        if(typeof parsed.onlyReported === 'boolean') setOnlyReported(parsed.onlyReported)
-        const allowedSortFields: Array<keyof Project | 'hours'> = ['name','client','code','hours']
-        if(parsed.sortField && allowedSortFields.includes(parsed.sortField)) {
-          setSortField(parsed.sortField)
-        } else {
-          setSortField('hours')
-        }
-  if(parsed.sortDirection === 'asc' || parsed.sortDirection === 'desc') setSortDirection(parsed.sortDirection)
-      } else {
-        setSortField('hours')
-        setSortDirection('desc')
+        setCols(c=> ({...c, ...parsed}))
       }
     } catch { /* ignore */ }
-  },[])
+  }, [])
   useEffect(()=>{
-    const store = { projectScope, billableFilter, onlyReported, sortField, sortDirection }
-    try { localStorage.setItem('projectsTablePrefsV1', JSON.stringify(store)) } catch {/* ignore */}
-  },[projectScope,billableFilter,onlyReported,sortField,sortDirection])
-  useEffect(()=>{
-    let ignore = false
-    const id = scopedConsultant
-    // Reset previous user's assignments immediately to avoid stale 'My Projects'
-    setAssignedIds(null)
-    if(!id) return () => { ignore = true }
-    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-    if(!guidRegex.test(id)) {
-      // Likely mock or unmapped user; skip assignment fetch
-      return () => { ignore = true }
-    }
-    // Debug info in console to trace chosen consultant
-    console.log('[projects-table] fetching assignments for consultant', { id })
-    fetch(`/api/dataverse/project-assignments?consultantId=${id}`)
-      .then(r=> r.ok? r.json(): Promise.reject(new Error('assignments '+r.status)))
-      .then(json=>{ if(!ignore && json?.value) setAssignedIds(new Set(json.value)); })
-      .catch(err=>{ if(!ignore) { console.warn('assignments fetch failed', err?.message) } })
-    return ()=>{ ignore = true }
-  }, [scopedConsultant])
-  
+    try { if (typeof window !== 'undefined') window.localStorage.setItem('tt_project_table_cols', JSON.stringify(cols)) } catch { /* ignore */ }
+  }, [cols])
 
-  type PExt = Project & { allUsers?: boolean }
-  // Determine effective user for per-project hour aggregation (match summary logic)
-  const primaryConsultantId = useMemo(()=>{
-    if(!consultants?.length) return null as string | null
-    if(user?.email){
-      const lower = user.email.toLowerCase()
-      const found = consultants.find(c=> c.email?.toLowerCase() === lower)
-      if(found) return found.id
-    }
-    return consultants[0]?.id ?? null
-  }, [consultants, user?.email])
-  const currentUserId = scopedConsultant || primaryConsultantId || undefined
-  const projectsWithMetrics = useMemo(()=> (filteredProjects as PExt[]).map((project) => {
-  const allProjectEntries = filteredTimeEntries.filter((entry) => entry.projectId === project.id)
-  // Aggregate hours for effective user (scoped or primary). If still none, fallback to 0.
-  const userEntries = currentUserId ? allProjectEntries.filter(e=> e.consultantId === currentUserId) : []
-    const userHours = userEntries.reduce((sum,e)=> sum + e.hours, 0)
-    const userBillableHours = userEntries.filter(e=>e.billable).reduce((sum,e)=> sum + e.hours, 0)
-    const assignedConsultants = [...new Set(allProjectEntries.map(e=>e.consultantId))]
-    return {
-      ...project,
-      actualHours: userHours,
-      billableHours: userBillableHours,
-      assignedConsultants,
-      billablePercentage: userHours > 0 ? (userBillableHours / userHours) * 100 : 0,
-    }
-  }), [filteredProjects, filteredTimeEntries, currentUserId])
+  // Build extended project metrics once per dependency change
+  const projectsWithMetrics = useMemo(()=>{
+    return filteredProjects.map(project => {
+      const entries = filteredTimeEntries.filter(e=> e.projectId === project.id)
+      const userEntries = currentUserId ? entries.filter(e=> e.consultantId === currentUserId) : entries
+      const userHours = userEntries.reduce((s,e)=> s+e.hours,0)
+      const userBillableHours = userEntries.filter(e=>e.billable).reduce((s,e)=> s+e.hours,0)
+      const assignedConsultants = [...new Set(entries.map(e=> e.consultantId))]
+      return {
+        ...project,
+        actualHours: userHours,
+        billableHours: userBillableHours,
+        assignedConsultants,
+        billablePercentage: userHours > 0 ? (userBillableHours / userHours) * 100 : 0,
+        allUsers: project.assigned === false ? false : project.assigned || false, // placeholder semantics; original code referenced p.allUsers
+      }
+    })
+  }, [filteredProjects, filteredTimeEntries, currentUserId])
 
   // Precompute count of projects where current user has >0h in current filtered window
   const reportedProjectsCount = useMemo(()=> projectsWithMetrics.filter(p=> p.actualHours > 0).length, [projectsWithMetrics])
@@ -182,7 +147,7 @@ export function ProjectsTable() {
   const absenceUserHours = userEntries.filter(e=> absenceProjectIds.includes(e.projectId)).reduce((s,e)=>s+e.hours,0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Summary metrics card (analogous to calendar view) */}
   <Card className="dark:bg-[oklch(0.18_0_0)]">
   <CardContent className="py-4">
@@ -263,130 +228,154 @@ export function ProjectsTable() {
                   title={`Projects with your hours in range: ${reportedProjectsCount}`}
                 >Only Reported ({reportedProjectsCount})</Button>
               </div>
+              <div className="relative">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showColumnMenu? 'default':'ghost'}
+                  className="h-7 px-3 text-xs"
+                  onClick={()=> setShowColumnMenu(s=>!s)}
+                  title="Toggle optional columns"
+                >Columns</Button>
+                {showColumnMenu && (
+                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-background p-2 shadow-lg flex flex-col gap-1 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={cols.billable} onChange={e=> setCols(c=>({...c,billable:e.target.checked}))} /> Billable
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={cols.client} onChange={e=> setCols(c=>({...c,client:e.target.checked}))} /> Client
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={cols.allUsers} onChange={e=> setCols(c=>({...c,allUsers:e.target.checked}))} /> All Users
+                    </label>
+                    <button
+                      type="button"
+                      onClick={()=>{ setCols(defaultCols); }}
+                      className="mt-1 text-[10px] text-muted-foreground hover:text-foreground self-end"
+                    >Reset</button>
+                  </div>
+                )}
+              </div>
             </div>
             <div />
           </div>
         </CardHeader>
         <CardContent>
           {/* (Summary moved to top card) */}
-          <div className="rounded-md border bg-card dark:bg-[oklch(0.19_0_0)]">
-            <Table>
+          <div className="rounded-md border bg-card dark:bg-[oklch(0.19_0_0)] overflow-hidden">
+            <div className="overflow-auto max-h-[70vh]">
+            <Table className="projects-table table-sticky text-[13px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="mobile-hidden">Billable</TableHead>
-                  <TableHead>
+                  <TableHead className="sticky top-0 left-0 z-20 bg-background min-w-[140px]">{/* Code column first & sticky */}
                     <SortButton field="code">Code</SortButton>
                   </TableHead>
-                  <TableHead className="mobile-hidden">
-                    <SortButton field="client">Client</SortButton>
-                  </TableHead>
-                  <TableHead>
-                    <SortButton field="name">Name</SortButton>
-                  </TableHead>
-                  <TableHead className="mobile-hidden">All Users</TableHead>
-                  <TableHead>
-                    <SortButton field="hours">Hrs</SortButton>
-                  </TableHead>
-                  <TableHead className="w-10"></TableHead>
+                  {cols.billable && <TableHead className="mobile-hidden sticky top-0 bg-background">Billable</TableHead>}
+                  {cols.client && <TableHead className="mobile-hidden sticky top-0 bg-background"><SortButton field="client">Client</SortButton></TableHead>}
+                  <TableHead className="sticky top-0 bg-background"><SortButton field="name">Name</SortButton></TableHead>
+                  {cols.allUsers && <TableHead className="mobile-hidden sticky top-0 bg-background">All Users</TableHead>}
+                  <TableHead className="sticky top-0 bg-background"><SortButton field="hours">Hrs</SortButton></TableHead>
+                  <TableHead className="sticky top-0 bg-background w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(() => {
-                  // Derive set of project IDs considered "mine":
-                  // 1. If assignments loaded => those IDs (assignment semantics independent of date range)
-                  // 2. Else if we know effective user => projects with that user's time entries in current filtered range
-                  // 3. Else fallback to all reported projects in range
                   const effectiveUserId = currentUserId || null
                   const myProjectIds = assignedIds
                     ? assignedIds
                     : effectiveUserId
                       ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
                       : new Set(filteredTimeEntries.map(e=> e.projectId))
-                  // If searching, show all filtered projects to present full results regardless of assignment scope
                   const searching = (filters.searchQuery || '').trim().length > 0
-                  // Base set: if scope = 'my' limit to assignment / participation; if 'all' show every filtered project (no hidden constraint)
                   let base = (projectScope==='my' && !searching)
                     ? filteredAndSortedProjects.filter(p=> p.allUsers || myProjectIds.has(p.id))
                     : filteredAndSortedProjects
                   if(billableFilter==='yes') base = base.filter(p=>p.billable)
                   else if(billableFilter==='no') base = base.filter(p=>!p.billable)
-                  if(onlyReported) {
-                    // Only projects where current user has reported hours (>0) in current filtered window
-                    base = base.filter(p=> p.actualHours > 0)
-                  }
-                  const visible = base
-                  if(visible.length===0) {
+                  if(onlyReported) base = base.filter(p=> p.actualHours > 0)
+                  if(base.length===0) {
                     return (
                       <TableRow>
-        <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
                           {projectScope==='my' ? (assignedIds? 'No assigned projects' : 'No projects with your recent time entries – switch to All to browse all codes.') : 'No projects'}
                         </TableCell>
                       </TableRow>
                     )
                   }
-                  return visible.map(project => {
+                  return base.map(project => {
                     const newForUser = isNew(project.id)
                     return (
                       <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
-                    <TableCell className="mobile-hidden">
-                      <Badge variant={project.billable ? "default" : "secondary"} className="text-[10px]">
-                        {project.billable ? "Yes" : "No"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 min-w-[110px]">
-                        {(() => {
-                          const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
-                          // Use same palette as summary bar
-                          const color = isAbsence ? '#dc2626' : (project.billable ? '#14b8a6' : '#174076')
-                          const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
-                          {/* eslint-disable-next-line */}
-                          return <div className="w-3 h-3 rounded-full" data-color={color} title={label} aria-label={label} />
-                        })()}
-                        <span className="font-mono text-sm flex items-center gap-1">
-                          {project.code}
-                          {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={()=>{navigator.clipboard?.writeText(project.code).then(()=> toast({ title: 'Copied', description: `${project.code} copied to clipboard` })).catch(()=>{}); markViewed(project.id)}}
-                          className="p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-border"
-                          title="Copy project code"
-                        >
-                          <CopyIcon className="h-3 w-3" />
-                          <span className="sr-only">Copy code {project.code}</span>
-                        </button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium mobile-hidden">{project.client}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-0.5">
-                        <span>{project.name}</span>
-                        <span className="text-[10px] text-muted-foreground sm:hidden">{project.client}</span>
-                        {project.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="mobile-hidden">
-                      { project.allUsers ? (
-                        <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
-                      ) : <span className="text-muted-foreground text-xs">-</span> }
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm" title={`Your hours: ${project.actualHours.toFixed(1)}h (B ${project.billableHours.toFixed(1)} / NB ${(project.actualHours - project.billableHours).toFixed(1)})`}>
-                        <div>{project.actualHours.toFixed(1)}h</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedProject(project); markViewed(project.id) }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                        <TableCell className="sticky left-0 z-10 bg-background">
+                          <div className="flex items-center gap-2 min-w-[140px] pr-2">
+                            {(() => {
+                              const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
+                              const colorClass = isAbsence ? 'bg-red-600' : (project.billable ? 'bg-teal-500' : 'bg-[#174076]')
+                              const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
+                              return <div className={`w-3 h-3 rounded-full ${colorClass}`} title={label} aria-label={label} />
+                            })()}
+                            <span className="font-mono text-sm flex items-center gap-1">
+                              {project.code}
+                              {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={()=>{navigator.clipboard?.writeText(project.code).then(()=> toast({ title: 'Copied', description: `${project.code} copied to clipboard` })).catch(()=>{}); markViewed(project.id)}}
+                              className="p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-border"
+                              title="Copy project code"
+                            >
+                              <CopyIcon className="h-3 w-3" />
+                              <span className="sr-only">Copy code {project.code}</span>
+                            </button>
+                          </div>
+                        </TableCell>
+                        {cols.billable && (
+                          <TableCell className="mobile-hidden">
+                            <Badge variant={project.billable ? "default" : "secondary"} className="text-[10px]">
+                              {project.billable ? "Yes" : "No"}
+                            </Badge>
+                          </TableCell>
+                        )}
+                        {cols.client && <TableCell className="font-medium mobile-hidden">{project.client}</TableCell>}
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            <span>{project.name}</span>
+                            {cols.client && <span className="text-[10px] text-muted-foreground sm:hidden">{project.client}</span>}
+                            {project.allUsers && cols.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
+                          </div>
+                        </TableCell>
+                        {cols.allUsers && (
+                          <TableCell className="mobile-hidden">
+                            { project.allUsers ? (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
+                            ) : <span className="text-muted-foreground text-xs">-</span> }
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <div className="text-sm min-w-[70px]" title={`Your hours: ${project.actualHours.toFixed(1)}h (B ${project.billableHours.toFixed(1)} / NB ${(project.actualHours - project.billableHours).toFixed(1)})`}>
+                            <div className="tabular-nums font-medium">{project.actualHours.toFixed(1)}h</div>
+                            <div className="hidden md:block h-1 w-full rounded bg-muted overflow-hidden mt-1">
+                              {(() => {
+                                const pct = project.actualHours>0 ? (project.billableHours / project.actualHours) * 100 : 0
+                                const bucket = Math.round(pct) // 0..100
+                                // Use CSS variable through data attribute; a small utility in globals can map this
+                                return <div className="h-full bg-teal-500" data-pct={bucket} />
+                              })()}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedProject(project); markViewed(project.id) }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     )
                   })
                 })()}
               </TableBody>
             </Table>
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">

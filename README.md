@@ -150,13 +150,13 @@ import { RefreshingBadge } from '@/components/ui/refreshing-badge';
 import { useProjects } from '@/hooks/use-projects';
 
 export function ProjectsHeader(){
-	const { refreshing } = useProjects();
-	return (
-		<div className="flex items-center gap-2">
-			<h2 className="text-lg font-semibold">Projekty</h2>
-			<RefreshingBadge refreshing={refreshing} />
-		</div>
-	);
+  const { refreshing } = useProjects();
+  return (
+    <div className="flex items-center gap-2">
+      <h2 className="text-lg font-semibold">Projects</h2>
+      <RefreshingBadge refreshing={refreshing} />
+    </div>
+  );
 }
 ```
 
