@@ -20,6 +20,10 @@ export const DV = {
   // Avatar not stored in Dataverse by default; only set via env if a custom column exists
   avatar: process.env.DATAVERSE_FIELD_CONSULTANT_AVATAR || "", // empty => ignored
     stateCode: process.env.DATAVERSE_FIELD_CONSULTANT_STATE || "statecode",
+    // Optional field representing disabled flag (bool / two-options). E.g. 'isdisabled'
+    disabledFlag: process.env.DATAVERSE_FIELD_CONSULTANT_DISABLED || "isdisabled",
+    // Alternative numeric access mode (accessmode). Some orgs set Access Mode = Administrative / ReadOnly / Disabled
+    accessMode: process.env.DATAVERSE_FIELD_CONSULTANT_ACCESSMODE || "accessmode",
   azureAdObjectId: process.env.DATAVERSE_FIELD_CONSULTANT_AAD_OID || "azureactivedirectoryobjectid",
   },
   project: {

@@ -21,19 +21,78 @@ export class DataverseDataSource implements IDataSource {
 
   async getConsultants(): Promise<Consultant[]> {
     this.ensureEnabled()
-  // Pull systemusers (no statecode filter; systemusers doesn't expose statecode OData field in this env)
-  const consultantSelectFields = [DV.consultant.id, DV.consultant.fullName, DV.consultant.email, DV.consultant.azureAdObjectId]
-  if (DV.consultant.avatar) consultantSelectFields.push(DV.consultant.avatar)
-  const select = consultantSelectFields.join(",")
-  const data = await dataverseClient.list(DV.consultant.entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`) as { value?: any[] }
-    const records: any[] = Array.isArray(data.value) ? data.value : []
-    return records.map((r) => ({
-      id: r[DV.consultant.id],
-      name: r[DV.consultant.fullName],
-      email: r[DV.consultant.email],
-  avatarUrl: DV.consultant.avatar ? (r[DV.consultant.avatar] || undefined) : undefined,
-  aadObjectId: r[DV.consultant.azureAdObjectId] || undefined,
-    }))
+    // Pull consultants (system users). Robust fallback logic for environment discrepancies:
+    // 1. entitySet must be plural 'systemusers'. If misconfigured to 'systemuser' or custom singular, retry with plural.
+    // 2. Optional columns (statecode, avatar) may be absent; on 400 remove and retry.
+    // 3. We always return a list; unknown optional fields won't break the endpoint.
+    const baseEntitySet = DV.consultant.entitySet
+    const candidateEntitySets = [baseEntitySet]
+    if (!/s$/i.test(baseEntitySet)) candidateEntitySets.push(baseEntitySet + 's')
+    if (baseEntitySet.toLowerCase() !== 'systemusers') candidateEntitySets.push('systemusers')
+
+    let lastError: any = null
+    for (const entitySet of candidateEntitySets) {
+      let wantState = !!DV.consultant.stateCode
+      let wantAvatar = !!DV.consultant.avatar
+      let wantDisabled = !!DV.consultant.disabledFlag
+      let wantAccessMode = !!DV.consultant.accessMode
+      // Inner retry loop for dropping optional columns that cause 400
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const consultantSelectFields = [DV.consultant.id, DV.consultant.fullName, DV.consultant.email, DV.consultant.azureAdObjectId]
+        if (wantDisabled) consultantSelectFields.push(DV.consultant.disabledFlag as string)
+        if (wantAccessMode) consultantSelectFields.push(DV.consultant.accessMode as string)
+        if (wantState) consultantSelectFields.push(DV.consultant.stateCode as string)
+        if (wantAvatar) consultantSelectFields.push(DV.consultant.avatar as string)
+        const select = consultantSelectFields.filter(Boolean).join(',')
+        try {
+          const data = await dataverseClient.list(entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`) as { value?: any[] }
+          const records: any[] = Array.isArray(data.value) ? data.value : []
+          return records.map(r => {
+            const disabledVal = wantDisabled ? r[DV.consultant.disabledFlag as string] : undefined
+            const accessModeVal = wantAccessMode ? r[DV.consultant.accessMode as string] : undefined
+            const stateVal = wantState ? r[DV.consultant.stateCode as string] : undefined
+            // Derive isActive precedence: explicit disabled flag (boolean/1) -> access mode (3=Administrative/4=ReadOnly/Disabled?) -> statecode
+            let isActive = true
+            if (disabledVal !== undefined) {
+              // disabled true / 1 / '1' => inactive
+              isActive = !(disabledVal === true || disabledVal === 1 || disabledVal === '1')
+            } else if (accessModeVal !== undefined) {
+              // Some orgs: 0=Read-Write, 1=Administrative, 2=Read-Only, 3=Support User, 4=Non-interactive, 5=Portal? (Treat >1 as potentially inactive except 4 if needed)
+              // Keep simple: treat accessmode 2 (Read-Only) as inactive and 4 (Non-interactive) as inactive for project allocation UI.
+              if (accessModeVal === 2 || accessModeVal === '2' || accessModeVal === 4 || accessModeVal === '4') isActive = false
+            } else if (stateVal !== undefined) {
+              isActive = stateVal === 0 || stateVal === 'Active' || stateVal === '0'
+            }
+            return {
+              id: r[DV.consultant.id],
+              name: r[DV.consultant.fullName],
+              email: r[DV.consultant.email],
+              avatarUrl: wantAvatar ? (r[DV.consultant.avatar as string] || undefined) : undefined,
+              aadObjectId: r[DV.consultant.azureAdObjectId] || undefined,
+              isActive,
+            }
+          })
+        } catch (e: any) {
+          lastError = e
+          const msg = e?.message || ''
+          // 404 => try next entitySet
+          if (/404/.test(msg) || /Resource not found/i.test(msg)) break
+          // 400 with missing property: drop that column and retry
+          if (/Could not find a property named/.test(msg)) {
+            if (wantDisabled && DV.consultant.disabledFlag && msg.includes(DV.consultant.disabledFlag)) { wantDisabled = false; continue }
+            if (wantAccessMode && DV.consultant.accessMode && msg.includes(DV.consultant.accessMode)) { wantAccessMode = false; continue }
+            if (wantAvatar && DV.consultant.avatar && msg.includes(DV.consultant.avatar)) { wantAvatar = false; continue }
+            // statecode may be entirely absent in environment
+            if (wantState && msg.includes(DV.consultant.stateCode || 'statecode')) { wantState = false; continue }
+          }
+          // Other errors - do not retry this entitySet
+          break
+        }
+      }
+    }
+    // If all attempts failed, rethrow last error (will be turned into 500 by route)
+    if (lastError) throw lastError
+    return []
   }
 
   async getProjects(currentConsultantId?: string): Promise<Project[]> {
@@ -53,10 +112,10 @@ export class DataverseDataSource implements IDataSource {
     } catch(e:any) {
       const msg = e.message||''
       if (s.allUsers && msg.includes(s.allUsers)) {
-        // Retry without allUsers field
+        // Retry without allUsers field if it's missing in environment
         const fallbackSelect = projectSelectFields.filter(f=>f!==s.allUsers).join(',')
-  const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
-  records = Array.isArray(data2.value) ? data2.value : []
+        const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
+        records = Array.isArray(data2.value) ? data2.value : []
       } else throw e
     }
     let assignmentSet: Set<string> | null = null

@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast"
 import type { Project } from "@/lib/data"
 import { useFilters } from "@/lib/filter-context"
 import { useConsultants } from "@/hooks/use-consultants"
+import { InactiveMembers, InactiveResolvedItem } from './inactive-members'
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
 import { Copy as CopyIcon } from "lucide-react"
@@ -52,8 +53,9 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
     return consultants[0]
   }, [consultants, user?.email])
 
-  // Entries are already scoped by FilterProvider (date range + ViewingScope). Don't re-filter by consultant to avoid mismatches.
-  const myEntries = useMemo(() => scopedEntries.filter(e => !e.isAbsence), [scopedEntries])
+  // Restrict personal entries strictly to current (viewing scope or resolved) consultant for Reports.
+  const effectiveConsultantId = viewingConsultantId || currentConsultant?.id || null
+  const myEntries = useMemo(() => scopedEntries.filter(e => !e.isAbsence && (!effectiveConsultantId || e.consultantId === effectiveConsultantId)), [scopedEntries, effectiveConsultantId])
 
   const myEntriesSorted = useMemo(() => {
     return [...myEntries].sort((a, b) => {
@@ -128,7 +130,14 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   const content = (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={onClose} aria-hidden="true" />
-      <div id={`project-panel-${project.id}`} ref={panelRef} className="fixed top-0 right-0 h-full w-[400px] bg-background border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none" role="dialog" aria-modal="true" aria-labelledby="project-detail-title">
+  <div
+    id={`project-panel-${project.id}`}
+    ref={panelRef}
+    className="fixed top-0 right-0 h-full w-full sm:w-[400px] bg-background dark:bg-background/95 supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="project-detail-title"
+  >
         <div className="p-5 border-b flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -198,28 +207,39 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                  <div className="text-sm text-muted-foreground">Team error: {teamError}. Showing only members with hours in current scope.</div>
                ) : (
                 <div className="space-y-2 max-h-48 overflow-auto pr-1">
-                  {(showAllTeam ? teamByConsultant : teamByConsultant.slice(0,8)).map(t => {
-                     const c = consultants.find(cc => cc.id === t.consultantId)
-                     return (
-                       <div key={t.consultantId} className="flex items-center text-sm">
-                         <div className="flex items-center gap-2 min-w-0">
-                           <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-semibold text-gray-700">
-                             {c?.avatarUrl ? (
-                               // eslint-disable-next-line @next/next/no-img-element
-                               <img src={c.avatarUrl} alt={c.name} className="w-6 h-6 object-cover" />
-                             ) : (
-                               (c?.name ? c.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase() : '•')
-                             )}
-                           </div>
-                           <div className="truncate">
-                             <div className="font-medium truncate">{c?.name || 'Unknown'}</div>
-                             {c?.email && <div className="text-xs text-muted-foreground truncate">{c.email}</div>}
-                           </div>
-                         </div>
-                       </div>
-                     )
-                   })}
-                 </div>
+                  {(() => {
+                    // Resolve full team to consultants, then separate active/inactive before slicing for display.
+                    const resolvedFull = teamByConsultant.map(t => ({ t, c: consultants.find(cc => cc.id === t.consultantId) }))
+                    const inactive = resolvedFull.filter(i => i.c && i.c.isActive === false)
+                    const activeAll = resolvedFull.filter(i => i.c && i.c.isActive !== false)
+                    const activeVisible = showAllTeam ? activeAll : activeAll.slice(0,8)
+                    return (
+                      <>
+                        {activeVisible.map(({ t, c }) => (
+                          <div key={t.consultantId} className="flex items-center text-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-semibold text-gray-700">
+                                {c?.avatarUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={c.avatarUrl} alt={c.name} className="w-6 h-6 object-cover" />
+                                ) : (
+                                  (c?.name ? c.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase() : '•')
+                                )}
+                              </div>
+                              <div className="truncate">
+                                <div className="font-medium truncate">{c?.name || 'Unknown'}</div>
+                                {c?.email && <div className="text-xs text-muted-foreground truncate">{c.email}</div>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {inactive.length > 0 && (
+                          <InactiveMembers items={inactive as InactiveResolvedItem[]} />
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
                )
              )}
            </div>
@@ -273,3 +293,5 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   if (!mounted) return null
   return createPortal(content, document.body)
 }
+
+// InactiveMembers moved to separate file

@@ -108,6 +108,22 @@ export function ProjectsTable() {
     }
   }), [filteredProjects, filteredTimeEntries, currentUserId])
 
+  // Precompute count of projects where current user has >0h in current filtered window
+  const reportedProjectsCount = useMemo(()=> projectsWithMetrics.filter(p=> p.actualHours > 0).length, [projectsWithMetrics])
+  // Count of projects that would appear under 'my' scope (ignoring search so it stays stable while typing)
+  const myProjectsCount = useMemo(()=>{
+    const effectiveUserId = currentUserId || null
+    const myProjectIds = assignedIds
+      ? assignedIds
+      : effectiveUserId
+        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+        : new Set(filteredTimeEntries.map(e=> e.projectId))
+    // Include projects marked allUsers explicitly or belonging to user via assignments/time entries
+    return projectsWithMetrics.filter(p=> p.allUsers || myProjectIds.has(p.id)).length
+  }, [assignedIds, filteredTimeEntries, projectsWithMetrics, currentUserId])
+  // allProjectsCount computed after filteredAndSortedProjects is defined (placeholder, will set later)
+  let allProjectsCount = 0
+
   const filteredAndSortedProjects = useMemo(()=>{
     const arr = [...projectsWithMetrics]
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -121,6 +137,7 @@ export function ProjectsTable() {
     })
     return arr
   }, [projectsWithMetrics, sortField, sortDirection])
+  allProjectsCount = filteredAndSortedProjects.length
 
   const handleSort = (field: keyof Project | 'hours') => {
     if (sortField === field) {
@@ -202,14 +219,16 @@ export function ProjectsTable() {
                   variant={projectScope==='my'? 'default':'ghost'}
                   className="h-7 px-3 text-xs"
                   onClick={()=>setProjectScope('my')}
-                >My Projects</Button>
+                  title={assignedIds ? 'Assigned projects (plus ALL flagged)' : 'Projects you have time entries on (plus ALL flagged)'}
+                >My Projects ({myProjectsCount})</Button>
                 <Button
                   type="button"
                   size="sm"
                   variant={projectScope==='all'? 'default':'ghost'}
                   className="h-7 px-3 text-xs"
                   onClick={()=>setProjectScope('all')}
-                >All</Button>
+                  title="All filtered projects"
+                >All ({allProjectsCount})</Button>
               </div>
               <div className="flex items-center rounded-lg border p-1 bg-background">
                 <Button
@@ -241,7 +260,8 @@ export function ProjectsTable() {
                   variant={onlyReported? 'default':'ghost'}
                   className="h-7 px-3 text-xs"
                   onClick={()=>setOnlyReported(o=>!o)}
-                >Only Reported</Button>
+                  title={`Projects with your hours in range: ${reportedProjectsCount}`}
+                >Only Reported ({reportedProjectsCount})</Button>
               </div>
             </div>
             <div />
@@ -253,21 +273,21 @@ export function ProjectsTable() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Billable</TableHead>
+                  <TableHead className="mobile-hidden">Billable</TableHead>
                   <TableHead>
                     <SortButton field="code">Code</SortButton>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="mobile-hidden">
                     <SortButton field="client">Client</SortButton>
                   </TableHead>
                   <TableHead>
                     <SortButton field="name">Name</SortButton>
                   </TableHead>
-                  <TableHead>All Users</TableHead>
+                  <TableHead className="mobile-hidden">All Users</TableHead>
                   <TableHead>
-                    <SortButton field="hours">Hours</SortButton>
+                    <SortButton field="hours">Hrs</SortButton>
                   </TableHead>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -284,14 +304,15 @@ export function ProjectsTable() {
                       : new Set(filteredTimeEntries.map(e=> e.projectId))
                   // If searching, show all filtered projects to present full results regardless of assignment scope
                   const searching = (filters.searchQuery || '').trim().length > 0
+                  // Base set: if scope = 'my' limit to assignment / participation; if 'all' show every filtered project (no hidden constraint)
                   let base = (projectScope==='my' && !searching)
                     ? filteredAndSortedProjects.filter(p=> p.allUsers || myProjectIds.has(p.id))
                     : filteredAndSortedProjects
                   if(billableFilter==='yes') base = base.filter(p=>p.billable)
                   else if(billableFilter==='no') base = base.filter(p=>!p.billable)
                   if(onlyReported) {
-                    const reportedIds = new Set(filteredTimeEntries.map(e=> e.projectId))
-                    base = base.filter(p=> reportedIds.has(p.id))
+                    // Only projects where current user has reported hours (>0) in current filtered window
+                    base = base.filter(p=> p.actualHours > 0)
                   }
                   const visible = base
                   if(visible.length===0) {
@@ -307,13 +328,13 @@ export function ProjectsTable() {
                     const newForUser = isNew(project.id)
                     return (
                       <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
-                    <TableCell>
-                      <Badge variant={project.billable ? "default" : "secondary"} className="text-xs">
+                    <TableCell className="mobile-hidden">
+                      <Badge variant={project.billable ? "default" : "secondary"} className="text-[10px]">
                         {project.billable ? "Yes" : "No"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-[110px]">
                         {(() => {
                           const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
                           // Use same palette as summary bar
@@ -337,16 +358,22 @@ export function ProjectsTable() {
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{project.client}</TableCell>
-                    <TableCell>{project.name}</TableCell>
+                    <TableCell className="font-medium mobile-hidden">{project.client}</TableCell>
                     <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <span>{project.name}</span>
+                        <span className="text-[10px] text-muted-foreground sm:hidden">{project.client}</span>
+                        {project.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="mobile-hidden">
                       { project.allUsers ? (
                         <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
                       ) : <span className="text-muted-foreground text-xs">-</span> }
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                            <div>{project.actualHours.toFixed(1)}h</div>
+                      <div className="text-sm" title={`Your hours: ${project.actualHours.toFixed(1)}h (B ${project.billableHours.toFixed(1)} / NB ${(project.actualHours - project.billableHours).toFixed(1)})`}>
+                        <div>{project.actualHours.toFixed(1)}h</div>
                       </div>
                     </TableCell>
                     <TableCell>

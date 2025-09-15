@@ -227,9 +227,17 @@ export default function HomePage() {
             <div className="text-sm text-muted-foreground px-6 pb-4">Loading time entries...</div>
           )}
           {!fullLoading && activeTab === "dashboard" && (
-            <div className="space-y-6">
-              <KPICards />
-              <Charts />
+            <div className="space-y-6 mobile-px">
+              {/* KPI cards: assume internal grid; enforce stacking on very small screens via a wrapper utility */}
+              <div className="w-full">
+                <KPICards />
+              </div>
+              {/* Charts: allow horizontal scroll if layout overflows */}
+              <div className="w-full overflow-x-auto pb-2 -mx-3 sm:mx-0 px-3 sm:px-0">
+                <div className="min-w-[640px] sm:min-w-0">
+                  <Charts />
+                </div>
+              </div>
             </div>
           )}
           {!fullLoading && activeTab === "calendar" && <CalendarView />}
