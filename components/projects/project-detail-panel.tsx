@@ -161,12 +161,12 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   <div
     id={`project-panel-${project.id}`}
     ref={panelRef}
-  className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-white dark:bg-[var(--card)] supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
+  className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-[var(--surface)] dark:bg-[var(--card)] supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
     role="dialog"
     aria-modal="true"
     aria-labelledby="project-detail-title"
   >
-          <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-white/95 dark:bg-[color:var(--card)_/_95] backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-[color:var(--card)_/_85]">
+          <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-[color:var(--surface-overlay)_/_95] dark:bg-[color:var(--surface-overlay)_/_90] backdrop-blur supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_80] dark:supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_75]">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               {/* eslint-disable-next-line */}
@@ -316,7 +316,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                 {myEntriesSorted.slice(0, 30).map(e => {
                   const taskText = (e as EntryLike & { Task?: string }).Task ?? e.task ?? e.note ?? e.description ?? '(no task name)'
                   return (
-                    <div key={e.id || Math.random().toString(36)} className="flex items-center justify-between text-[12px] rounded-md px-2 py-1 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10">
+                    <div key={e.id || Math.random().toString(36)} className="flex items-center justify-between text-[12px] rounded-md px-2 py-1 bg-background/60 dark:bg-[color:var(--surface-overlay)_/_30] border border-border/50 dark:border-white/10">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`text-[10px] px-1 py-0.5 rounded ${e.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>{e.billable ? 'B' : 'NB'}</span>
                         <div className="min-w-0">

@@ -109,7 +109,7 @@ export function ConsultantDock() {
           <div
             className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true"
           />
-          <div className="relative w-full sm:max-w-md bg-white dark:bg-neutral-900 border border-border/70 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative w-full sm:max-w-md bg-[var(--surface)] dark:bg-[var(--card)] border border-border/70 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30 dark:bg-neutral-800/60">
               <button
                 className="p-2 rounded-md hover:bg-muted transition-colors"
@@ -152,7 +152,7 @@ export function ConsultantDock() {
                 })}
               </div>
             )}
-            <div className="overflow-y-auto max-h-[60vh] p-2 bg-white/95 dark:bg-neutral-900/95">
+            <div className="overflow-y-auto max-h-[60vh] p-2 bg-[color:var(--surface-overlay)_/_95] dark:bg-[color:var(--surface-overlay)_/_90]">
               {loading && <div className="px-3 py-6 text-sm text-muted-foreground">Loading…</div>}
               {error && <div className="px-3 py-2 text-sm text-red-600">{error}</div>}
               {!loading && filtered.map((m) => {
