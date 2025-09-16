@@ -145,7 +145,9 @@ export function ActiveProjectsCard() {
 
   return (
     <>
-    <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}>
+    {/* On large screens this card will take 1/2 or 1/3 width depending on parent grid; Hours Summary will span more columns */}
+    <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}
+      data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
           <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Your Top 5 Active Projects</CardTitle>
@@ -544,7 +546,7 @@ export function HoursSummaryChart() {
   }, [viewMode, wrapWidth, currentData.length])
 
   return (
-    <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+    <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden" data-dashboard-card data-type="hours-summary">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div
           className={`transition-all duration-700 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`}
@@ -553,48 +555,49 @@ export function HoursSummaryChart() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Reported hours breakdown</p>
         </div>
         <div
-          className={`flex gap-1 transition-all duration-700 delay-200 ${isVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
+          className={`flex transition-all duration-700 delay-200 ${isVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
         >
-          {/* Switch button set based on date range: for year -> Monthly/Weekly; else -> Weekly/Daily */}
-          {isYearRange ? (
-            <>
-              <Button
-                variant={viewMode === "monthly" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("monthly")}
-                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-              >
-                Monthly
-              </Button>
-              <Button
-                variant={viewMode === "weekly" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("weekly")}
-                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-              >
-                Weekly
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant={viewMode === "weekly" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("weekly")}
-                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-              >
-                Weekly
-              </Button>
-              <Button
-                variant={viewMode === "daily" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("daily")}
-                className="text-xs px-3 py-1 transition-all duration-200 hover:scale-105"
-              >
-                Daily
-              </Button>
-            </>
-          )}
+          <div role="toolbar" aria-label="Hours view mode" className="flex rounded-md overflow-hidden shadow-xs border bg-muted/40">
+            {isYearRange ? (
+              <>
+                <Button
+                  variant="segmented"
+                  size="sm"
+                  data-active={viewMode==='monthly'}
+                  aria-pressed={viewMode==='monthly'}
+                  onClick={() => setViewMode("monthly")}
+                  className="text-xs px-3 py-1 rounded-none first:rounded-l-md last:rounded-r-md"
+                >Monthly</Button>
+                <Button
+                  variant="segmented"
+                  size="sm"
+                  data-active={viewMode==='weekly'}
+                  aria-pressed={viewMode==='weekly'}
+                  onClick={() => setViewMode("weekly")}
+                  className="text-xs px-3 py-1 rounded-none first:rounded-l-md last:rounded-r-md"
+                >Weekly</Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="segmented"
+                  size="sm"
+                  data-active={viewMode==='weekly'}
+                  aria-pressed={viewMode==='weekly'}
+                  onClick={() => setViewMode("weekly")}
+                  className="text-xs px-3 py-1 rounded-none first:rounded-l-md last:rounded-r-md"
+                >Weekly</Button>
+                <Button
+                  variant="segmented"
+                  size="sm"
+                  data-active={viewMode==='daily'}
+                  aria-pressed={viewMode==='daily'}
+                  onClick={() => setViewMode("daily")}
+                  className="text-xs px-3 py-1 rounded-none first:rounded-l-md last:rounded-r-md"
+                >Daily</Button>
+              </>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -836,9 +839,13 @@ export function HoursSummaryChart() {
 
 export function Charts() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <ActiveProjectsCard />
-      <HoursSummaryChart />
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" data-charts-layout>
+      <div className="lg:col-span-2 flex flex-col" data-charts-col="active">
+        <ActiveProjectsCard />
+      </div>
+      <div className="lg:col-span-3 flex flex-col" data-charts-col="hours">
+        <HoursSummaryChart />
+      </div>
     </div>
   )
 }

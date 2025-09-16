@@ -17,6 +17,7 @@ import type { Project } from "@/lib/data"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 import { useAuth } from "@/lib/auth-client"
 import { toast } from "@/hooks/use-toast"
+import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 
 export function ProjectsTable() {
   const { filteredProjects, filteredTimeEntries, filters } = useFilters()
@@ -68,7 +69,8 @@ export function ProjectsTable() {
         billableHours: userBillableHours,
         assignedConsultants,
         billablePercentage: userHours > 0 ? (userBillableHours / userHours) * 100 : 0,
-        allUsers: project.assigned === false ? false : project.assigned || false, // placeholder semantics; original code referenced p.allUsers
+        // Preserve real allUsers flag only if explicitly true; do not infer from 'assigned'.
+  allUsers: (project as any).allUsers === true,
       }
     })
   }, [filteredProjects, filteredTimeEntries, currentUserId])
@@ -84,7 +86,7 @@ export function ProjectsTable() {
         ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
         : new Set(filteredTimeEntries.map(e=> e.projectId))
     // Include projects marked allUsers explicitly or belonging to user via assignments/time entries
-    return projectsWithMetrics.filter(p=> p.allUsers || myProjectIds.has(p.id)).length
+  return projectsWithMetrics.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id)).length
   }, [assignedIds, filteredTimeEntries, projectsWithMetrics, currentUserId])
   // allProjectsCount computed after filteredAndSortedProjects is defined (placeholder, will set later)
   let allProjectsCount = 0
@@ -177,53 +179,59 @@ export function ProjectsTable() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-wrap">
               <CardTitle>Projects ({filteredAndSortedProjects.length})</CardTitle>
-              <div className="flex items-center rounded-lg border p-1 bg-background">
+              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
-                  variant={projectScope==='my'? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={projectScope==='my'}
                   onClick={()=>setProjectScope('my')}
                   title={assignedIds ? 'Assigned projects (plus ALL flagged)' : 'Projects you have time entries on (plus ALL flagged)'}
                 >My Projects ({myProjectsCount})</Button>
                 <Button
                   type="button"
                   size="sm"
-                  variant={projectScope==='all'? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={projectScope==='all'}
                   onClick={()=>setProjectScope('all')}
                   title="All filtered projects"
                 >All ({allProjectsCount})</Button>
               </div>
-              <div className="flex items-center rounded-lg border p-1 bg-background">
+              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
-                  variant={billableFilter==='all'? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={billableFilter==='all'}
                   onClick={()=>setBillableFilter('all')}
                 >Billable: All</Button>
                 <Button
                   type="button"
                   size="sm"
-                  variant={billableFilter==='yes'? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={billableFilter==='yes'}
                   onClick={()=>setBillableFilter('yes')}
                 >Yes</Button>
                 <Button
                   type="button"
                   size="sm"
-                  variant={billableFilter==='no'? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={billableFilter==='no'}
                   onClick={()=>setBillableFilter('no')}
                 >No</Button>
               </div>
-              <div className="flex items-center rounded-lg border p-1 bg-background">
+              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
-                  variant={onlyReported? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={onlyReported}
                   onClick={()=>setOnlyReported(o=>!o)}
                   title={`Projects with your hours in range: ${reportedProjectsCount}`}
                 >Only Reported ({reportedProjectsCount})</Button>
@@ -232,13 +240,16 @@ export function ProjectsTable() {
                 <Button
                   type="button"
                   size="sm"
-                  variant={showColumnMenu? 'default':'ghost'}
-                  className="h-7 px-3 text-xs"
+                  variant="surface"
+                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                  data-active={showColumnMenu}
                   onClick={()=> setShowColumnMenu(s=>!s)}
                   title="Toggle optional columns"
+                  aria-haspopup="menu"
+                  aria-expanded={showColumnMenu}
                 >Columns</Button>
                 {showColumnMenu && (
-                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-background p-2 shadow-lg flex flex-col gap-1 text-xs">
+                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-popover backdrop-blur supports-[backdrop-filter]:bg-popover/90 p-2 shadow-lg flex flex-col gap-1 text-xs" aria-label="Toggle columns">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={cols.billable} onChange={e=> setCols(c=>({...c,billable:e.target.checked}))} /> Billable
                     </label>
@@ -288,7 +299,7 @@ export function ProjectsTable() {
                       : new Set(filteredTimeEntries.map(e=> e.projectId))
                   const searching = (filters.searchQuery || '').trim().length > 0
                   let base = (projectScope==='my' && !searching)
-                    ? filteredAndSortedProjects.filter(p=> p.allUsers || myProjectIds.has(p.id))
+                    ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
                     : filteredAndSortedProjects
                   if(billableFilter==='yes') base = base.filter(p=>p.billable)
                   else if(billableFilter==='no') base = base.filter(p=>!p.billable)
@@ -302,7 +313,16 @@ export function ProjectsTable() {
                       </TableRow>
                     )
                   }
-                  return base.map(project => {
+                  const maxHours = base.reduce((m,p)=> p.actualHours>m ? p.actualHours : m, 0) || 0
+                  // inject dynamic css for bars
+                  useAggregatedDynamicCss('project-hours-bars', base.map((p,i)=>{
+                    const widthPct = maxHours>0 ? (p.actualHours/maxHours)*100 : 0
+                    const billablePct = p.actualHours>0 ? (p.billableHours/p.actualHours)*100 : 0
+                    const billWidth = (widthPct*billablePct)/100
+                    return `.projects-table [data-hours-index='${i}'] [data-bar-total]{width:${widthPct.toFixed(2)}%;}
+.projects-table [data-hours-index='${i}'] [data-bar-billable]{width:${billWidth.toFixed(2)}%;}`
+                  }).join('\n'))
+                  return base.map((project, rowIndex) => {
                     const newForUser = isNew(project.id)
                     return (
                       <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
@@ -341,12 +361,12 @@ export function ProjectsTable() {
                           <div className="flex flex-col gap-0.5">
                             <span>{project.name}</span>
                             {cols.client && <span className="text-[10px] text-muted-foreground sm:hidden">{project.client}</span>}
-                            {project.allUsers && cols.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
+                            {project.allUsers === true && cols.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
                           </div>
                         </TableCell>
                         {cols.allUsers && (
                           <TableCell className="mobile-hidden">
-                            { project.allUsers ? (
+                            { project.allUsers === true ? (
                               <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
                             ) : <span className="text-muted-foreground text-xs">-</span> }
                           </TableCell>
@@ -354,13 +374,13 @@ export function ProjectsTable() {
                         <TableCell>
                           <div className="text-sm min-w-[70px]" title={`Your hours: ${project.actualHours.toFixed(1)}h (B ${project.billableHours.toFixed(1)} / NB ${(project.actualHours - project.billableHours).toFixed(1)})`}>
                             <div className="tabular-nums font-medium">{project.actualHours.toFixed(1)}h</div>
-                            <div className="hidden md:block h-1 w-full rounded bg-muted overflow-hidden mt-1">
-                              {(() => {
-                                const pct = project.actualHours>0 ? (project.billableHours / project.actualHours) * 100 : 0
-                                const bucket = Math.round(pct) // 0..100
-                                // Use CSS variable through data attribute; a small utility in globals can map this
-                                return <div className="h-full bg-teal-500" data-pct={bucket} />
-                              })()}
+                            <div
+                              className="hidden md:block h-1.5 w-full rounded bg-muted/70 overflow-hidden mt-1 relative"
+                              title={`${project.actualHours.toFixed(1)}h total; ${project.billableHours.toFixed(1)}h billable`}
+                              data-hours-index={rowIndex}
+                            >
+                              <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-teal-400 opacity-35" data-bar-total aria-hidden="true" />
+                              <div className="absolute inset-y-0 left-0 bg-teal-500" data-bar-billable aria-label="Billable hours proportion" />
                             </div>
                           </div>
                         </TableCell>

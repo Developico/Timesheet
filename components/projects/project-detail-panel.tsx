@@ -161,12 +161,12 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   <div
     id={`project-panel-${project.id}`}
     ref={panelRef}
-    className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-background dark:bg-background/95 supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
+    className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-white dark:bg-[oklch(0.18_0_0)] supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
     role="dialog"
     aria-modal="true"
     aria-labelledby="project-detail-title"
   >
-        <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-white/95 dark:bg-[oklch(0.18_0_0)/95] backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-[oklch(0.18_0_0)/85]">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               {/* eslint-disable-next-line */}
@@ -234,7 +234,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               data-state={openSections.team ? 'open':'closed'}
               onClick={()=> setOpenSections(s=> ({...s, team: !s.team}))}
             >
-              <span className="flex items-center gap-1">{openSections.team ? <ChevronDown className="h-3 w-3"/> : <ChevronRight className="h-3 w-3"/>} Team{hasAllUsers(project) ? '' : ` (${teamByConsultant.length})`}</span>
+              <span className="flex items-center gap-1">{openSections.team ? <ChevronDown className="h-3 w-3"/> : <ChevronRight className="h-3 w-3"/>} Team{hasAllUsers(project) ? ' (All)' : ` (${teamByConsultant.length})`}</span>
               {!hasAllUsers(project) && teamByConsultant.length > 8 && (
                 <span className="text-[10px] opacity-70">{showAllTeam ? 'FULL' : 'PARTIAL'}</span>
               )}
@@ -242,7 +242,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             {openSections.team && (
               <div id="panel-team" className="px-3 pb-3 pt-1 space-y-2 text-sm">
                 {hasAllUsers(project) ? (
-                  <div className="text-muted-foreground">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
+                  <div className="text-muted-foreground text-xs leading-relaxed">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
                 ) : (
                   (teamIds && teamIds.length === 0) ? (
                     <div className="text-muted-foreground">No team members assigned.</div>

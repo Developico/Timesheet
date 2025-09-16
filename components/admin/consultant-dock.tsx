@@ -109,8 +109,8 @@ export function ConsultantDock() {
           <div
             className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true"
           />
-          <div className="relative w-full sm:max-w-md bg-background border rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b">
+          <div className="relative w-full sm:max-w-md bg-white dark:bg-neutral-900 border border-border/70 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30 dark:bg-neutral-800/60">
               <button
                 className="p-2 rounded-md hover:bg-muted transition-colors"
                 onClick={() => setOpen(false)}
@@ -152,7 +152,7 @@ export function ConsultantDock() {
                 })}
               </div>
             )}
-            <div className="overflow-y-auto max-h-[60vh] p-2">
+            <div className="overflow-y-auto max-h-[60vh] p-2 bg-white/95 dark:bg-neutral-900/95">
               {loading && <div className="px-3 py-6 text-sm text-muted-foreground">Loading…</div>}
               {error && <div className="px-3 py-2 text-sm text-red-600">{error}</div>}
               {!loading && filtered.map((m) => {
@@ -181,7 +181,7 @@ export function ConsultantDock() {
                 <div className="text-center py-10 text-sm text-muted-foreground">No consultants match.</div>
               )}
             </div>
-            <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30 dark:bg-neutral-800/60">
               <div className="text-[11px] text-muted-foreground">Ctrl+Shift+F</div>
               <div className="flex gap-2">
                 {consultantId && (

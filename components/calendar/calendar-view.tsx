@@ -295,7 +295,7 @@ export function CalendarView() {
           // removed unused fillColor logic (visual not applied)
           const weekdayShort = dayNames[(day.getDay()+6)%7]
           return (
-            <div key={day.toISOString()} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'dark:!bg-[oklch(0.22_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
+            <div key={day.toISOString()} data-weekend={isWeekend || undefined} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[oklch(0.26_0_0)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}> 
               {/* Header (aligned with month view) */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
@@ -322,11 +322,11 @@ export function CalendarView() {
                     if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
                     const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
                       ? 'absence'
-                      : project?.billable
+                      : e.billable
                         ? 'billable'
                         : 'nonbillable'
                     return (
-            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/40 dark:border-white/10">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
@@ -338,7 +338,7 @@ export function CalendarView() {
                     )
                   })}
                   {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-foreground">Hidden: {entries.length - displayEntries.length}</div>}
-                  {displayEntries.length>5 && <div className="absolute bottom-0 left-0 right-0 h-6 fade-bottom-mask" />}
+                  {/* Fade mask removed per request */}
                 </div>
               ) : <div className="text-[11px] text-muted-foreground mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary with KPI progress bar */}
@@ -408,7 +408,7 @@ export function CalendarView() {
           }
           // removed unused fillColor logic (visual not applied)
           return (
-            <div key={d} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'dark:!bg-[oklch(0.22_0_0)] bg-muted/20':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
+            <div key={d} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[oklch(0.26_0_0)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
               {/* Header */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
@@ -435,11 +435,11 @@ export function CalendarView() {
                     if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
                     const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
                       ? 'absence'
-                      : project?.billable
+                      : e.billable
                         ? 'billable'
                         : 'nonbillable'
                     return (
-            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/50 dark:border-white/10 shadow-[0_0_0_1px_rgba(0,0,0,0.02)]">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/40 dark:border-white/10">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
@@ -452,7 +452,7 @@ export function CalendarView() {
                   })}
                   {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-foreground">Hidden: {entries.length - displayEntries.length}</div>}
                   {/* Fade mask when overflow (approx condition) */}
-                  {displayEntries.length>5 && <div className="absolute bottom-0 left-0 right-0 h-6 fade-bottom-mask" />}
+                  {/* Fade mask removed per request */}
                 </div>
               ) : <div className="text-[11px] text-muted-foreground mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary */}
@@ -516,7 +516,7 @@ export function CalendarView() {
                 <div className="space-y-1">
                   {displayEntries.map(e=>{
                     const project = (e as any).project as BasicProject | undefined
-                    const dotType = project?.id === 'Office.Absences' || project?.code==='ABS' || project?.name?.toLowerCase().includes('absence') ? 'absence' : project?.billable ? 'billable':'nonbillable'
+                    const dotType = project?.id === 'Office.Absences' || project?.code==='ABS' || project?.name?.toLowerCase().includes('absence') ? 'absence' : e.billable ? 'billable':'nonbillable'
                     return (
                       <div key={e.id} className="flex items-center justify-between text-[12px] bg-background/50 dark:bg-white/10 rounded-md px-2 py-1">
                         <button type="button" onClick={()=> setSelectedProjectId(project?.id||null)} className="flex items-center gap-2 truncate max-w-[180px]">
@@ -630,9 +630,23 @@ export function CalendarView() {
                 {projectsLoading ? 'Loading projects…' : (viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`)}
               </CardTitle>
               <div className="flex gap-2 items-center">
-                <div className="flex gap-1 border rounded-lg p-1">
-                  <Button variant={viewMode==='month'? 'default':'ghost'} size="sm" onClick={()=>setViewMode('month')} className="h-7 px-3 text-xs">Month</Button>
-                  <Button variant={viewMode==='week'? 'default':'ghost'} size="sm" onClick={()=>setViewMode('week')} className="h-7 px-3 text-xs">Week</Button>
+                <div className="flex gap-0 rounded-md overflow-hidden shadow-xs border bg-muted/40" role="toolbar" aria-label="Calendar view mode">
+                  <Button
+                    variant="segmented"
+                    size="sm"
+                    data-active={viewMode==='month'}
+                    aria-pressed={viewMode==='month'}
+                    onClick={()=>setViewMode('month')}
+                    className="h-7 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
+                  >Month</Button>
+                  <Button
+                    variant="segmented"
+                    size="sm"
+                    data-active={viewMode==='week'}
+                    aria-pressed={viewMode==='week'}
+                    onClick={()=>setViewMode('week')}
+                    className="h-7 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
+                  >Week</Button>
                 </div>
                 <Button
                   type="button"
