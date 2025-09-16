@@ -68,11 +68,11 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
       data-visible={isVisible}
       data-index={index}
       data-delay={`${index * 120}`}
-      className="kpi-card relative hover:shadow-xl group transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden opacity-0 translate-y-[18px] data-[visible=true]:opacity-100 data-[visible=true]:translate-y-0"
+  className="kpi-card relative hover:shadow-xl group transition-all duration-500 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden opacity-0 translate-y-[18px] data-[visible=true]:opacity-100 data-[visible=true]:translate-y-0"
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-teal-200/10 via-transparent to-indigo-300/10" />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-200">
           <span className="inline-flex items-center gap-2">
             {card.title}
             {belowTarget && (
@@ -96,7 +96,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               {display}
             </span>
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{card.subtitle}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-300">{card.subtitle}</div>
           {belowTarget && (
             <div className="flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
               <span className={`text-[11px] ${critical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -109,7 +109,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
         {card.progress !== undefined && (
           <div className="space-y-2">
             <div className="relative">
-              <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+              <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-[color:var(--surface-overlay)_/_35] overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-700 ease-out bg-teal-200" data-progressbar data-active={isVisible || undefined} data-pct={Math.min(card.progress,100)}
                 />
@@ -123,9 +123,9 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               )}
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-gray-500">vs target</span>
+              <span className="text-gray-500 dark:text-gray-300">vs target</span>
               <div className="flex items-center space-x-2">
-                {card.target && <span className="text-gray-400">Target: {card.target}%</span>}
+                {card.target && <span className="text-gray-400 dark:text-gray-300">Target: {card.target}%</span>}
                 <span className={card.color}>{animated.toFixed(1)}%</span>
               </div>
             </div>
@@ -154,7 +154,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
                   data-col
                   data-today={isToday ? true : undefined}
                   data-delay={baseDelay}
-                  className="relative h-full rounded-sm overflow-hidden bg-gray-100 dark:bg-gray-800 flex flex-col justify-end opacity-60 translate-y-2 transition-[opacity,transform] duration-500 data-[visible=true]:opacity-100 data-[visible=true]:translate-y-0"
+                  className="relative h-full rounded-sm overflow-hidden bg-gray-100 dark:bg-[color:var(--surface-overlay)_/_30] flex flex-col justify-end opacity-60 translate-y-2 transition-[opacity,transform] duration-500 data-[visible=true]:opacity-100 data-[visible=true]:translate-y-0"
                   title={title}
                   aria-label={title}
                   data-visible={isVisible || undefined}
@@ -177,8 +177,8 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-          <span className="text-xs text-gray-500">vs last period</span>
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
+          <span className="text-xs text-gray-500 dark:text-gray-300">vs last period</span>
           <span className={`text-xs font-medium ${card.trendColor}`}>{card.trend}</span>
         </div>
       </CardContent>

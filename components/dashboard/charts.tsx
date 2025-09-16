@@ -146,7 +146,7 @@ export function ActiveProjectsCard() {
   return (
     <>
     {/* On large screens this card will take 1/2 or 1/3 width depending on parent grid; Hours Summary will span more columns */}
-    <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-white dark:bg-gray-900 ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}
+  <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--card)] ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}
       data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
@@ -546,7 +546,7 @@ export function HoursSummaryChart() {
   }, [viewMode, wrapWidth, currentData.length])
 
   return (
-    <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-white dark:bg-gray-900 overflow-hidden" data-dashboard-card data-type="hours-summary">
+  <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden" data-dashboard-card data-type="hours-summary">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div
           className={`transition-all duration-700 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`}

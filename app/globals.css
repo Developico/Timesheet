@@ -89,6 +89,8 @@
   --surface-alt: oklch(0.20 0 0); /* Former 0.19 active tiles */
   --surface-hover: oklch(0.22 0 0); /* Former 0.21 hover */
   --surface-accent: oklch(0.24 0 0); /* Former 0.26 weekend / emphasis */
+  --surface-elev: oklch(0.16 0 0); /* Slightly lower (darker) for recessed elements */
+  --surface-overlay: oklch(0.20 0 0); /* Overlay panels / sticky headers */
 }
 
 /* Theme alias variables (scoped properly) */
@@ -131,6 +133,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Light mode surface aliases */
+  --surface: var(--card);
+  --surface-alt: var(--secondary);
+  --surface-elev: var(--popover);
+  --surface-overlay: var(--popover);
 }
 
 /* Base element styling */

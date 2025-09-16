@@ -41,7 +41,7 @@ export function InactiveMembers({ items }: InactiveMembersProps) {
       </button>
       <div
         id="inactive-members-panel"
-        className="mt-1 space-y-1 rounded-md border border-border/60 bg-white dark:bg-neutral-900/70 shadow-sm p-2" // added background + styling
+  className="mt-1 space-y-1 rounded-md border border-border/60 bg-[var(--surface)] dark:bg-[color:var(--surface-overlay)_/_70] shadow-sm p-2" // standardized background
         role="region"
         aria-labelledby="inactive-members-trigger"
         hidden={!open}

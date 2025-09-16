@@ -12,19 +12,19 @@ const Charts = dynamic(()=> import('@/components/dashboard/charts').then(m=> m.C
   ssr: false,
   loading: () => (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" data-charts-skeleton>
-      <div className="h-72 rounded-xl border bg-muted/30 dark:bg-white/5 animate-pulse relative overflow-hidden lg:col-span-2">
+  <div className="h-72 rounded-xl border bg-muted/30 dark:bg-[color:var(--surface-elev)_/_40] animate-pulse relative overflow-hidden lg:col-span-2">
         <div className="absolute inset-0 flex flex-col p-4 gap-4">
-          <div className="h-4 w-40 bg-muted/60 dark:bg-white/10 rounded" />
+          <div className="h-4 w-40 bg-muted/60 dark:bg-[color:var(--surface-overlay)_/_30] rounded" />
           <div className="mt-2 flex-1 grid grid-rows-6 gap-2">
-            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-white/10 rounded" />)}
+            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-[color:var(--surface-overlay)_/_25] rounded" />)}
           </div>
         </div>
       </div>
-      <div className="h-72 rounded-xl border bg-muted/30 dark:bg-white/5 animate-pulse relative overflow-hidden lg:col-span-3">
+  <div className="h-72 rounded-xl border bg-muted/30 dark:bg-[color:var(--surface-elev)_/_40] animate-pulse relative overflow-hidden lg:col-span-3">
         <div className="absolute inset-0 flex flex-col p-4 gap-4">
-          <div className="h-4 w-40 bg-muted/60 dark:bg-white/10 rounded" />
+          <div className="h-4 w-40 bg-muted/60 dark:bg-[color:var(--surface-overlay)_/_30] rounded" />
           <div className="mt-2 flex-1 grid grid-rows-6 gap-2">
-            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-white/10 rounded" />)}
+            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-[color:var(--surface-overlay)_/_25] rounded" />)}
           </div>
         </div>
       </div>

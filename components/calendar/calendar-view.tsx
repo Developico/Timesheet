@@ -329,7 +329,7 @@ export function CalendarView() {
                         ? 'billable'
                         : 'nonbillable'
                     return (
-            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/40 dark:border-white/10">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-[color:var(--surface-overlay)_/_35] border border-border/40 dark:border-white/10">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
@@ -347,7 +347,7 @@ export function CalendarView() {
               {/* Footer summary with KPI progress bar */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all bg-gray-200/40 dark:bg-white/10 relative overflow-hidden rounded-full">
+                  <div className="h-full transition-all bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25] relative overflow-hidden rounded-full">
                     <div data-week-fill={weekDays.indexOf(day)} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
                   </div>
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
@@ -443,7 +443,7 @@ export function CalendarView() {
                         ? 'billable'
                         : 'nonbillable'
                     return (
-            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-white/8 border border-border/40 dark:border-white/10">
+            <div key={e.id} title={tooltipParts.join('\n')} className="flex items-center justify-between text-[11px] rounded-md px-1 py-0.5 bg-background/60 dark:bg-[color:var(--surface-overlay)_/_35] border border-border/40 dark:border-white/10">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
                           <button type="button" onClick={(ev)=>{ev.stopPropagation(); setSelectedProjectId(project?.id||null)}} className="truncate max-w-[74px] text-left hover:underline focus:outline-none">
@@ -462,7 +462,7 @@ export function CalendarView() {
               {/* Footer summary */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all bg-gray-200/40 dark:bg-white/10 relative overflow-hidden rounded-full">
+                  <div className="h-full transition-all bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25] relative overflow-hidden rounded-full">
                     <div data-month-fill={d} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
                   </div>
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
@@ -523,7 +523,7 @@ export function CalendarView() {
                     const project = (e as any).project as BasicProject | undefined
                     const dotType = project?.id === 'Office.Absences' || project?.code==='ABS' || project?.name?.toLowerCase().includes('absence') ? 'absence' : e.billable ? 'billable':'nonbillable'
                     return (
-                      <div key={e.id} className="flex items-center justify-between text-[12px] bg-background/50 dark:bg-white/10 rounded-md px-2 py-1">
+                      <div key={e.id} className="flex items-center justify-between text-[12px] bg-background/50 dark:bg-[color:var(--surface-overlay)_/_25] rounded-md px-2 py-1">
                         <button type="button" onClick={()=> setSelectedProjectId(project?.id||null)} className="flex items-center gap-2 truncate max-w-[180px]">
                           <span className={`w-2 h-2 rounded-full dot-${dotType}`}/>
                           <span className="truncate font-mono text-[11px]">{project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? `(${(e as AggregatedDayEntry).count})`: ''}</span>
