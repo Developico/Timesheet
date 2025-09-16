@@ -150,7 +150,7 @@ export function ActiveProjectsCard() {
       data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Your Top 5 Active Projects</CardTitle>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Your Top 5 Active Projects</CardTitle>
           {/* Progress subtitle removed as project progress isn't shown */}
         </div>
       </CardHeader>
@@ -171,13 +171,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" data-color role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">{projectName}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{project?.code || projectId}</div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{projectName}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-300">{project?.code || projectId}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-white">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">{percent}%</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -202,13 +202,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full dot-other" role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">Other Projects</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">OTHER</div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Other Projects</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-300">OTHER</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-white">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">{percent}%</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
