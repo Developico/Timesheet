@@ -181,7 +181,10 @@ export class MockDataSource implements IDataSource {
       return true
     })
 
-    return entries
+    // Enforce project-level non-billable override defensively (in case future randomization changes)
+    const projectBillableMap: Record<string, boolean> = {}
+    for (const p of this.projects) projectBillableMap[p.id] = p.billable
+    return entries.map(e=> projectBillableMap[e.projectId] === false ? { ...e, billable: false } : e)
   }
 
   async getProjectAssignments(consultantId: string): Promise<string[]> {

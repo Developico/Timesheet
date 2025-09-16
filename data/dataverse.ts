@@ -236,40 +236,41 @@ export class DataverseDataSource implements IDataSource {
       }
       throw e
     }
-    // Derive billable from related project if timeregister has no billable column
-    let projectBillableMap: Record<string, boolean> = {}
-    if (!tr.billable) {
-      const uniqueProjectIds = [...new Set(records.map(r=>r[tr.projectLookup]).filter(Boolean))]
-      if (uniqueProjectIds.length) {
-        const p = DV.project
-        const chunks: string[][] = []
-        const size = 20 // avoid overly long OData filter
-        for (let i=0;i<uniqueProjectIds.length;i+=size) chunks.push(uniqueProjectIds.slice(i,i+size))
-        for (const chunk of chunks) {
-          const orExpr = chunk.map(id=>`${p.id} eq ${id}`).join(' or ')
-          try {
-            const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('('+orExpr+')')}`) as { value?: any[] }
-            for (const pr of (Array.isArray(projData.value) ? projData.value : [])) {
-              projectBillableMap[pr[p.id]] = !!pr[p.billable]
-            }
-          } catch(e:any) {
-            appLog('warn','timeentries project billable fetch error',{ message: e.message })
+    // Fetch project billable flags (needed both when timeregister lacks billable column AND to enforce project-level override)
+    const projectBillableMap: Record<string, boolean> = {}
+    const uniqueProjectIds = [...new Set(records.map(r=>r[tr.projectLookup]).filter(Boolean))]
+    if (uniqueProjectIds.length) {
+      const p = DV.project
+      const chunks: string[][] = []
+      const size = 20 // avoid overly long OData filter
+      for (let i=0;i<uniqueProjectIds.length;i+=size) chunks.push(uniqueProjectIds.slice(i,i+size))
+      for (const chunk of chunks) {
+        const orExpr = chunk.map(id=>`${p.id} eq ${id}`).join(' or ')
+        try {
+          const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('('+orExpr+')')}`) as { value?: any[] }
+          for (const pr of (Array.isArray(projData.value) ? projData.value : [])) {
+            projectBillableMap[pr[p.id]] = !!pr[p.billable]
           }
+        } catch(e:any) {
+          appLog('warn','timeentries project billable fetch error',{ message: e.message })
         }
       }
     }
     return records.map((r) => {
       const projectId = r[tr.projectLookup]
-      const billable = tr.billable ? !!r[tr.billable] : !!projectBillableMap[projectId]
+      // Raw billable from timeregister (if present) else fallback to project map
+      const rawBillable = tr.billable ? !!r[tr.billable] : !!projectBillableMap[projectId]
+      // Enforce: if project itself is non-billable, force entry.billable = false
+      const enforcedBillable = projectBillableMap[projectId] === false ? false : rawBillable
       return {
         id: r[tr.id],
         date: (r[tr.startDateTime] || "").substring(0, 10),
         consultantId: r[tr.userLookup],
         projectId,
-  hours: (()=>{ const raw = r[tr.durationMin] || 0; return /mh$/i.test(tr.durationMin) ? raw : raw / 60 })(),
-        billable,
-  note: r[tr.note] || undefined,
-  task: tr.task ? (r[tr.task] || undefined) : undefined,
+        hours: (()=>{ const raw = r[tr.durationMin] || 0; return /mh$/i.test(tr.durationMin) ? raw : raw / 60 })(),
+        billable: enforcedBillable,
+        note: r[tr.note] || undefined,
+        task: tr.task ? (r[tr.task] || undefined) : undefined,
       }
     })
   }

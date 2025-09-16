@@ -5,6 +5,7 @@ import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useProjects, type BasicProject } from "@/hooks/use-projects"
+import { summarize } from "@/lib/time-entries-summary"
 import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
@@ -180,11 +181,12 @@ export function CalendarView() {
     const y = currentDate.getFullYear(); const m = currentDate.getMonth()
     return calendarEntries.filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y && d.getMonth()===m })
   }, [viewMode, currentDate, calendarEntries])
+  const periodSummaryAgg = summarize(currentScopeEntriesAll as any)
   const periodSummary = {
-    totalHours: currentScopeEntriesAll.reduce((s,e)=>s+e.hours,0),
-    billableHours: currentScopeEntriesAll.filter(e=>e.billable).reduce((s,e)=>s+e.hours,0),
-    nonBillableHours: currentScopeEntriesAll.filter(e=>!e.billable).reduce((s,e)=>s+e.hours,0),
-    absenceHours: currentScopeEntriesAll.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0),
+    totalHours: periodSummaryAgg.total,
+    billableHours: periodSummaryAgg.billable,
+    nonBillableHours: periodSummaryAgg.nonBillable,
+    absenceHours: periodSummaryAgg.absence,
   }
 
   // Precompute dynamic CSS for week and month fills (avoid calling hooks inside render helpers)
@@ -271,10 +273,11 @@ export function CalendarView() {
             }
             displayEntries = Object.values(grouped).sort((a,b)=> b.hours - a.hours)
           }
-          const total = entries.reduce((s,e)=>s+e.hours,0)
-          const absence = entries.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const billable = entries.filter(e=>e.billable && e.projectId!=='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const nonBillable = total - billable - absence
+          const dayAgg = summarize(entries as any)
+          const total = dayAgg.total
+          const billable = dayAgg.billable
+          const nonBillable = dayAgg.nonBillable
+          const absence = dayAgg.absence
           const reportedPct = (total/8)*100
           const isToday = day.toDateString() === new Date().toDateString()
           const isWeekend = day.getDay()===0 || day.getDay()===6
@@ -372,10 +375,11 @@ export function CalendarView() {
           if(d===null) return <div key={`pad-${i}`} className="p-2 h-28" />
           const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d)
           const entries = getEntriesForDate(date).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
-          const total = entries.reduce((s,e)=>s+e.hours,0)
-          const absence = entries.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const billable = entries.filter(e=>e.billable && e.projectId!=='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const nonBillable = total - billable - absence
+          const dayAgg = summarize(entries as any)
+          const total = dayAgg.total
+          const billable = dayAgg.billable
+          const nonBillable = dayAgg.nonBillable
+          const absence = dayAgg.absence
           const reportedPct = (total/8)*100
           const isToday = date.toDateString() === new Date().toDateString()
           const isWeekend = date.getDay()===0 || date.getDay()===6
@@ -498,9 +502,10 @@ export function CalendarView() {
             for(const e of entriesRaw){ if(!grouped[e.projectId]) grouped[e.projectId]={...e, aggregated:true, count:1}; else { grouped[e.projectId].hours+=e.hours; grouped[e.projectId].count+=1 } }
             displayEntries = Object.values(grouped).sort((a,b)=> b.hours - a.hours)
           }
-          const absence = entriesRaw.filter(e=>e.projectId==='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const billable = entriesRaw.filter(e=>e.billable && e.projectId!=='Office.Absences').reduce((s,e)=>s+e.hours,0)
-          const nonBillable = total - billable - absence
+          const dayAgg = summarize(entriesRaw as any)
+          const absence = dayAgg.absence
+          const billable = dayAgg.billable
+          const nonBillable = dayAgg.nonBillable
           const weekdayShort = dayNames[(day.getDay()+6)%7]
           const isToday = day.toDateString()=== new Date().toDateString()
           return (
