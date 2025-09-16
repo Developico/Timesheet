@@ -1,4 +1,5 @@
 import type { TimeEntry, KPIMetrics, ProjectMetrics } from "@/types"
+import { summarize, summarizeByDay, toPercent } from "@/lib/time-entries-summary"
 
 export function getWorkingDays(from: string, to: string): number {
   const startDate = new Date(from)
@@ -22,8 +23,9 @@ export function calculateKPIMetrics(timeEntries: TimeEntry[], from: string, to: 
   const workingDays = getWorkingDays(from, to)
   const requiredHours = workingDays * 8
 
-  const reportedHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0)
-  const billableHours = timeEntries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.hours, 0)
+  const agg = summarize(timeEntries)
+  const reportedHours = agg.total
+  const billableHours = agg.billable
 
   const realizedPercentage = requiredHours > 0 ? (reportedHours / requiredHours) * 100 : 0
   const billablePercentage = reportedHours > 0 ? (billableHours / reportedHours) * 100 : 0
@@ -47,18 +49,13 @@ export function calculateProjectMetrics(
   topN = 5,
 ): ProjectMetrics[] {
   const projectHours = new Map<string, { total: number; billable: number }>()
-
-  // Aggregate hours by project
-  timeEntries.forEach((entry) => {
-    const current = projectHours.get(entry.projectId) || { total: 0, billable: 0 }
-    current.total += entry.hours
-    if (entry.billable) {
-      current.billable += entry.hours
-    }
-    projectHours.set(entry.projectId, current)
-  })
-
-  const totalHours = timeEntries.reduce((sum, entry) => sum + entry.hours, 0)
+  for (const e of timeEntries) {
+    let ph = projectHours.get(e.projectId)
+    if (!ph) { ph = { total: 0, billable: 0 }; projectHours.set(e.projectId, ph) }
+    ph.total += e.hours
+    if (e.billable) ph.billable += e.hours
+  }
+  const totalHours = summarize(timeEntries).total
 
   // Convert to metrics array
   const metrics: ProjectMetrics[] = []
@@ -107,30 +104,12 @@ export function calculateProjectMetrics(
   return metrics
 }
 
-export function aggregateByDay(
-  timeEntries: TimeEntry[],
-): Record<string, { total: number; billable: number; nonBillable: number }> {
-  const dailyData: Record<string, { total: number; billable: number; nonBillable: number }> = {}
-
-  timeEntries.forEach((entry) => {
-    if (!dailyData[entry.date]) {
-      dailyData[entry.date] = { total: 0, billable: 0, nonBillable: 0 }
-    }
-
-    dailyData[entry.date].total += entry.hours
-    if (entry.billable) {
-      dailyData[entry.date].billable += entry.hours
-    } else {
-      dailyData[entry.date].nonBillable += entry.hours
-    }
-  })
-
-  // Round values
-  Object.keys(dailyData).forEach((date) => {
-    dailyData[date].total = Math.round(dailyData[date].total * 10) / 10
-    dailyData[date].billable = Math.round(dailyData[date].billable * 10) / 10
-    dailyData[date].nonBillable = Math.round(dailyData[date].nonBillable * 10) / 10
-  })
-
-  return dailyData
+export function aggregateByDay(timeEntries: TimeEntry[]) {
+  // Backward compatible shape (omit absence here to avoid breaking callers); recompute nonBillable accordingly
+  const byDay = summarizeByDay(timeEntries)
+  const out: Record<string, { total: number; billable: number; nonBillable: number }> = {}
+  for (const [date, d] of Object.entries(byDay)) {
+    out[date] = { total: d.total, billable: d.billable, nonBillable: d.nonBillable }
+  }
+  return out
 }

@@ -151,15 +151,11 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
     return timeEntriesState.map(e => {
       const proj = projectMap.get(e.projectId)
       if(!proj) return e
-      // If mismatch, prefer entry.billable if explicitly provided, but log once in dev for divergence
-      if(process.env.NODE_ENV !== 'production' && e.billable !== proj.billable){
-        // eslint-disable-next-line no-console
-        console.warn('[filters] billable mismatch entry vs project', { entryId: e.id, entryBillable: e.billable, projectBillable: proj.billable, projectId: proj.id })
+      // Enforce project-level non-billable override (defensive redundancy with backend)
+      if(proj.billable === false && e.billable !== false) {
+        return { ...e, billable: false }
       }
-      // Adopt entry.billable if defined; otherwise fallback to project
-      const effectiveBillable = typeof e.billable === 'boolean' ? e.billable : proj.billable
-      if(effectiveBillable === e.billable) return e
-      return { ...e, billable: effectiveBillable }
+      return e
     })
   }, [timeEntriesState, projectMap])
 

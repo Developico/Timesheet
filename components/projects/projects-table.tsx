@@ -18,6 +18,7 @@ import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 import { useAuth } from "@/lib/auth-client"
 import { toast } from "@/hooks/use-toast"
 import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
+import { summarize } from "@/lib/time-entries-summary"
 
 export function ProjectsTable() {
   const { filteredProjects, filteredTimeEntries, filters } = useFilters()
@@ -136,17 +137,21 @@ export function ProjectsTable() {
   // Scope summary to active consultant: ViewingScope overrides; else current user detected by email; else first consultant; else all
   // primaryConsultantId already computed above for per-project aggregation
 
-  const userEntries = useMemo(()=>{
-    if(scopedConsultant) return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant)
-    if(primaryConsultantId) return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId)
+  const userEntries = useMemo(() => {
+    if (scopedConsultant) return filteredTimeEntries.filter(e=> e.consultantId === scopedConsultant)
+    if (primaryConsultantId) return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId)
     return filteredTimeEntries
   }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
-  const totalUserHours = userEntries.reduce((s,e)=>s+e.hours,0)
-  const totalBillableUserHours = userEntries.filter(e=>e.billable).reduce((s,e)=>s+e.hours,0)
-  const totalNonBillableUserHours = totalUserHours - totalBillableUserHours
-  // Absence hours: project code exactly 'Office.Absences' (or name containing 'absence')
-  const absenceProjectIds = filteredProjects.filter(p=> p.code === 'Office.Absences' || p.name?.toLowerCase().includes('absence')).map(p=>p.id)
-  const absenceUserHours = userEntries.filter(e=> absenceProjectIds.includes(e.projectId)).reduce((s,e)=>s+e.hours,0)
+  const userAgg = summarize(userEntries as any)
+  const totalUserHours = userAgg.total
+  const totalBillableUserHours = userAgg.billable
+  const totalNonBillableUserHours = userAgg.nonBillable
+  const absenceUserHours = userAgg.absence
+
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.debug('[projects-table] user aggregation snapshot', userAgg)
+  }
 
   return (
     <div className="space-y-6 relative">
