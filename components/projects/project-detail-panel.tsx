@@ -161,12 +161,12 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   <div
     id={`project-panel-${project.id}`}
     ref={panelRef}
-    className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-white dark:bg-[oklch(0.18_0_0)] supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
+  className={`fixed top-0 right-0 h-full w-full sm:w-[400px] ${expanded ? 'sm:w-[560px]' : ''} bg-white dark:bg-[var(--card)] supports-[backdrop-filter]:backdrop-blur border-l sm:border-l shadow-xl flex flex-col z-50 animate-in slide-in-from-right duration-200 outline-none overflow-y-auto`}
     role="dialog"
     aria-modal="true"
     aria-labelledby="project-detail-title"
   >
-          <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-white/95 dark:bg-[oklch(0.18_0_0)/95] backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-[oklch(0.18_0_0)/85]">
+          <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-white/95 dark:bg-[color:var(--card)_/_95] backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-[color:var(--card)_/_85]">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               {/* eslint-disable-next-line */}

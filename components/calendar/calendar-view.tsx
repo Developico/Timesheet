@@ -298,7 +298,7 @@ export function CalendarView() {
           // removed unused fillColor logic (visual not applied)
           const weekdayShort = dayNames[(day.getDay()+6)%7]
           return (
-            <div key={day.toISOString()} data-weekend={isWeekend || undefined} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[oklch(0.26_0_0)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}> 
+            <div key={day.toISOString()} data-weekend={isWeekend || undefined} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[var(--surface-alt)] hover:bg-card/95 dark:hover:bg-[var(--surface-hover)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[var(--surface-accent)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
               {/* Header (aligned with month view) */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
@@ -412,7 +412,7 @@ export function CalendarView() {
           }
           // removed unused fillColor logic (visual not applied)
           return (
-            <div key={d} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[oklch(0.19_0_0)] hover:bg-card/95 dark:hover:bg-[oklch(0.21_0_0)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[oklch(0.26_0_0)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
+            <div key={d} className={`p-2 h-52 border rounded-xl transition-colors overflow-hidden flex flex-col group ${active? 'bg-card dark:bg-[var(--surface-alt)] hover:bg-card/95 dark:hover:bg-[var(--surface-hover)]':'bg-muted/10 opacity-40'} ${isWeekend? 'bg-neutral-100/80 dark:!bg-[var(--surface-accent)]':''} ${holiday? 'bg-amber-50 dark:bg-amber-900/20':''} ${isToday && active? 'ring-2 ring-[#6eedd9]':''}`}>
               {/* Header */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
@@ -509,7 +509,7 @@ export function CalendarView() {
           const weekdayShort = dayNames[(day.getDay()+6)%7]
           const isToday = day.toDateString()=== new Date().toDateString()
           return (
-            <div key={dateKey} className={`border rounded-lg p-3 ${isToday? 'ring-1 ring-[#6eedd9]':''} bg-card dark:bg-[oklch(0.19_0_0)]`}>
+            <div key={dateKey} className={`border rounded-lg p-3 ${isToday? 'ring-1 ring-[#6eedd9]':''} bg-card dark:bg-[var(--surface-alt)]`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex flex-col">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{weekdayShort}</span>
@@ -605,7 +605,7 @@ export function CalendarView() {
           Failed to load projects: {projectsError}
         </div>
       )}
-  <Card className="dark:bg-[oklch(0.18_0_0)]">
+  <Card className="dark:bg-[var(--card)]">
         <CardContent className="py-4">
           <div className="grid grid-cols-4 gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -627,7 +627,7 @@ export function CalendarView() {
           </div>
         </CardContent>
       </Card>
-  <Card className="dark:bg-[oklch(0.18_0_0)]">
+  <Card className="dark:bg-[var(--card)]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">

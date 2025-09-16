@@ -48,7 +48,8 @@
 .dark {
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.1 0 0);
+  /* Unified dark surface scale */
+  --card: oklch(0.18 0 0); /* Base surface (replaces scattered 0.18 overrides) */
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.1 0 0);
   --popover-foreground: oklch(0.98 0 0);
@@ -84,6 +85,10 @@
   --sidebar-border: oklch(0.15 0 0);
   /* Updated dark mode sidebar ring to turquoise */
   --sidebar-ring: oklch(0.85 0.15 180);
+  /* Additional surface tokens (used to remove hard-coded OKLCH values in components) */
+  --surface-alt: oklch(0.20 0 0); /* Former 0.19 active tiles */
+  --surface-hover: oklch(0.22 0 0); /* Former 0.21 hover */
+  --surface-accent: oklch(0.24 0 0); /* Former 0.26 weekend / emphasis */
 }
 
 /* Theme alias variables (scoped properly) */
