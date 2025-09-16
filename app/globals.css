@@ -52,25 +52,25 @@
   --card: oklch(0.18 0 0); /* Base surface (replaces scattered 0.18 overrides) */
     /* Semantic text tokens (light mode) */
     --text-primary: var(--foreground);
-    --text-secondary: oklch(0.38 0 0);
-    --text-muted: oklch(0.48 0 0);
-  --card-foreground: oklch(0.98 0 0);
+    --text-secondary: oklch(0.7 0 0);
+    --text-muted: oklch(0.7 0 0);
+  --card-foreground: oklch(0.5 0 0);
   --popover: oklch(0.1 0 0);
   --popover-foreground: oklch(0.98 0 0);
   /* Updated dark mode primary to turquoise */
   --primary: oklch(0.85 0.15 180);
   --primary-foreground: oklch(0.08 0 0);
-  --secondary: oklch(0.15 0 0);
+  --secondary: oklch(0.25 0 0);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.15 0 0);
+  --muted: oklch(0.25 0 0);
   --muted-foreground: oklch(0.65 0 0);
   /* Updated dark mode accent to turquoise */
   --accent: oklch(0.85 0.15 180);
   --accent-foreground: oklch(0.08 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.15 0 0);
-  --input: oklch(0.15 0 0);
+  --border: oklch(0.25 0 0);
+  --input: oklch(0.25 0 0);
   /* Updated dark mode ring to turquoise */
   --ring: oklch(0.85 0.15 180);
   /* Updated dark mode chart colors */
@@ -84,9 +84,9 @@
   /* Updated dark mode sidebar primary to turquoise */
   --sidebar-primary: oklch(0.85 0.15 180);
   --sidebar-primary-foreground: oklch(0.08 0 0);
-  --sidebar-accent: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.25 0 0);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.25 0 0);
   /* Updated dark mode sidebar ring to turquoise */
   --sidebar-ring: oklch(0.85 0.15 180);
   /* Additional surface tokens (used to remove hard-coded OKLCH values in components) */
@@ -94,18 +94,39 @@
   --surface-hover: oklch(0.22 0 0); /* Former 0.21 hover */
   --surface-accent: oklch(0.24 0 0); /* Former 0.26 weekend / emphasis */
   --surface-elev: oklch(0.16 0 0); /* Slightly lower (darker) for recessed elements */
-  --surface-overlay: oklch(0.20 0 0); /* Overlay panels / sticky headers */
+  --surface-overlay: oklch(0.18 0 0); /* slightly darker for better contrast */
+  /* Dark-mode semantic text tokens for components using .text-* utilities */
+  --text-primary: oklch(0.98 0 0);
+  --text-secondary: oklch(0.86 0 0);
+  --text-muted: oklch(0.74 0 0);
 }
+
+  /* Strong background enforcement for Radix popovers/menus */
+  [data-radix-popper-content-wrapper] .radix-popover-content,
+  [data-radix-popper-content-wrapper] [data-slot="dropdown-menu-content"],
+  [data-radix-popper-content-wrapper] [role="menu"],
+  [data-radix-popper-content-wrapper] [role="listbox"],
+  .radix-themes [data-radix-popper-content-wrapper],
+  .rdp-popover,
+  .Select__menu,
+  .Select__menu-list {
+    background-color: var(--surface-overlay) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+  }
+
+  /* Do not force color on children; let components (e.g., muted labels) choose their own */
 
 /* Theme alias variables (scoped properly) */
 :root {
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
-    /* Semantic text tokens (dark mode) */
-    --text-primary: oklch(0.97 0 0);
-    --text-secondary: oklch(0.88 0 0);
-    --text-muted: oklch(0.74 0 0); /* intentionally brighter than previous gray-400 */
+    /* Semantic text tokens (light mode) */
+    --text-primary: var(--foreground);              /* ~oklch(0.22 0 0) */
+    --text-secondary: oklch(0.4 0 0);               /* a bit lighter than primary */
+    --text-muted: oklch(0.55 0 0);                  /* muted but readable on white */
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);

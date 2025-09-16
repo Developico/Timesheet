@@ -387,7 +387,6 @@ export function HoursSummaryChart() {
     let cursor = new Date(effectiveRange.start)
     while (cursor <= effectiveRange.end) {
       const dow = cursor.getDay()
-      if (dow >= 1 && dow <= 5) {
         const keyDate = new Date(cursor)
         const keyDay = keyDate.getDay() || 7
         if (keyDay !== 1) keyDate.setDate(keyDate.getDate() - (keyDay - 1))
@@ -407,14 +406,14 @@ export function HoursSummaryChart() {
           }
         }
   // Treat today like future for capacity purposes (sync happens at night)
-  const isFutureDay = new Date(iso) >= today
-    const maxCap = (isDayOff(iso) || isFutureDay) ? 0 : 8
+    // Capacity: Mon–Fri only, exclude holidays; include weekend HOURS in totals but not in capacity
+    const isWeekday = dow >= 1 && dow <= 5
+    const maxCap = (isWeekday && !isDayOff(iso)) ? 8 : 0
         const agg = map.get(key)!
         agg.billable += billable
         agg.nonBillable += nonBillable
         agg.absence += absence
         agg.max += maxCap
-      }
       cursor = addDays(cursor, 1)
     }
     // round values to 1 decimal
@@ -440,7 +439,6 @@ export function HoursSummaryChart() {
     let cursor = new Date(effectiveRange.start)
     while (cursor <= effectiveRange.end) {
       const dow = cursor.getDay()
-      if (dow >= 1 && dow <= 5) {
         const keyDate = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
         const key = `${keyDate.getFullYear()}-${String(keyDate.getMonth() + 1).padStart(2, '0')}-01`
         const label = format(keyDate, 'LLL')
@@ -462,14 +460,14 @@ export function HoursSummaryChart() {
   const isFutureMonth = monthStart > today
   // Treat today like future for capacity purposes (sync happens at night)
   const isFutureDay = new Date(iso) >= today
-        // For future months: don't count max at all; for current/past, count only up to today
-        const maxCap = (isDayOff(iso) || isFutureMonth || isFutureDay) ? 0 : 8
+        // For future months: don't count max at all; for current/past, Mon–Fri only and not holidays; include weekend HOURS in totals but not capacity
+        const isWeekday = dow >= 1 && dow <= 5
+        const maxCap = (isFutureMonth || isFutureDay || !isWeekday || isDayOff(iso)) ? 0 : 8
         const agg = map.get(key)!
         agg.billable += billable
         agg.nonBillable += nonBillable
         agg.absence += absence
         agg.max += maxCap
-      }
       cursor = addDays(cursor, 1)
     }
     const out: UnifiedPoint[] = []
@@ -544,6 +542,58 @@ export function HoursSummaryChart() {
     const t = setTimeout(() => setIsVisible(true), 60)
     return () => clearTimeout(t)
   }, [viewMode, wrapWidth, currentData.length])
+
+  // Helpers for bucket ranges (Mon–Sun weeks, full months)
+  const startOfWeek = (d: Date) => {
+    const x = new Date(d); const day = x.getDay() || 7; if (day !== 1) x.setDate(x.getDate() - (day - 1))
+    x.setHours(0,0,0,0); return x
+  }
+  const endOfWeek = (d: Date) => { const s = startOfWeek(d); const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999); return e }
+  const startOfMonth = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), 1); x.setHours(0,0,0,0); return x }
+  const endOfMonth = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth()+1, 0); x.setHours(23,59,59,999); return x }
+  const fmtISO = (d: Date) => d.toISOString().slice(0,10)
+
+  const workingDaysBetween = (startISO: string, endISO: string) => {
+    const s = new Date(startISO), e = new Date(endISO)
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 5
+    let days = 0; const x = new Date(s); x.setHours(0,0,0,0)
+    while (x <= e) { const w = x.getDay(); if (w !== 0 && w !== 6) days++; x.setDate(x.getDate()+1) }
+    return Math.max(days, 0)
+  }
+
+  // Build bucketRanges from effectiveRange for the active viewMode
+  const bucketRanges = useMemo(() => {
+    if (!effectiveRange?.start || !effectiveRange?.end) return undefined as Array<{start:string;end:string}> | undefined
+    const s = new Date(effectiveRange.start)
+    const e = new Date(effectiveRange.end)
+    const out: Array<{start:string;end:string}> = []
+    if (viewMode === 'weekly') {
+      let cur = startOfWeek(s)
+      while (cur <= e) {
+        const ce = endOfWeek(cur)
+        out.push({ start: fmtISO(cur), end: fmtISO(ce < e ? ce : e) })
+        cur = new Date(cur); cur.setDate(cur.getDate()+7)
+      }
+    } else if (viewMode === 'monthly') {
+      let cur = startOfMonth(s)
+      while (cur <= e) {
+        const ce = endOfMonth(cur)
+        out.push({ start: fmtISO(cur), end: fmtISO(ce < e ? ce : e) })
+        cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1)
+      }
+    } else {
+      return undefined
+    }
+    return out
+  }, [effectiveRange.start, effectiveRange.end, viewMode])
+
+  // Capacity per bucket from ranges (working days × 8h); averaged for a stable baseline
+  const inferredBucketCap = useMemo(() => {
+    if (!bucketRanges?.length) return undefined as number | undefined
+    const caps = bucketRanges.map(r => workingDaysBetween(r.start, r.end) * 8)
+    const avg = caps.reduce((a,b)=>a+b,0) / caps.length
+    return Math.round(avg * 10) / 10
+  }, [bucketRanges])
 
   return (
   <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden" data-dashboard-card data-type="hours-summary">
@@ -657,12 +707,18 @@ export function HoursSummaryChart() {
           const baseStep = 20
           const niceCeil = (v: number, step: number) => Math.ceil(v / step) * step
           // For monthly we won't use a fixed baseline; we'll fit to data/capacity
-          const unitMax = viewMode === 'daily' ? 8 : viewMode === 'weekly' ? 40 : 0
+          // Use range-driven capacity when available
+          const unitMax = viewMode === 'daily' ? 8 : viewMode === 'weekly' ? (inferredBucketCap ?? 40) : (inferredBucketCap ?? 0)
+          // Y-domain: For daily/weekly we lock to capacity (8 or 40) unless data exceeds capacity (overtime) then expand.
           const domainTopRaw = Math.max(unitMax, capMax, dataMax)
-          let yMax = domainTopRaw <= unitMax ? unitMax : niceCeil(domainTopRaw, baseStep)
-          // Ensure headroom so max line is not at the very top (so labels can sit above the line)
-          if (viewMode !== 'monthly') {
-            const minHeadroom = unitMax + (viewMode === 'daily' ? 4 : 10) // ~small headroom
+          let yMax: number
+          if (viewMode === 'daily' || viewMode === 'weekly') {
+            if (domainTopRaw <= unitMax) yMax = unitMax
+            else yMax = niceCeil(domainTopRaw, baseStep) // expand for overtime weeks
+          } else {
+            // Monthly keeps adaptive scaling with gentle headroom
+            yMax = domainTopRaw <= unitMax ? unitMax : niceCeil(domainTopRaw, baseStep)
+            const minHeadroom = unitMax + 10
             yMax = Math.max(yMax, niceCeil(minHeadroom, baseStep))
           }
 
