@@ -50,6 +50,10 @@
   --foreground: oklch(0.98 0 0);
   /* Unified dark surface scale */
   --card: oklch(0.18 0 0); /* Base surface (replaces scattered 0.18 overrides) */
+    /* Semantic text tokens (light mode) */
+    --text-primary: var(--foreground);
+    --text-secondary: oklch(0.38 0 0);
+    --text-muted: oklch(0.48 0 0);
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.1 0 0);
   --popover-foreground: oklch(0.98 0 0);
@@ -98,9 +102,18 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
+    /* Semantic text tokens (dark mode) */
+    --text-primary: oklch(0.97 0 0);
+    --text-secondary: oklch(0.88 0 0);
+    --text-muted: oklch(0.74 0 0); /* intentionally brighter than previous gray-400 */
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
+  /* Text utility classes using semantic tokens */
+  .text-primary { color: var(--text-primary) !important; }
+  .text-secondary { color: var(--text-secondary) !important; }
+  .text-muted-token { color: var(--text-muted) !important; }
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
