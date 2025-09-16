@@ -11,17 +11,23 @@ import dynamic from 'next/dynamic'
 const Charts = dynamic(()=> import('@/components/dashboard/charts').then(m=> m.Charts), {
   ssr: false,
   loading: () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-charts-skeleton>
-      {[0,1].map(i=> (
-        <div key={i} className="h-72 rounded-xl border bg-muted/30 dark:bg-white/5 animate-pulse relative overflow-hidden">
-          <div className="absolute inset-0 flex flex-col p-4 gap-4">
-            <div className="h-4 w-40 bg-muted/60 dark:bg-white/10 rounded" />
-            <div className="mt-2 flex-1 grid grid-rows-6 gap-2">
-              {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-white/10 rounded" />)}
-            </div>
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" data-charts-skeleton>
+      <div className="h-72 rounded-xl border bg-muted/30 dark:bg-white/5 animate-pulse relative overflow-hidden lg:col-span-2">
+        <div className="absolute inset-0 flex flex-col p-4 gap-4">
+          <div className="h-4 w-40 bg-muted/60 dark:bg-white/10 rounded" />
+          <div className="mt-2 flex-1 grid grid-rows-6 gap-2">
+            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-white/10 rounded" />)}
           </div>
         </div>
-      ))}
+      </div>
+      <div className="h-72 rounded-xl border bg-muted/30 dark:bg-white/5 animate-pulse relative overflow-hidden lg:col-span-3">
+        <div className="absolute inset-0 flex flex-col p-4 gap-4">
+          <div className="h-4 w-40 bg-muted/60 dark:bg-white/10 rounded" />
+          <div className="mt-2 flex-1 grid grid-rows-6 gap-2">
+            {Array.from({length:6}).map((_,r)=> <div key={r} className="w-full h-full bg-muted/40 dark:bg-white/10 rounded" />)}
+          </div>
+        </div>
+      </div>
     </div>
   )
 })
@@ -245,14 +251,14 @@ export default function HomePage() {
           )}
           {!fullLoading && activeTab === "dashboard" && (
             <div className="space-y-8 mobile-px" data-dashboard-root>
-              <div className="space-y-6 max-w-[120ch] mx-auto w-full px-2 sm:px-0" data-kpi-wrap>
+              {/* KPI cards full-width: removed max-w constraint & centering */}
+              <div className="space-y-6 w-full" data-kpi-wrap data-layout="full-width-kpi">
                 <KPICards />
               </div>
-              <div className="-mx-4 sm:mx-0" data-charts-section>
-                <div className="overflow-x-auto pb-3 px-4 sm:px-0" data-charts-scroll>
-                  <div className="flex gap-6 min-w-[760px] sm:min-w-0" data-charts-inner>
-                    <Charts />
-                  </div>
+              <div data-charts-section>
+                {/* Full-width container aligned with KPI cards: no negative margins, relies on outer padding of dashboard root */}
+                <div className="pb-3" data-charts-scroll>
+                  <Charts />
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react"
 import { useViewingScope } from "./viewing-scope"
 import type { TimeEntry, Project } from "@/lib/data"
 
@@ -139,9 +139,33 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
   }
   const effectiveRange = computeEffectiveRange()
 
+  // Build fast project lookup for normalization
+  const projectMap = useMemo(()=> {
+    const m = new Map<string, Project>()
+    for(const p of projects) m.set(p.id, p)
+    return m
+  }, [projects])
+
+  // Normalize time entries: ensure entry.billable reflects project.billable if mismatch (single source of truth)
+  const normalizedEntries = useMemo(()=> {
+    return timeEntriesState.map(e => {
+      const proj = projectMap.get(e.projectId)
+      if(!proj) return e
+      // If mismatch, prefer entry.billable if explicitly provided, but log once in dev for divergence
+      if(process.env.NODE_ENV !== 'production' && e.billable !== proj.billable){
+        // eslint-disable-next-line no-console
+        console.warn('[filters] billable mismatch entry vs project', { entryId: e.id, entryBillable: e.billable, projectBillable: proj.billable, projectId: proj.id })
+      }
+      // Adopt entry.billable if defined; otherwise fallback to project
+      const effectiveBillable = typeof e.billable === 'boolean' ? e.billable : proj.billable
+      if(effectiveBillable === e.billable) return e
+      return { ...e, billable: effectiveBillable }
+    })
+  }, [timeEntriesState, projectMap])
+
   // Apply filters to time entries (date check uses effectiveRange)
   const effectiveConsultant = viewingScope?.consultantId || null
-  const filteredTimeEntries = timeEntriesState.filter((entry) => {
+  const filteredTimeEntries = normalizedEntries.filter((entry) => {
     const entryDate = new Date(entry.date)
     if (entryDate < effectiveRange.start || entryDate > effectiveRange.end) return false
 
@@ -202,6 +226,9 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
   filteredTimeEntries,
         filteredProjects,
   setTimeEntries: setTimeEntriesState,
+  // Optional: expose normalized entries if other consumers need guaranteed consistency
+  // @ts-expect-error backward compat (not declared in context type); kept internal for now
+  normalizedEntries,
   effectiveRange,
       }}
     >

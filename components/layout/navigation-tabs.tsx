@@ -104,12 +104,20 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
               const title = start && end ? `${fmt(start)} – ${fmt(end)}` : 'Select date range'
               return (
                 <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
-                  <SelectTrigger title={title} className="w-auto h-9 rounded-lg border bg-muted/50 hover:bg-background transition-colors">
+                  {/* Pill style trigger (using existing SelectTrigger component) */}
+                  <SelectTrigger
+                    title={title}
+                    className="h-8 px-4 rounded-full border-0 bg-muted/70 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring text-sm font-medium shadow-xs data-[state=open]:bg-accent data-[state=open]:text-accent-foreground transition-colors"
+                  >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="min-w-[12rem]">
                     {dateRangeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="data-[state=checked]:font-medium"
+                      >
                         {option.label}
                       </SelectItem>
                     ))}
