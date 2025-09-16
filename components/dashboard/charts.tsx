@@ -150,7 +150,7 @@ export function ActiveProjectsCard() {
       data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Your Top 5 Active Projects</CardTitle>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-primary">Your Top 5 Active Projects</CardTitle>
           {/* Progress subtitle removed as project progress isn't shown */}
         </div>
       </CardHeader>
@@ -171,13 +171,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" data-color role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{projectName}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-300">{project?.code || projectId}</div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-primary">{projectName}</div>
+                    <div className="text-xs text-gray-500 dark:text-muted-token">{project?.code || projectId}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-300">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-gray-900 dark:text-primary">{percent}%</div>
+                  <div className="text-xs text-gray-500 dark:text-muted-token">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -202,13 +202,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full dot-other" role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Other Projects</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-300">OTHER</div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-primary">Other Projects</div>
+                    <div className="text-xs text-gray-500 dark:text-muted-token">OTHER</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-300">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-gray-900 dark:text-primary">{percent}%</div>
+                  <div className="text-xs text-gray-500 dark:text-muted-token">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -551,8 +551,8 @@ export function HoursSummaryChart() {
         <div
           className={`transition-all duration-700 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`}
         >
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Hours Summary</CardTitle>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Reported hours breakdown</p>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-primary">Hours Summary</CardTitle>
+          <p className="text-sm text-gray-500 dark:text-muted-token">Reported hours breakdown</p>
         </div>
         <div
           className={`flex transition-all duration-700 delay-200 ${isVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
@@ -609,28 +609,28 @@ export function HoursSummaryChart() {
             <div className="text-lg font-bold animate-pulse text-billable">
               {animatedBillable.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500">Billable</div>
+            <div className="text-xs text-gray-500 dark:text-muted-token">Billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-500 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="nonbillable" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-nonbillable">
               {animatedNonBillable.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500">Non-billable</div>
+            <div className="text-xs text-gray-500 dark:text-muted-token">Non-billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-700 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="absence" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-absence">
               {animatedAbsence.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500">Absence</div>
+            <div className="text-xs text-gray-500 dark:text-muted-token">Absence</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-900 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="max" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-max">
               {animatedMax.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500">Max</div>
+            <div className="text-xs text-gray-500 dark:text-muted-token">Max</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-1100 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
         </div>
