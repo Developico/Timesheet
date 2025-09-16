@@ -156,7 +156,7 @@ export function ProjectsTable() {
   return (
     <div className="space-y-6 relative">
       {/* Summary metrics card (analogous to calendar view) */}
-  <Card className="dark:bg-[oklch(0.18_0_0)]">
+  <Card className="dark:bg-[var(--card)]">
   <CardContent className="py-4">
           <div className="grid grid-cols-4 gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -179,7 +179,7 @@ export function ProjectsTable() {
           </div>
         </CardContent>
       </Card>
-  <Card className="dark:bg-[oklch(0.18_0_0)]">
+  <Card className="dark:bg-[var(--card)]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-wrap">
@@ -278,7 +278,7 @@ export function ProjectsTable() {
         </CardHeader>
         <CardContent>
           {/* (Summary moved to top card) */}
-          <div className="rounded-md border bg-card dark:bg-[oklch(0.19_0_0)] overflow-hidden">
+          <div className="rounded-md border bg-card dark:bg-[var(--surface-alt)] overflow-hidden">
             <div className="overflow-auto max-h-[70vh]">
             <Table className="projects-table table-sticky text-[13px]">
               <TableHeader>
