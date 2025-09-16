@@ -72,7 +72,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-teal-200/10 via-transparent to-indigo-300/10" />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-200">
+  <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-100">
           <span className="inline-flex items-center gap-2">
             {card.title}
             {belowTarget && (
@@ -96,7 +96,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               {display}
             </span>
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-300">{card.subtitle}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-200">{card.subtitle}</div>
           {belowTarget && (
             <div className="flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
               <span className={`text-[11px] ${critical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -123,9 +123,9 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               )}
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-gray-500 dark:text-gray-300">vs target</span>
+              <span className="text-gray-500 dark:text-gray-200">vs target</span>
               <div className="flex items-center space-x-2">
-                {card.target && <span className="text-gray-400 dark:text-gray-300">Target: {card.target}%</span>}
+                {card.target && <span className="text-gray-400 dark:text-gray-200">Target: {card.target}%</span>}
                 <span className={card.color}>{animated.toFixed(1)}%</span>
               </div>
             </div>
@@ -178,7 +178,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
         )}
 
         <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-          <span className="text-xs text-gray-500 dark:text-gray-300">vs last period</span>
+          <span className="text-xs text-gray-500 dark:text-gray-200">vs last period</span>
           <span className={`text-xs font-medium ${card.trendColor}`}>{card.trend}</span>
         </div>
       </CardContent>
