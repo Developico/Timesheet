@@ -71,8 +71,8 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
   className="kpi-card relative hover:shadow-xl group transition-all duration-500 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden opacity-0 translate-y-[18px] data-[visible=true]:opacity-100 data-[visible=true]:translate-y-0"
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-teal-200/10 via-transparent to-indigo-300/10" />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-  <CardTitle className="text-sm font-medium text-gray-700 dark:text-primary">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+  <CardTitle className="text-sm font-medium text-gray-700 dark:text-primary text-[var(--text-primary)]">
           <span className="inline-flex items-center gap-2">
             {card.title}
             {belowTarget && (
@@ -87,7 +87,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
-          <div className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+          <div className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
             <span
               data-hl={belowTarget || undefined}
               className={`inline-block transition-all duration-700 will-change-transform group-hover:scale-[1.03] rounded-md px-2 py-0.5 ${highlightClass}`}
@@ -96,7 +96,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               {display}
             </span>
           </div>
-          <div className="text-sm text-gray-500 dark:text-muted-token">{card.subtitle}</div>
+          <div className="text-sm text-gray-500 dark:text-muted-token text-muted-token">{card.subtitle}</div>
           {belowTarget && (
             <div className="flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
               <span className={`text-[11px] ${critical ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -123,7 +123,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               )}
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-gray-500 dark:text-muted-token">vs target</span>
+              <span className="text-gray-500 dark:text-muted-token text-muted-token">vs target</span>
               <div className="flex items-center space-x-2">
                 {card.target && <span className="text-gray-400 dark:text-secondary">Target: {card.target}%</span>}
                 <span className={card.color}>{animated.toFixed(1)}%</span>
@@ -178,7 +178,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
         )}
 
         <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-          <span className="text-xs text-gray-500 dark:text-muted-token">vs last period</span>
+          <span className="text-xs text-gray-500 dark:text-muted-token text-muted-token">vs last period</span>
           <span className={`text-xs font-medium ${card.trendColor}`}>{card.trend}</span>
         </div>
       </CardContent>

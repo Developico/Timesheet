@@ -150,7 +150,7 @@ export function ActiveProjectsCard() {
       data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-primary">Your Top 5 Active Projects</CardTitle>
+          <CardTitle className="text-lg font-semibold text-[var(--text-primary)]">Your Top 5 Active Projects</CardTitle>
           {/* Progress subtitle removed as project progress isn't shown */}
         </div>
       </CardHeader>
@@ -171,13 +171,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" data-color role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-primary">{projectName}</div>
-                    <div className="text-xs text-gray-500 dark:text-muted-token">{project?.code || projectId}</div>
+                    <div className="font-medium text-sm text-[var(--text-primary)]">{projectName}</div>
+                    <div className="text-xs text-muted-token">{project?.code || projectId}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-primary">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-muted-token">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-[var(--text-primary)]">{percent}%</div>
+                  <div className="text-xs text-muted-token">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -202,13 +202,13 @@ export function ActiveProjectsCard() {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full dot-other" role="presentation" />
                   <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-primary">Other Projects</div>
-                    <div className="text-xs text-gray-500 dark:text-muted-token">OTHER</div>
+                    <div className="font-medium text-sm text-[var(--text-primary)]">Other Projects</div>
+                    <div className="text-xs text-muted-token">OTHER</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-sm text-gray-900 dark:text-primary">{percent}%</div>
-                  <div className="text-xs text-gray-500 dark:text-muted-token">{hours.toFixed(1)}h</div>
+                  <div className="font-semibold text-sm text-[var(--text-primary)]">{percent}%</div>
+                  <div className="text-xs text-muted-token">{hours.toFixed(1)}h</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -601,8 +601,8 @@ export function HoursSummaryChart() {
         <div
           className={`transition-all duration-700 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`}
         >
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-primary">Hours Summary</CardTitle>
-          <p className="text-sm text-gray-500 dark:text-muted-token">Reported hours breakdown</p>
+          <CardTitle className="text-lg font-semibold text-[var(--text-primary)]">Hours Summary</CardTitle>
+          <p className="text-sm text-muted-token">Reported hours breakdown</p>
         </div>
         <div
           className={`flex transition-all duration-700 delay-200 ${isVisible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
@@ -659,21 +659,21 @@ export function HoursSummaryChart() {
             <div className="text-lg font-bold animate-pulse text-billable">
               {animatedBillable.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500 dark:text-muted-token">Billable</div>
+            <div className="text-xs text-muted-token">Billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-500 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="nonbillable" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-nonbillable">
               {animatedNonBillable.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500 dark:text-muted-token">Non-billable</div>
+            <div className="text-xs text-muted-token">Non-billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-700 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="absence" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-absence">
               {animatedAbsence.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500 dark:text-muted-token">Absence</div>
+            <div className="text-xs text-muted-token">Absence</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-900 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="max" className="text-center group hover:scale-110 transition-transform duration-300">
@@ -745,7 +745,7 @@ export function HoursSummaryChart() {
                   return (
                     <g key={idx}>
                       <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke={isZero ? '#d1d5db' : '#e5e7eb'} opacity={isZero ? 0.9 : 0.6} strokeDasharray={isZero ? '' : '4 4'} />
-                      <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-gray-500 dark:fill-gray-400 text-[10px]">{t}</text>
+                      <text x={padding.left - 6} y={y + 3} textAnchor="end" className="text-[10px] fill-[var(--text-muted)]">{t}</text>
                     </g>
                   )
                 })}
@@ -878,7 +878,7 @@ export function HoursSummaryChart() {
                   const step = viewMode === 'monthly' ? 1 : Math.max(1, Math.ceil(n / 10))
                   return currentData.map((d, i) => (
                     i % step === 0 ? (
-                      <text key={i} x={xMidFor(i)} y={height - 8} textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-[10px]">{d.label}</text>
+                      <text key={i} x={xMidFor(i)} y={height - 8} textAnchor="middle" className="text-[10px] fill-[var(--text-muted)]">{d.label}</text>
                     ) : null
                   ))
                 })()}
