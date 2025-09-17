@@ -59,7 +59,7 @@ export function ViewingScopeSwitcher() {
           className="text-sm border rounded px-2 py-1 bg-background w-56"
         />
         {q && (
-          <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto bg-popover border rounded shadow">
+          <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto bg-[var(--surface-overlay)] text-[var(--text-primary)] border rounded shadow">
             <div className="text-[11px] text-muted-foreground px-2 py-1">{filtered.length} results</div>
             {filtered.map(m => (
               <button

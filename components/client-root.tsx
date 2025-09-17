@@ -40,7 +40,7 @@ export function ClientRoot({ children }: { children: ReactNode }) {
       <SessionProvider>
         <AuthProvider>
           <ViewingScopeProvider>
-            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
               {children}
             </ThemeProvider>
           </ViewingScopeProvider>
