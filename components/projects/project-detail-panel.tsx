@@ -179,7 +179,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               <button
                 type="button"
                 onClick={() => { navigator.clipboard?.writeText(project.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); markViewed(project.id); toast({ title: 'Copied', description: `${project.code} copied to clipboard` }); }); }}
-                className="p-1 rounded hover:bg-muted/60 text-muted-foreground/60 hover:text-foreground transition-colors"
+                className="p-1 rounded hover:bg-muted/60 text-muted-token/60 hover:text-foreground transition-colors"
                 title="Copy project code"
                 aria-label="Copy project code"
               >
@@ -187,7 +187,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               </button>
             </div>
             <h2 className="font-semibold leading-tight break-words">{project.name}</h2>
-            {"client" in project && (project as Project).client && <p className="text-xs text-muted-foreground truncate">{(project as Project).client}</p>}
+            {"client" in project && (project as Project).client && <p className="text-xs text-muted-token truncate">{(project as Project).client}</p>}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -199,7 +199,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
               {expanded ? <Minimize2 className="h-3 w-3"/> : <Maximize2 className="h-3 w-3"/>}
               <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
             </button>
-          <button ref={closeBtnRef} onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/60" aria-label="Close project details">✕</button>
+          <button ref={closeBtnRef} onClick={onClose} className="text-sm text-muted-token hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/60" aria-label="Close project details">✕</button>
           </div>
         </div>
   <div className="p-5 flex-1 flex flex-col gap-6">
@@ -207,9 +207,9 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs">
               <span className={`px-1.5 py-0.5 rounded font-medium ${project.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>{projectTypeLabel}</span>
-              <span className="text-muted-foreground">•</span>
+              <span className="text-muted-token">•</span>
               <span>Total: <span className="font-semibold">{total.toFixed(1)}h</span></span>
-              <span className="text-muted-foreground">•</span>
+              <span className="text-muted-token">•</span>
               <span>Your: <span className="font-semibold">{myHours.toFixed(1)}h</span></span>
             </div>
             <div>
@@ -229,7 +229,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
           <div className="border rounded-md overflow-hidden">
             <button
               type="button"
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-token hover:bg-muted/40"
               aria-controls="panel-team"
               data-state={openSections.team ? 'open':'closed'}
               onClick={()=> setOpenSections(s=> ({...s, team: !s.team}))}
@@ -242,12 +242,12 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             {openSections.team && (
               <div id="panel-team" className="px-3 pb-3 pt-1 space-y-2 text-sm">
                 {hasAllUsers(project) ? (
-                  <div className="text-muted-foreground text-xs leading-relaxed">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
+                  <div className="text-muted-token text-xs leading-relaxed">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
                 ) : (
                   (teamIds && teamIds.length === 0) ? (
-                    <div className="text-muted-foreground">No team members assigned.</div>
+                    <div className="text-muted-token">No team members assigned.</div>
                   ) : teamError ? (
-                    <div className="text-muted-foreground">Team error: {teamError}. Showing only members with hours in current scope.</div>
+                    <div className="text-muted-token">Team error: {teamError}. Showing only members with hours in current scope.</div>
                   ) : (
                     <div className="space-y-2 max-h-48 overflow-auto pr-1">
                       {(() => {
@@ -271,7 +271,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                                     </div>
                                     <div className="truncate">
                                       <div className="font-medium truncate">{c?.name || 'Unknown'}</div>
-                                      {c?.email && <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>}
+                                      {c?.email && <div className="text-[10px] text-muted-token truncate">{c.email}</div>}
                                     </div>
                                   </div>
                                 </div>
@@ -281,7 +281,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                               <InactiveMembers items={inactive as InactiveResolvedItem[]} />
                             )}
                             {!hasAllUsers(project) && teamByConsultant.length > 8 && (
-                              <button type="button" onClick={()=> setShowAllTeam(s=> !s)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1">
+                              <button type="button" onClick={()=> setShowAllTeam(s=> !s)} className="text-[10px] text-muted-token hover:text-foreground mt-1">
                                 {showAllTeam ? 'Show less' : 'Show all'}
                               </button>
                             )}
@@ -299,7 +299,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
       <div className="border rounded-md overflow-hidden flex-1 min-h-0 flex flex-col">
         <button
           type="button"
-          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-token hover:bg-muted/40"
           aria-controls="panel-reports"
           data-state={openSections.reports ? 'open':'closed'}
           onClick={()=> setOpenSections(s=> ({...s, reports: !s.reports}))}
@@ -310,7 +310,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
         {openSections.reports && (
           <div id="panel-reports" className="px-3 pt-1 pb-3 flex-1 min-h-0 flex flex-col gap-2">
             {myEntries.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No personal entries in this scope.</div>
+              <div className="text-xs text-muted-token">No personal entries in this scope.</div>
             ) : (
               <div className="space-y-1 flex-1 min-h-0 overflow-auto pr-1">
                 {myEntriesSorted.slice(0, 30).map(e => {
@@ -320,7 +320,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`text-[10px] px-1 py-0.5 rounded ${e.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>{e.billable ? 'B' : 'NB'}</span>
                         <div className="min-w-0">
-                          <div className="text-[11px] text-muted-foreground">{e.date ? new Date(e.date).toLocaleDateString() : ''}</div>
+                          <div className="text-[11px] text-muted-token">{e.date ? new Date(e.date).toLocaleDateString() : ''}</div>
                           <div className="truncate">{taskText}</div>
                         </div>
                       </div>
@@ -328,7 +328,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                     </div>
                   )
                 })}
-                {myEntriesSorted.length > 30 && <div className="text-xs text-muted-foreground">Showing 30 of {myEntriesSorted.length} entries…</div>}
+                {myEntriesSorted.length > 30 && <div className="text-xs text-muted-token">Showing 30 of {myEntriesSorted.length} entries…</div>}
               </div>
             )}
           </div>
@@ -340,7 +340,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
         <div className="border rounded-md overflow-hidden">
           <button
             type="button"
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-token hover:bg-muted/40"
             aria-controls="panel-notes"
             data-state={openSections.notes ? 'open':'closed'}
             onClick={()=> setOpenSections(s=> ({...s, notes: !s.notes}))}
@@ -356,7 +356,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
       )}
 
           <div className="pt-2 border-t" />
-          <div className="text-[11px] text-muted-foreground">Scope: {scopeLabel}</div>
+          <div className="text-[11px] text-muted-token">Scope: {scopeLabel}</div>
         </div>
       </div>
     </>

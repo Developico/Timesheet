@@ -148,7 +148,7 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-xs text-muted-foreground">Authenticating…</p>
+          <p className="text-xs text-muted-token">Authenticating…</p>
         </div>
       </div>
     )
@@ -169,11 +169,11 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center space-y-4">
           <h1 className="text-xl font-semibold">Brak dostępu</h1>
-          <p className="text-sm text-muted-foreground">Twoje konto zostało poprawnie uwierzytelnione, ale nie znajduje się w wymaganych grupach aplikacji. Skontaktuj się z administratorem aby uzyskać dostęp.</p>
+          <p className="text-sm text-muted-token">Twoje konto zostało poprawnie uwierzytelnione, ale nie znajduje się w wymaganych grupach aplikacji. Skontaktuj się z administratorem aby uzyskać dostęp.</p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={()=>{ window.location.href = '/api/auth/signout' }}
-              className="text-xs underline text-muted-foreground hover:text-foreground"
+              className="text-xs underline text-muted-token hover:text-foreground"
             >Wyloguj</button>
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function HomePage() {
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Ładowanie danych…</p>
+              <p className="text-muted-token">Ładowanie danych…</p>
             </div>
           </div>
         </FilterProvider>
@@ -247,7 +247,7 @@ export default function HomePage() {
         <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <main className="py-8">
           {fullLoading && (
-            <div className="text-sm text-muted-foreground px-6 pb-4">Loading time entries...</div>
+            <div className="text-sm text-muted-token px-6 pb-4">Loading time entries...</div>
           )}
           {!fullLoading && activeTab === "dashboard" && (
             <div className="space-y-8 mobile-px" data-dashboard-root>
