@@ -119,7 +119,7 @@ export function ConsultantDock() {
                 <ArrowLeft className="h-4 w-4" />
               </button>
               <div className="relative flex-1">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-token" />
                 <input
                   placeholder="Search consultant..."
                   className="pl-8 pr-3 py-2 w-full text-sm rounded-md bg-muted/50 focus:bg-background border focus:outline-none focus:ring-2 focus:ring-[#6eedd9]"
@@ -138,7 +138,7 @@ export function ConsultantDock() {
               )}
             </div>
             {recent.length > 0 && !query && (
-              <div className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Recent</div>
+              <div className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-muted-token">Recent</div>
             )}
             {recent.length > 0 && !query && (
               <div className="px-2 flex flex-wrap gap-2">
@@ -153,7 +153,7 @@ export function ConsultantDock() {
               </div>
             )}
             <div className="overflow-y-auto max-h-[60vh] p-2 bg-[color:var(--surface-overlay)_/_95] dark:bg-[color:var(--surface-overlay)_/_90]">
-              {loading && <div className="px-3 py-6 text-sm text-muted-foreground">Loading…</div>}
+              {loading && <div className="px-3 py-6 text-sm text-muted-token">Loading…</div>}
               {error && <div className="px-3 py-2 text-sm text-red-600">{error}</div>}
               {!loading && filtered.map((m) => {
                 const isActive = m.consultantId === consultantId
@@ -170,7 +170,7 @@ export function ConsultantDock() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{m.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{m.email || m.upn || 'Member'}</div>
+                      <div className="text-xs text-muted-token truncate">{m.email || m.upn || 'Member'}</div>
                     </div>
                     {!selectable && <span className="text-[10px] uppercase tracking-wide text-amber-600">No DV link</span>}
                     {isActive && <span className="text-[10px] uppercase tracking-wide text-teal-600">Active</span>}
@@ -178,11 +178,11 @@ export function ConsultantDock() {
                 )
               })}
               {!loading && filtered.length === 0 && (
-                <div className="text-center py-10 text-sm text-muted-foreground">No consultants match.</div>
+                <div className="text-center py-10 text-sm text-muted-token">No consultants match.</div>
               )}
             </div>
             <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30 dark:bg-neutral-800/60">
-              <div className="text-[11px] text-muted-foreground">Ctrl+Shift+F</div>
+              <div className="text-[11px] text-muted-token">Ctrl+Shift+F</div>
               <div className="flex gap-2">
                 {consultantId && (
                   <button

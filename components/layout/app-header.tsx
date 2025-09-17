@@ -57,14 +57,14 @@ export function AppHeader() {
           </div>
           <div className="leading-tight">
             <h1 className="text-base sm:text-lg font-semibold tracking-tight">Timesheet</h1>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Reporting</p>
+            <p className="text-[10px] sm:text-xs text-muted-token">Reporting</p>
           </div>
         </div>
 
     {/* Search (desktop) */}
   <div className="hidden md:block flex-1 max-w-md mx-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-token" />
             <Input
               placeholder="Search projects… (client, code, name, description)"
               className="pl-10"
@@ -109,7 +109,7 @@ export function AppHeader() {
                 <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-[var(--surface-overlay)] text-[var(--text-primary)] shadow-lg p-3 z-50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium tracking-wide">New Projects</span>
-                    <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                    <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-token hover:text-foreground">✕</button>
                   </div>
                   <ul className="space-y-2 max-h-56 overflow-auto">
                     {newProjects.map(p=> {
@@ -164,9 +164,9 @@ export function AppHeader() {
               <DropdownMenuContent align="end" className="w-56" forceMount>
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  <p className="text-xs leading-none text-muted-token">{user.email}</p>
                   <div className="flex items-center gap-1 pt-1">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Role:</span>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-token">Role:</span>
                     <Badge variant={user.role === "Administrator" ? "destructive" : "secondary"} className="text-[10px] px-2 py-0.5 font-medium">
                       {user.role}
                     </Badge>

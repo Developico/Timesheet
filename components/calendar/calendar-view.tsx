@@ -302,15 +302,15 @@ export function CalendarView() {
               {/* Header (aligned with month view) */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{weekdayShort}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-token font-medium">{weekdayShort}</div>
                   <div className={`font-bold ${isToday? 'text-lg':'text-base'}`}>{day.getDate()}</div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   {holiday && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
                   {total>0 && active && (
-                    <div className="text-[10px] text-muted-foreground font-medium tabular-nums">
+                    <div className="text-[10px] text-muted-token font-medium tabular-nums">
                       {total.toFixed(1)}h
-                      <span className="ml-1 text-[9px] text-muted-foreground/70">{reportedPct.toFixed(0)}%</span>
+                      <span className="ml-1 text-[9px] text-muted-token opacity-70">{reportedPct.toFixed(0)}%</span>
                     </div>
                   )}
                 </div>
@@ -340,10 +340,10 @@ export function CalendarView() {
                       </div>
                     )
                   })}
-                  {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-foreground">Hidden: {entries.length - displayEntries.length}</div>}
+                  {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-token">Hidden: {entries.length - displayEntries.length}</div>}
                   {/* Fade mask removed per request */}
                 </div>
-              ) : <div className="text-[11px] text-muted-foreground mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
+              ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary with KPI progress bar */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
@@ -416,15 +416,15 @@ export function CalendarView() {
               {/* Header */}
               <div className="flex items-start justify-between mb-1">
                 <div className="leading-none">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{weekdayShort}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-token font-medium">{weekdayShort}</div>
                   <div className={`font-bold ${isToday? 'text-lg':'text-base'}`}>{d}</div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   {holiday && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
                   {total>0 && active && (
-                    <div className="text-[10px] text-muted-foreground font-medium tabular-nums">
+                    <div className="text-[10px] text-muted-token font-medium tabular-nums">
                       {total.toFixed(1)}h
-                      <span className="ml-1 text-[9px] text-muted-foreground/70">{reportedPct.toFixed(0)}%</span>
+                      <span className="ml-1 text-[9px] text-muted-token opacity-70">{reportedPct.toFixed(0)}%</span>
                     </div>
                   )}
                 </div>
@@ -454,11 +454,11 @@ export function CalendarView() {
                       </div>
                     )
                   })}
-                  {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-foreground">Hidden: {entries.length - displayEntries.length}</div>}
+                  {!aggregateDayEntries && displayEntries.length < entries.length && <div className="text-[10px] text-muted-token">Hidden: {entries.length - displayEntries.length}</div>}
                   {/* Fade mask when overflow (approx condition) */}
                   {/* Fade mask removed per request */}
                 </div>
-              ) : <div className="text-[11px] text-muted-foreground mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
+              ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary */}
               <div className="pt-1 mt-1 border-t border-dashed">
                 <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
@@ -512,7 +512,7 @@ export function CalendarView() {
             <div key={dateKey} className={`border rounded-lg p-3 ${isToday? 'ring-1 ring-[#6eedd9]':''} bg-card dark:bg-[var(--surface-alt)]`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{weekdayShort}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-token">{weekdayShort}</span>
                   <span className="font-semibold text-sm">{dateKey}</span>
                 </div>
                 {total>0 && <div className="text-xs font-medium tabular-nums">{total.toFixed(1)}h</div>}
@@ -533,8 +533,8 @@ export function CalendarView() {
                     )
                   })}
                 </div>
-              ) : <div className="text-[11px] text-muted-foreground">No entries</div>}
-              <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground/80 tabular-nums">
+              ) : <div className="text-[11px] text-muted-token">No entries</div>}
+              <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-token opacity-80 tabular-nums">
                 <span>B {billable.toFixed(1)}</span>
                 <span>NB {nonBillable.toFixed(1)}</span>
                 <span>A {absence.toFixed(1)}</span>
@@ -610,19 +610,19 @@ export function CalendarView() {
           <div className="grid grid-cols-4 gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
               <div className="text-2xl font-bold text-purple-600 leading-none">{periodSummary.totalHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">Total Hours</div>
+              <div className="text-xs text-muted-token">Total Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
               <div className="text-2xl font-bold text-teal-700 leading-none">{periodSummary.billableHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">Billable Hours</div>
+              <div className="text-xs text-muted-token">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{periodSummary.nonBillableHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">Non-billable Hours</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] text-[var(--text-primary)]">{periodSummary.nonBillableHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
               <div className="text-2xl font-bold text-red-600 leading-none">{periodSummary.absenceHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">Absence Hours</div>
+              <div className="text-xs text-muted-token">Absence Hours</div>
             </div>
           </div>
         </CardContent>
@@ -677,14 +677,14 @@ export function CalendarView() {
           ) : viewMode==='week' ? (
             <>
               <div className="grid grid-cols-7 gap-2 mb-4">
-                {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-foreground">{d}</div>)}
+                {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-token">{d}</div>)}
               </div>
               {renderWeekView()}
             </>
           ) : (
             <>
               <div className="grid grid-cols-7 gap-2 mb-4">
-                {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-foreground">{d}</div>)}
+                {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-token">{d}</div>)}
               </div>
               {renderMonthView()}
             </>

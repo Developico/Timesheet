@@ -27,7 +27,7 @@ export function InactiveMembers({ items }: InactiveMembersProps) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="group w-full text-left text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+  className="group w-full text-left text-[10px] uppercase tracking-wide text-muted-token hover:text-foreground flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
         data-state={open ? 'open' : 'closed'}
   aria-controls="inactive-members-panel"
         id="inactive-members-trigger"
@@ -64,23 +64,23 @@ export function InactiveMembers({ items }: InactiveMembersProps) {
                 role="listitem"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-full bg-gray-100 border border-border overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-semibold text-gray-500">
+                  <div className="w-6 h-6 rounded-full bg-gray-100 border border-border overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-semibold text-muted-token">
                     {c?.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={c.avatarUrl} alt={name} className="w-6 h-6 object-cover grayscale" />
                     ) : initials ? (
                       <span>{initials}</span>
                     ) : (
-                      <UserX className="h-4 w-4 text-gray-500" />
+                      <UserX className="h-4 w-4 text-muted-token" />
                     )}
                   </div>
                   <div className="truncate">
-                    <div className="truncate text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                    <div className="truncate text-xs font-medium flex items-center gap-1 text-muted-token">
                       {name}
                       <span className="text-[9px] px-1 py-0.5 rounded border border-border/60 bg-background/40 uppercase tracking-wide">Inactive</span>
-                      <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-muted/40 text-muted-foreground" aria-label={`Godziny: ${totalHrs} (B ${billHrs} / NB ${nbHrs})`}>{totalHrs}h</span>
+                      <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-muted/40 text-muted-token" aria-label={`Godziny: ${totalHrs} (B ${billHrs} / NB ${nbHrs})`}>{totalHrs}h</span>
                     </div>
-                    {email && <div className="text-[10px] text-muted-foreground/80 truncate">{email}</div>}
+                    {email && <div className="text-[10px] text-muted-token opacity-80 truncate">{email}</div>}
                   </div>
                 </div>
               </li>

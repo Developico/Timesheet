@@ -50,7 +50,7 @@ export function ViewingScopeSwitcher() {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs text-muted-foreground">Viewing as</label>
+  <label className="text-xs text-muted-token">Viewing as</label>
       <div className="relative">
         <input
           value={q}
@@ -60,7 +60,7 @@ export function ViewingScopeSwitcher() {
         />
         {q && (
           <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto bg-[var(--surface-overlay)] text-[var(--text-primary)] border rounded shadow">
-            <div className="text-[11px] text-muted-foreground px-2 py-1">{filtered.length} results</div>
+            <div className="text-[11px] text-muted-token px-2 py-1">{filtered.length} results</div>
             {filtered.map(m => (
               <button
                 key={m.aadObjectId}
@@ -75,7 +75,7 @@ export function ViewingScopeSwitcher() {
                 />
                 <div className="truncate">
                   <div className="text-sm leading-5 truncate">{m.name}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{m.email || m.upn}</div>
+                  <div className="text-[11px] text-muted-token truncate">{m.email || m.upn}</div>
                 </div>
                 {!m.consultantId && <span className="ml-auto text-[10px] text-amber-600">no DV link</span>}
               </button>
@@ -97,9 +97,9 @@ export function ViewingScopeSwitcher() {
         ))}
       </select>
       {recent?.length ? (
-        <div className="text-[11px] text-muted-foreground">Recent: {recent.slice(0,3).join(', ')}</div>
+  <div className="text-[11px] text-muted-token">Recent: {recent.slice(0,3).join(', ')}</div>
       ) : null}
-      {loading && <span className="text-[11px] text-muted-foreground">Loading…</span>}
+  {loading && <span className="text-[11px] text-muted-token">Loading…</span>}
       {error && <span className="text-[11px] text-red-600">{error}</span>}
     </div>
   )

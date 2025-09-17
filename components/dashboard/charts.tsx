@@ -680,7 +680,7 @@ export function HoursSummaryChart() {
             <div className="text-lg font-bold text-max">
               {animatedMax.toFixed(1)}h
             </div>
-            <div className="text-xs text-gray-500 dark:text-muted-token">Max</div>
+            <div className="text-xs text-muted-token">Max</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-1100 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
         </div>
