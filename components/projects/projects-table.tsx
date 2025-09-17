@@ -254,7 +254,7 @@ export function ProjectsTable() {
                   aria-expanded={showColumnMenu}
                 >Columns</Button>
                 {showColumnMenu && (
-                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-popover backdrop-blur supports-[backdrop-filter]:bg-popover/90 p-2 shadow-lg flex flex-col gap-1 text-xs" aria-label="Toggle columns">
+                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-[var(--surface-overlay)] text-[var(--text-primary)] backdrop-blur supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_90] p-2 shadow-lg flex flex-col gap-1 text-xs" aria-label="Toggle columns">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={cols.billable} onChange={e=> setCols(c=>({...c,billable:e.target.checked}))} /> Billable
                     </label>

@@ -106,7 +106,7 @@ export function AppHeader() {
                 </span>
               </Button>
               {openNew && (
-                <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-background shadow-lg p-3 z-50">
+                <div className="absolute right-0 mt-2 w-64 rounded-lg border bg-[var(--surface-overlay)] text-[var(--text-primary)] shadow-lg p-3 z-50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium tracking-wide">New Projects</span>
                     <button onClick={()=>setOpenNew(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
