@@ -196,12 +196,22 @@ export function CalendarView() {
   const weekCss = useMemo(()=>{
     const weekDays = getWeekDays(currentDate)
     return weekDays.map((day,i)=>{
-      const entries = getEntriesForDate(day)
-      const total = entries.reduce((s,e)=>s+e.hours,0)
-      const pct = Math.min((total/8)*100,125)
-      return `#calendar-week [data-week-fill="${i}"]{width:${pct.toFixed(2)}%;}`
+      const entries = getEntriesForDate(day).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+      const agg = summarize(entries as any)
+      const cap = 8
+      const b = Math.min(agg.billable, cap)
+      const nb = Math.min(agg.nonBillable, Math.max(0, cap - b))
+      const a = Math.min(agg.absence, Math.max(0, cap - b - nb))
+      const pctB = (b / cap) * 100
+      const pctNB = (nb / cap) * 100
+      const pctA = (a / cap) * 100
+      return [
+        `#calendar-week [data-week-fill-b="${i}"]{width:${pctB.toFixed(2)}%;}`,
+        `#calendar-week [data-week-fill-nb="${i}"]{width:${pctNB.toFixed(2)}%;}`,
+        `#calendar-week [data-week-fill-a="${i}"]{width:${pctA.toFixed(2)}%;}`,
+      ].join('\n')
     }).join('\n')
-  }, [currentDate, entriesByDate])
+  }, [currentDate, entriesByDate, enhancedProjects])
   useAggregatedDynamicCss('calendar-week', weekCss)
 
   // Prefetch next/previous week CSS (lightweight) to avoid layout flash on fast navigation
@@ -215,15 +225,25 @@ export function CalendarView() {
       ;[prev,next].forEach(d=>{
         const w = getWeekDays(d)
         const css = w.map((day,i)=>{
-          const entries = getEntriesForDate(day)
-          const total = entries.reduce((s,e)=>s+e.hours,0)
-          const pct = Math.min((total/8)*100,125)
-          return `#calendar-week [data-week-fill="${i}"]{width:${pct.toFixed(2)}%;}`
+          const entries = getEntriesForDate(day).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+          const agg = summarize(entries as any)
+          const cap = 8
+          const b = Math.min(agg.billable, cap)
+          const nb = Math.min(agg.nonBillable, Math.max(0, cap - b))
+          const a = Math.min(agg.absence, Math.max(0, cap - b - nb))
+          const pctB = (b / cap) * 100
+          const pctNB = (nb / cap) * 100
+          const pctA = (a / cap) * 100
+          return [
+            `#calendar-week [data-week-fill-b="${i}"]{width:${pctB.toFixed(2)}%;}`,
+            `#calendar-week [data-week-fill-nb="${i}"]{width:${pctNB.toFixed(2)}%;}`,
+            `#calendar-week [data-week-fill-a="${i}"]{width:${pctA.toFixed(2)}%;}`,
+          ].join('\n')
         }).join('\n')
         weekCssPrefetchRef.current[d.toISOString().slice(0,10)+':week']=css
       })
     }
-  }, [currentDate, viewMode, weekCss, getWeekDays])
+  }, [currentDate, viewMode, weekCss, getWeekDays, enhancedProjects])
 
   const monthCss = useMemo(()=>{
     const days = getDaysInMonth(currentDate)
@@ -231,13 +251,21 @@ export function CalendarView() {
     days.forEach(d=>{
       if(d===null) return
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d)
-      const entries = getEntriesForDate(date)
-      const total = entries.reduce((s,e)=>s+e.hours,0)
-      const pct = Math.min((total/8)*100,125)
-      out.push(`#calendar-month [data-month-fill="${d}"]{width:${pct.toFixed(2)}%;}`)
+      const entries = getEntriesForDate(date).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+      const agg = summarize(entries as any)
+      const cap = 8
+      const b = Math.min(agg.billable, cap)
+      const nb = Math.min(agg.nonBillable, Math.max(0, cap - b))
+      const a = Math.min(agg.absence, Math.max(0, cap - b - nb))
+      const pctB = (b / cap) * 100
+      const pctNB = (nb / cap) * 100
+      const pctA = (a / cap) * 100
+      out.push(`#calendar-month [data-month-fill-b="${d}"]{width:${pctB.toFixed(2)}%;}`)
+      out.push(`#calendar-month [data-month-fill-nb="${d}"]{width:${pctNB.toFixed(2)}%;}`)
+      out.push(`#calendar-month [data-month-fill-a="${d}"]{width:${pctA.toFixed(2)}%;}`)
     })
     return out.join('\n')
-  }, [currentDate, entriesByDate])
+  }, [currentDate, entriesByDate, enhancedProjects])
   useAggregatedDynamicCss('calendar-month', monthCss)
 
   // Prefetch previous/next month CSS similarly (cheap computation)
@@ -251,11 +279,26 @@ export function CalendarView() {
       ;[prev,next].forEach(m=>{
         const days = getDaysInMonth(m)
         const out: string[] = []
-        days.forEach(d=>{ if(d===null) return; const date=new Date(m.getFullYear(), m.getMonth(), d); const entries=getEntriesForDate(date); const total=entries.reduce((s,e)=>s+e.hours,0); const pct=Math.min((total/8)*100,125); out.push(`#calendar-month [data-month-fill="${d}"]{width:${pct.toFixed(2)}%;}`) })
+        days.forEach(d=>{
+          if(d===null) return;
+          const date=new Date(m.getFullYear(), m.getMonth(), d)
+          const entries=getEntriesForDate(date).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+          const agg = summarize(entries as any)
+          const cap = 8
+          const b = Math.min(agg.billable, cap)
+          const nb = Math.min(agg.nonBillable, Math.max(0, cap - b))
+          const a = Math.min(agg.absence, Math.max(0, cap - b - nb))
+          const pctB = (b / cap) * 100
+          const pctNB = (nb / cap) * 100
+          const pctA = (a / cap) * 100
+          out.push(`#calendar-month [data-month-fill-b="${d}"]{width:${pctB.toFixed(2)}%;}`)
+          out.push(`#calendar-month [data-month-fill-nb="${d}"]{width:${pctNB.toFixed(2)}%;}`)
+          out.push(`#calendar-month [data-month-fill-a="${d}"]{width:${pctA.toFixed(2)}%;}`)
+        })
         monthCssPrefetchRef.current[`${m.getFullYear()}-${m.getMonth()}`]=out.join('\n')
       })
     }
-  }, [currentDate, viewMode, monthCss])
+  }, [currentDate, viewMode, monthCss, enhancedProjects])
 
   const renderWeekView = () => {
     const weekDays = getWeekDays(currentDate)
@@ -347,12 +390,18 @@ export function CalendarView() {
                   {/* Fade mask removed per request */}
                 </div>
               ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
-              {/* Footer summary with KPI progress bar */}
+              {/* Footer summary with segmented KPI progress bar (B / NB / A) */}
               <div className="pt-1 mt-1 border-t border-dashed">
-                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25] relative overflow-hidden rounded-full">
-                    <div data-week-fill={weekDays.indexOf(day)} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
+                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B ${billable.toFixed(1)}h • NB ${nonBillable.toFixed(1)}h • A ${absence.toFixed(1)}h — Total ${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
+                  {/* Base overlay */}
+                  <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
+                  {/* Segments container */}
+                  <div className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full">
+                    <div className="h-full flex-none bg-green-600 transition-[width] duration-700" data-week-fill-b={weekDays.indexOf(day)} />
+                    <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-week-fill-nb={weekDays.indexOf(day)} />
+                    <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-week-fill-a={weekDays.indexOf(day)} />
                   </div>
+                  {/* Over-target visual rings */}
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
                   {total>targetHours*1.10 && total <= targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-amber-500/40" />}
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
@@ -462,12 +511,18 @@ export function CalendarView() {
                   {/* Fade mask removed per request */}
                 </div>
               ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
-              {/* Footer summary */}
+              {/* Footer summary with segmented KPI progress bar (B / NB / A) */}
               <div className="pt-1 mt-1 border-t border-dashed">
-                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
-                  <div className="h-full transition-all bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25] relative overflow-hidden rounded-full">
-                    <div data-month-fill={d} className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#174076] to-[#174076]/80 transition-all duration-700" />
+                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B ${billable.toFixed(1)}h • NB ${nonBillable.toFixed(1)}h • A ${absence.toFixed(1)}h — Total ${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
+                  {/* Base overlay */}
+                  <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
+                  {/* Segments container */}
+                  <div className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full">
+                    <div className="h-full flex-none bg-green-600 transition-[width] duration-700" data-month-fill-b={d} />
+                    <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-month-fill-nb={d} />
+                    <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-month-fill-a={d} />
                   </div>
+                  {/* Over-target visual rings */}
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
                   {total>targetHours*1.10 && total <= targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-amber-500/40" />}
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
