@@ -13,16 +13,31 @@ export interface DailySummary extends TimeEntriesSummary {
 
 // Absence project heuristic centralised here
 export function isAbsenceProject(projectId: string, projectCode?: string, projectName?: string): boolean {
-  const code = projectCode || projectId
-  const name = (projectName || '').toLowerCase()
-  return projectId === 'Office.Absences' || code === 'Office.Absences' || code === 'ABS' || name.includes('absence')
+  const codeRaw = projectCode || projectId
+  const code = (codeRaw || '').toString().toLowerCase()
+  const name = (projectName || '').toString().toLowerCase()
+
+  // Handle common identifiers and naming variants
+  // - Explicit id/code match
+  if (projectId === 'Office.Absences') return true
+  if (codeRaw === 'Office.Absences') return true
+  if (code === 'abs') return true
+
+  // - Substring heuristics across languages
+  //   'absence', 'absences', 'vacation', 'holiday', 'leave', 'urlop' (PL)
+  const tokens = [code, name]
+  return tokens.some(t => t.includes('absence') || t.includes('absences') || t.includes('vacation') || t.includes('holiday') || t.includes('leave') || t.includes('urlop'))
 }
 
 export function summarize(entries: TimeEntry[]): TimeEntriesSummary {
   let total = 0, billable = 0, absence = 0
   for (const e of entries) {
     total += e.hours
-    if (isAbsenceProject(e.projectId)) {
+    // Try to use attached project metadata if present (calendar and charts may pass it through)
+    const proj: any = (e as any).project
+    const projCode: string | undefined = proj?.code ?? (e as any).projectCode
+    const projName: string | undefined = proj?.name ?? (e as any).projectName
+    if (isAbsenceProject(e.projectId, projCode, projName)) {
       absence += e.hours
       continue
     }
@@ -38,7 +53,11 @@ export function summarizeByDay(entries: TimeEntry[]): Record<string, DailySummar
     if (!map[e.date]) map[e.date] = { date: e.date, total: 0, billable: 0, nonBillable: 0, absence: 0 }
     const day = map[e.date]
     day.total += e.hours
-    if (isAbsenceProject(e.projectId)) day.absence += e.hours
+    // Use richer project metadata when available
+    const proj: any = (e as any).project
+    const projCode: string | undefined = proj?.code ?? (e as any).projectCode
+    const projName: string | undefined = proj?.name ?? (e as any).projectName
+    if (isAbsenceProject(e.projectId, projCode, projName)) day.absence += e.hours
     else if (e.billable) day.billable += e.hours
   }
   for (const d of Object.values(map)) {
