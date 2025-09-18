@@ -142,7 +142,9 @@ export function ProjectsTable() {
     if (primaryConsultantId) return filteredTimeEntries.filter(e=> e.consultantId === primaryConsultantId)
     return filteredTimeEntries
   }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
-  const userAgg = summarize(userEntries as any)
+  // Attach project metadata for robust absence classification in summary
+  const projectsById = useMemo(()=> new Map(filteredProjects.map(p=> [p.id, p])), [filteredProjects])
+  const userAgg = summarize(userEntries.map(e=> ({...e, project: projectsById.get(e.projectId)})) as any)
   const totalUserHours = userAgg.total
   const totalBillableUserHours = userAgg.billable
   const totalNonBillableUserHours = userAgg.nonBillable

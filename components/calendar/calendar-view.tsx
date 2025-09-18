@@ -5,7 +5,7 @@ import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useProjects, type BasicProject } from "@/hooks/use-projects"
-import { summarize } from "@/lib/time-entries-summary"
+import { summarize, isAbsenceProject } from "@/lib/time-entries-summary"
 import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
@@ -177,10 +177,13 @@ export function CalendarView() {
 
   // Totals must reflect the currently visible scope (week grid or the visible month only)
   const currentScopeEntriesAll = useMemo(()=>{
-    if(viewMode==='week') return getWeekDays(currentDate).flatMap(d=>getEntriesForDate(d))
+    // Attach project metadata so summarize() can classify absences robustly
+    if(viewMode==='week') return getWeekDays(currentDate).flatMap(d=> getEntriesForDate(d).map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)})))
     const y = currentDate.getFullYear(); const m = currentDate.getMonth()
-    return calendarEntries.filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y && d.getMonth()===m })
-  }, [viewMode, currentDate, calendarEntries])
+    return calendarEntries
+      .filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y && d.getMonth()===m })
+      .map(e=> ({...e, project: enhancedProjects.find(p=>p.id===e.projectId)}))
+  }, [viewMode, currentDate, calendarEntries, enhancedProjects])
   const periodSummaryAgg = summarize(currentScopeEntriesAll as any)
   const periodSummary = {
     totalHours: periodSummaryAgg.total,
@@ -323,7 +326,7 @@ export function CalendarView() {
                     const tooltipParts = [project?.name||'Project']
                     if(project?.client) tooltipParts.push(`Client: ${project.client}`)
                     if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
-                    const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
+                    const dotType = isAbsenceProject(e.projectId, project?.code, project?.name)
                       ? 'absence'
                       : e.billable
                         ? 'billable'
@@ -437,7 +440,7 @@ export function CalendarView() {
                     const tooltipParts = [project?.name||'Project']
                     if(project?.client) tooltipParts.push(`Client: ${project.client}`)
                     if((e as AggregatedDayEntry).aggregated){ tooltipParts.push(`Aggregated from ${(e as AggregatedDayEntry).count} entries`) }
-                    const dotType = project?.id === 'Office.Absences' || project?.code === 'ABS' || project?.name?.toLowerCase().includes('absence')
+                    const dotType = isAbsenceProject(e.projectId, project?.code, project?.name)
                       ? 'absence'
                       : e.billable
                         ? 'billable'
@@ -521,7 +524,7 @@ export function CalendarView() {
                 <div className="space-y-1">
                   {displayEntries.map(e=>{
                     const project = (e as any).project as BasicProject | undefined
-                    const dotType = project?.id === 'Office.Absences' || project?.code==='ABS' || project?.name?.toLowerCase().includes('absence') ? 'absence' : e.billable ? 'billable':'nonbillable'
+                    const dotType = isAbsenceProject(e.projectId, project?.code, project?.name) ? 'absence' : e.billable ? 'billable':'nonbillable'
                     return (
                       <div key={e.id} className="flex items-center justify-between text-[12px] bg-background/50 dark:bg-[color:var(--surface-overlay)_/_25] rounded-md px-2 py-1">
                         <button type="button" onClick={()=> setSelectedProjectId(project?.id||null)} className="flex items-center gap-2 truncate max-w-[180px]">
