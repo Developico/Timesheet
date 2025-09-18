@@ -65,6 +65,47 @@ export class DataverseClient {
     return this.request<T>(`/${entitySet}`, { query })
   }
 
+  // Fetch all pages by following @odata.nextLink. Returns a consolidated array in { value } shape.
+  async listAll<T = unknown>(entitySet: string, query?: string): Promise<{ value: any[] }> {
+    const first = (await this.request<{ value?: any[]; [k: string]: any }>(`/${entitySet}`, { query })) || { value: [] }
+    const out: any[] = Array.isArray(first.value) ? [...first.value] : []
+    let nextLink: string | null = (first as any)['@odata.nextLink'] || null
+    let page = 1
+    while (nextLink) {
+      // nextLink is an absolute URL from Dataverse; fetch it directly reusing auth headers
+      const pageRes = await this.requestAbsolute<{ value?: any[]; [k: string]: any }>(nextLink)
+      const vals = Array.isArray(pageRes?.value) ? pageRes!.value! : []
+      out.push(...vals)
+      nextLink = (pageRes as any)['@odata.nextLink'] || null
+      page += 1
+    }
+    return { value: out }
+  }
+
+  // Internal: request a full absolute URL (used for @odata.nextLink)
+  private async requestAbsolute<TResponse = unknown>(absoluteUrl: string): Promise<TResponse> {
+    if (!this.base) {
+      throw new Error("Dataverse disabled: base URL not configured (DATAVERSE_URL)")
+    }
+    const token = await getDataverseToken()
+    appLog('debug','dataverse request nextLink',{ url: absoluteUrl })
+    const res = await fetch(absoluteUrl, {
+      method: 'GET',
+      headers: {
+        ...DEFAULT_HEADERS,
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      appLog('error','dataverse request error',{ status: res.status, statusText: res.statusText, snippet: text.slice(0,140) })
+      throw new Error(`Dataverse ${res.status} ${res.statusText} ${text.slice(0, 500)}`)
+    }
+    const ct = res.headers.get("Content-Type") || ""
+    if (ct.includes("application/json")) return res.json() as Promise<TResponse>
+    return res.text() as unknown as TResponse
+  }
+
   getById<T = unknown>(entitySet: string, id: string, query?: string) {
     return this.request<T>(`/${entitySet}(${id})`, { query })
   }

@@ -19,7 +19,9 @@ export const DV = {
     email: process.env.DATAVERSE_FIELD_CONSULTANT_EMAIL || "internalemailaddress",
   // Avatar not stored in Dataverse by default; only set via env if a custom column exists
   avatar: process.env.DATAVERSE_FIELD_CONSULTANT_AVATAR || "", // empty => ignored
-    stateCode: process.env.DATAVERSE_FIELD_CONSULTANT_STATE || "statecode",
+    // Many environments don't expose 'statecode' on systemuser; rely on 'isdisabled' instead by default.
+    // If you do have a custom state column, set DATAVERSE_FIELD_CONSULTANT_STATE env var.
+    stateCode: process.env.DATAVERSE_FIELD_CONSULTANT_STATE || "",
     // Optional field representing disabled flag (bool / two-options). E.g. 'isdisabled'
     disabledFlag: process.env.DATAVERSE_FIELD_CONSULTANT_DISABLED || "isdisabled",
     // Alternative numeric access mode (accessmode). Some orgs set Access Mode = Administrative / ReadOnly / Disabled
@@ -51,7 +53,9 @@ export const DV = {
     entitySet: process.env.DATAVERSE_ENTITY_TIMEREGISTER || "tt_timeregisters",
     id: process.env.DATAVERSE_FIELD_TR_ID || "tt_timeregisterid",
     startDateTime: process.env.DATAVERSE_FIELD_TR_START || "tt_startdatetime",
-    durationMin: process.env.DATAVERSE_FIELD_TR_DURATION || "tt_durationmin",
+  // Duration field: default to minutes-based field present in the environment
+  // Previously defaulted to 'tt_durationmin' which doesn't exist in this org; use 'tt_duration' (minutes)
+  durationMin: process.env.DATAVERSE_FIELD_TR_DURATION || "tt_duration",
     projectLookup: process.env.DATAVERSE_FIELD_TR_PROJECT || "_tt_projectid_value",
     userLookup: process.env.DATAVERSE_FIELD_TR_USER || "_tt_userid_value",
   // Billable not stored on timeregister (comes from related project); leave blank unless custom field exists
