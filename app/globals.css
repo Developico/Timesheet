@@ -291,17 +291,17 @@ button[data-active="true"] {
 
 /* Utility classes extracted from inline styles (dynamic animations & color dots) */
 /* Components layer (flattened) */
-  .dot-billable { background-color: #14b8a6; }
+  .dot-billable { background-color: #6eedd9; }
   .dot-nonbillable { background-color: #174076; }
-  .dot-absence { background-color: #dc2626; }
+  .dot-absence { background-color: #e03768; }
   .dot-other { background-color: #9CA3AF; }
   .chart-billable-bar { background-color: #6eedd9; }
   .chart-nonbillable-bar { background-color: #174076; }
   .chart-absence-bar { background-color: #e03768; }
   .chart-max-line { stroke: #9169f4; }
-  .text-billable { color: #14b8a6; }
+  .text-billable { color: #6eedd9; }
   .text-nonbillable { color: #174076; }
-  .text-absence { color: #dc2626; }
+  .text-absence { color: #e03768; }
   .text-max { color: #7c3aed; }
   .text-max-bar { background-color: #9169f4; }
   .fade-bottom-mask { background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.35)); }

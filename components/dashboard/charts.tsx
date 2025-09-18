@@ -81,7 +81,7 @@ export function ActiveProjectsCard() {
     const isAbs = id === 'Office.Absences' || codeLc === 'office.absences' || codeLc === 'abs' || codeLc.includes('absence') ||
       nameLc.includes('absence') || nameLc.includes('urlop') || nameLc.includes('vacation') || nameLc.includes('holiday') || nameLc.includes('leave')
     if(isAbs) return '#e03768'
-    return p?.billable ? '#6eedd9' : '#174076'
+  return p?.billable ? '#6eedd9' : '#174076'
   }, [getProject])
 
   const [isVisible, setIsVisible] = useState(false)
@@ -96,7 +96,7 @@ export function ActiveProjectsCard() {
       id: selectedProjectRaw.id,
       code: selectedProjectRaw.code,
       name: selectedProjectRaw.name,
-      color: selectedProjectRaw.color || '#174076',
+  color: selectedProjectRaw.color || '#174076',
       billable: selectedProjectRaw.billable ?? true,
       client: selectedProjectRaw.client || '',
       note: selectedProjectRaw.note,
@@ -294,7 +294,7 @@ export function HoursSummaryChart() {
   // Dynamic CSS for HoursSummaryChart (segments + max lines + metric bar colors)
   const hoursChartCss = useMemo(()=>{
     const lines: string[] = []
-    lines.push(`#hours-summary-metrics [data-metric="billable"] .metric-bar-fill{background:#6eedd9}`)
+  lines.push(`#hours-summary-metrics [data-metric="billable"] .metric-bar-fill{background:#6eedd9}`)
     lines.push(`#hours-summary-metrics [data-metric="nonbillable"] .metric-bar-fill{background:#174076}`)
     lines.push(`#hours-summary-metrics [data-metric="absence"] .metric-bar-fill{background:#e03768}`)
     lines.push(`#hours-summary-metrics [data-metric="max"] .metric-bar-fill{background:#9169f4}`)

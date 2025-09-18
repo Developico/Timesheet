@@ -206,7 +206,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
           {/* Simplified summary */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs">
-              <span className={`px-1.5 py-0.5 rounded font-medium ${project.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>{projectTypeLabel}</span>
+              <span className={`px-1.5 py-0.5 rounded font-medium ${project.billable ? 'bg-[#6eedd9]/20 text-[#174076]' : 'bg-slate-200 text-slate-800'}`}>{projectTypeLabel}</span>
               <span className="text-muted-token">•</span>
               <span>Total: <span className="font-semibold">{total.toFixed(1)}h</span></span>
               <span className="text-muted-token">•</span>
@@ -318,7 +318,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                   return (
                     <div key={e.id || Math.random().toString(36)} className="flex items-center justify-between text-[12px] rounded-md px-2 py-1 bg-background/60 dark:bg-[color:var(--surface-overlay)_/_30] border border-border/50 dark:border-white/10">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-[10px] px-1 py-0.5 rounded ${e.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>{e.billable ? 'B' : 'NB'}</span>
+                        <span className={`text-[10px] px-1 py-0.5 rounded ${e.billable ? 'bg-[#6eedd9]/20 text-[#174076]' : 'bg-slate-200 text-slate-800'}`}>{e.billable ? 'B' : 'NB'}</span>
                         <div className="min-w-0">
                           <div className="text-[11px] text-muted-token">{e.date ? new Date(e.date).toLocaleDateString() : ''}</div>
                           <div className="truncate">{taskText}</div>
