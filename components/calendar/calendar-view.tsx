@@ -111,7 +111,7 @@ export function CalendarView() {
       id: selectedProjectRaw.id,
       code: selectedProjectRaw.code || selectedProjectRaw.id,
       name: selectedProjectRaw.name,
-      color: selectedProjectRaw.color || '#174076',
+  color: selectedProjectRaw.color || '#174076',
       billable: Boolean(selectedProjectRaw.billable),
       client: selectedProjectRaw.client || '',
       note: selectedProjectRaw.note,
@@ -397,7 +397,7 @@ export function CalendarView() {
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
                   <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
-                    <div className="h-full flex-none bg-teal-600 transition-[width] duration-700" data-week-fill-b={weekDays.indexOf(day)} />
+                    <div className="h-full flex-none bg-[#6eedd9] transition-[width] duration-700" data-week-fill-b={weekDays.indexOf(day)} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-week-fill-nb={weekDays.indexOf(day)} />
                     <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-week-fill-a={weekDays.indexOf(day)} />
                   </div>
@@ -407,7 +407,7 @@ export function CalendarView() {
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
                 </div>
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-teal-600" />B {billable.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />A {absence.toFixed(1)}</span>
                 </div>
@@ -518,7 +518,7 @@ export function CalendarView() {
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
                   <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
-                    <div className="h-full flex-none bg-teal-600 transition-[width] duration-700" data-month-fill-b={d} />
+                    <div className="h-full flex-none bg-[#6eedd9] transition-[width] duration-700" data-month-fill-b={d} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-month-fill-nb={d} />
                     <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-month-fill-a={d} />
                   </div>
@@ -528,7 +528,7 @@ export function CalendarView() {
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
                 </div>
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-teal-600" />B {billable.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />A {absence.toFixed(1)}</span>
                 </div>
@@ -671,7 +671,7 @@ export function CalendarView() {
               <div className="text-xs text-muted-token">Total Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-teal-700 leading-none">{periodSummary.billableHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-billable">{periodSummary.billableHours.toFixed(1)}</div>
               <div className="text-xs text-muted-token">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -679,7 +679,7 @@ export function CalendarView() {
               <div className="text-xs text-muted-token">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-red-600 leading-none">{periodSummary.absenceHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-absence">{periodSummary.absenceHours.toFixed(1)}</div>
               <div className="text-xs text-muted-token">Absence Hours</div>
             </div>
           </div>

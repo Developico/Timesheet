@@ -46,9 +46,9 @@ export const RefreshingBadge: React.FC<RefreshingBadgeProps> = ({
       title={label}
     >
       <span className={clsx(
-        'h-2 w-2 rounded-full bg-emerald-500',
+            'h-2 w-2 rounded-full bg-[#6eedd9]',
         'relative',
-        'before:content-[""] before:absolute before:inset-0 before:rounded-full before:bg-emerald-500/60 before:animate-ping'
+            'before:content-[""] before:absolute before:inset-0 before:rounded-full before:bg-[#6eedd9]/60 before:animate-ping'
       )} />
       {!showDotOnly && <span>{label}</span>}
     </span>

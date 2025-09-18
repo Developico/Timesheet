@@ -166,7 +166,7 @@ export function ProjectsTable() {
               <div className="text-xs text-muted-token">Total Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-teal-700 dark:text-teal-400 leading-none">{totalBillableUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-billable leading-none">{totalBillableUserHours.toFixed(1)}</div>
               <div className="text-xs text-muted-token">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
@@ -175,7 +175,7 @@ export function ProjectsTable() {
               <div className="text-xs text-muted-token">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-red-600 leading-none">{absenceUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-absence leading-none">{absenceUserHours.toFixed(1)}</div>
               <div className="text-xs text-muted-token">Absence Hours</div>
             </div>
           </div>
@@ -337,13 +337,13 @@ export function ProjectsTable() {
                           <div className="flex items-center gap-2 min-w-[140px] pr-2">
                             {(() => {
                               const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
-                              const colorClass = isAbsence ? 'bg-red-600' : (project.billable ? 'bg-teal-500' : 'bg-[#174076]')
+                              const colorClass = isAbsence ? 'bg-[#e03768]' : (project.billable ? 'bg-[#6eedd9]' : 'bg-[#174076]')
                               const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
                               return <div className={`w-3 h-3 rounded-full ${colorClass}`} title={label} aria-label={label} />
                             })()}
                             <span className="font-mono text-sm flex items-center gap-1">
                               {project.code}
-                              {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-teal-700 border border-teal-300">NEW</span>}
+                              {newForUser && <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-[#6eedd9]/20 text-[#174076] border border-[#6eedd9]">NEW</span>}
                             </span>
                             <button
                               type="button"
@@ -368,13 +368,13 @@ export function ProjectsTable() {
                           <div className="flex flex-col gap-0.5">
                             <span>{project.name}</span>
                             {cols.client && <span className="text-[10px] text-muted-token sm:hidden">{project.client}</span>}
-                            {project.allUsers === true && cols.allUsers && <span className="sm:hidden text-[10px] text-teal-600 dark:text-teal-400">ALL USERS</span>}
+                            {project.allUsers === true && cols.allUsers && <span className="sm:hidden text-[10px] text-billable">ALL USERS</span>}
                           </div>
                         </TableCell>
                         {cols.allUsers && (
                           <TableCell className="mobile-hidden">
                             { project.allUsers === true ? (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-teal-600/10 border-teal-600/40 text-teal-700 dark:text-teal-400">ALL</Badge>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0.5 bg-[#6eedd9]/10 border-[#6eedd9]/40 text-billable">ALL</Badge>
                             ) : <span className="text-muted-token text-xs">-</span> }
                           </TableCell>
                         )}
@@ -386,8 +386,8 @@ export function ProjectsTable() {
                               title={`${project.actualHours.toFixed(1)}h total; ${project.billableHours.toFixed(1)}h billable`}
                               data-hours-index={rowIndex}
                             >
-                              <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-teal-400 opacity-35" data-bar-total aria-hidden="true" />
-                              <div className="absolute inset-y-0 left-0 bg-teal-500" data-bar-billable aria-label="Billable hours proportion" />
+                              <div className="absolute inset-y-0 left-0 bg-[#6eedd9]/35" data-bar-total aria-hidden="true" />
+                              <div className="absolute inset-y-0 left-0 bg-[#6eedd9]" data-bar-billable aria-label="Billable hours proportion" />
                             </div>
                           </div>
                         </TableCell>
@@ -410,13 +410,13 @@ export function ProjectsTable() {
             </div>
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line */}
-              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-teal-500"></span> Billable</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-[#6eedd9]"></span> Billable</span>
               {/* eslint-disable-next-line */}
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-[#174076]"></span> Non-billable</span>
               {/* eslint-disable-next-line */}
-              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-red-600"></span> Absence</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-[#e03768]"></span> Absence</span>
             </div>
-            {newProjects.length>0 && <div className="text-teal-600">New for you: {newProjects.length}</div>}
+            {newProjects.length>0 && <div className="text-billable">New for you: {newProjects.length}</div>}
             <div>Scope: {projectScope==='my' ? (assignedIds? 'projects you are assigned to' : 'projects you have time entries on (current filters applied)') : 'all filtered projects'}</div>
           </div>
         </CardContent>
