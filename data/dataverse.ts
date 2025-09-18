@@ -32,6 +32,7 @@ export class DataverseDataSource implements IDataSource {
 
     let lastError: any = null
     for (const entitySet of candidateEntitySets) {
+      // Only request state if a column name is explicitly configured
       let wantState = !!DV.consultant.stateCode
       let wantAvatar = !!DV.consultant.avatar
       let wantDisabled = !!DV.consultant.disabledFlag
@@ -41,7 +42,7 @@ export class DataverseDataSource implements IDataSource {
         const consultantSelectFields = [DV.consultant.id, DV.consultant.fullName, DV.consultant.email, DV.consultant.azureAdObjectId]
         if (wantDisabled) consultantSelectFields.push(DV.consultant.disabledFlag as string)
         if (wantAccessMode) consultantSelectFields.push(DV.consultant.accessMode as string)
-        if (wantState) consultantSelectFields.push(DV.consultant.stateCode as string)
+  if (wantState && DV.consultant.stateCode) consultantSelectFields.push(DV.consultant.stateCode as string)
         if (wantAvatar) consultantSelectFields.push(DV.consultant.avatar as string)
         const select = consultantSelectFields.filter(Boolean).join(',')
         try {
@@ -50,7 +51,7 @@ export class DataverseDataSource implements IDataSource {
           return records.map(r => {
             const disabledVal = wantDisabled ? r[DV.consultant.disabledFlag as string] : undefined
             const accessModeVal = wantAccessMode ? r[DV.consultant.accessMode as string] : undefined
-            const stateVal = wantState ? r[DV.consultant.stateCode as string] : undefined
+            const stateVal = wantState && DV.consultant.stateCode ? r[DV.consultant.stateCode as string] : undefined
             // Derive isActive precedence: explicit disabled flag (boolean/1) -> access mode (3=Administrative/4=ReadOnly/Disabled?) -> statecode
             let isActive = true
             if (disabledVal !== undefined) {
@@ -82,8 +83,8 @@ export class DataverseDataSource implements IDataSource {
             if (wantDisabled && DV.consultant.disabledFlag && msg.includes(DV.consultant.disabledFlag)) { wantDisabled = false; continue }
             if (wantAccessMode && DV.consultant.accessMode && msg.includes(DV.consultant.accessMode)) { wantAccessMode = false; continue }
             if (wantAvatar && DV.consultant.avatar && msg.includes(DV.consultant.avatar)) { wantAvatar = false; continue }
-            // statecode may be entirely absent in environment
-            if (wantState && msg.includes(DV.consultant.stateCode || 'statecode')) { wantState = false; continue }
+            // 'statecode' may be entirely absent in this environment
+            if (wantState && (msg.includes(DV.consultant.stateCode || '') || msg.toLowerCase().includes('statecode'))) { wantState = false; continue }
           }
           // Other errors - do not retry this entitySet
           break
@@ -175,12 +176,14 @@ export class DataverseDataSource implements IDataSource {
       filters.push(`${tr.billable} eq ${params.billable ? 1 : 0}`)
     }
     const filter = encodeURIComponent(filters.join(" and "))
-    appLog('debug','timeentries build',{ select: selects, filter: decodeURIComponent(filter) })
-  let data: any
-  let records: any[] = []
+    const orderby = `${tr.startDateTime} asc`
+    appLog('debug','timeentries build',{ select: selects, filter: decodeURIComponent(filter), orderby })
+    let data: any
+    let records: any[] = []
     try {
-  data = await dataverseClient.list(tr.entitySet, `$select=${selects}&$filter=${filter}`) as { value?: any[] }
-  records = Array.isArray(data.value) ? data.value : []
+      // Load all pages to avoid missing weeks due to OData page limits
+      data = await dataverseClient.listAll(tr.entitySet, `$select=${selects}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
+      records = Array.isArray(data.value) ? data.value : []
     } catch (e:any) {
       const msg = e.message || ''
       // Retry without duration field if that's the cause
@@ -191,13 +194,14 @@ export class DataverseDataSource implements IDataSource {
         if (tr.billable) baseFields.push(tr.billable)
   baseFields.push(tr.note)
   if (tr.task) baseFields.push(tr.task)
-  const candidateList = (process.env.DATAVERSE_FIELD_TR_DURATION_CANDIDATES || 'tt_durationminutes,tt_durationmh,tt_duration,tt_minutes,tt_min').split(',').map(s=>s.trim()).filter(Boolean)
+  // Prefer known existing fields; remove non-existent 'tt_durationminutes'
+  const candidateList = (process.env.DATAVERSE_FIELD_TR_DURATION_CANDIDATES || 'tt_duration,tt_durationmh,tt_minutes,tt_min').split(',').map(s=>s.trim()).filter(Boolean)
         let chosen: string | null = null
         let candidateRecords: any[] | null = null
         for (const cand of candidateList) {
           try {
             const sel = [...baseFields, cand].join(',')
-            const d2 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`) as { value?: any[] }
+            const d2 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
             candidateRecords = Array.isArray(d2.value) ? d2.value : []
             chosen = cand
             appLog('info','timeentries duration fallback selected',{ column: cand })
@@ -214,7 +218,7 @@ export class DataverseDataSource implements IDataSource {
         // If none succeeded, do one query without any candidate to at least return skeleton rows
         if (!candidateRecords) {
           const sel = baseFields.join(',')
-          const d3 = await dataverseClient.list(tr.entitySet, `$select=${sel}&$filter=${filter}`) as { value?: any[] }
+          const d3 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
           candidateRecords = Array.isArray(d3.value) ? d3.value : []
           appLog('warn','timeentries no duration candidates matched returning zero hours')
         }
