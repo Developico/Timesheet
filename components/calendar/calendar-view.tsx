@@ -396,7 +396,7 @@ export function CalendarView() {
                   {/* Base overlay */}
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
-                  <div className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full">
+                  <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
                     <div className="h-full flex-none bg-green-600 transition-[width] duration-700" data-week-fill-b={weekDays.indexOf(day)} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-week-fill-nb={weekDays.indexOf(day)} />
                     <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-week-fill-a={weekDays.indexOf(day)} />
@@ -517,7 +517,7 @@ export function CalendarView() {
                   {/* Base overlay */}
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
-                  <div className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full">
+                  <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
                     <div className="h-full flex-none bg-green-600 transition-[width] duration-700" data-month-fill-b={d} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-month-fill-nb={d} />
                     <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-month-fill-a={d} />
