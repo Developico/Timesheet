@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useProjects, type BasicProject } from "@/hooks/use-projects"
 import { summarize, isAbsenceProject } from "@/lib/time-entries-summary"
 import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
@@ -13,13 +15,27 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useDaysOff } from "../../hooks/use-days-off"
 import { useFilters } from "@/lib/filter-context"
 
-interface CalendarEntry { id:string; date:string; projectId:string; hours:number; billable:boolean; description?:string }
+interface CalendarEntry {
+  id:string;
+  date:string;
+  projectId:string;
+  hours:number;
+  billable:boolean;
+  consultantId?: string;
+  description?:string;
+  note?: string;
+  task?: string;
+}
 interface AggregatedDayEntry extends CalendarEntry { aggregated: true; count: number; project?: BasicProject }
 type DayDisplayEntry = CalendarEntry & { project?: BasicProject } | AggregatedDayEntry
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<"month" | "week">("month")
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [breakdownSort, setBreakdownSort] = useState<
+    'total-desc' | 'billable-desc' | 'nonbillable-desc' | 'absence-desc' | 'code-asc' | 'name-asc'
+  >('total-desc')
   // Gesture + keyboard navigation refs/state ----------------------------------
   const gestureRef = useRef<HTMLDivElement | null>(null)
   const dragStart = useRef<{x:number; y:number; t:number} | null>(null)
@@ -59,7 +75,15 @@ export function CalendarView() {
   }, [filteredTimeEntries, scopedConsultant, primaryConsultantId])
 
   const calendarEntries: CalendarEntry[] = useMemo(()=> entriesForCalendarSrc.map(e=>({
-    id:e.id, date:e.date, projectId:e.projectId, hours:e.hours, billable:e.billable, description:e.description
+    id:e.id,
+    date:e.date,
+    projectId:e.projectId,
+    hours:e.hours,
+    billable:e.billable,
+    consultantId: (e as any).consultantId,
+    description:(e as any).description,
+    note:(e as any).note,
+    task:(e as any).task,
   })), [entriesForCalendarSrc])
 
   const entriesByDate = useMemo(()=>{ const m:Record<string,CalendarEntry[]> = {}; for(const e of calendarEntries){ (m[e.date] ||= []).push(e) } return m }, [calendarEntries])
@@ -191,6 +215,64 @@ export function CalendarView() {
     nonBillableHours: periodSummaryAgg.nonBillable,
     absenceHours: periodSummaryAgg.absence,
   }
+
+  // Projects breakdown for current visible scope (Option 2)
+  type Breakdown = {
+    project: BasicProject
+    total: number
+    billable: number
+    nonBillable: number
+    absence: number
+  }
+  const projectsBreakdown = useMemo<Breakdown[]>(()=>{
+    const map = new Map<string, Breakdown>()
+    for(const e of currentScopeEntriesAll as any[]){
+      const proj: BasicProject | undefined = e.project || enhancedProjects.find((p:BasicProject)=> p.id===e.projectId)
+      if(!proj) continue
+      const key = proj.id
+      const cur = map.get(key) || { project: proj, total: 0, billable: 0, nonBillable: 0, absence: 0 }
+      const isAbs = isAbsenceProject(e.projectId, proj.code as any, proj.name as any)
+      cur.total += e.hours
+      if(isAbs){ cur.absence += e.hours }
+      else if(e.billable){ cur.billable += e.hours }
+      else { cur.nonBillable += e.hours }
+      map.set(key, cur)
+    }
+    const arr = Array.from(map.values())
+    const cmpNumDesc = (a:number,b:number)=> b-a
+    switch(breakdownSort){
+      case 'billable-desc':
+        arr.sort((a,b)=> cmpNumDesc(a.billable, b.billable)); break
+      case 'nonbillable-desc':
+        arr.sort((a,b)=> cmpNumDesc(a.nonBillable, b.nonBillable)); break
+      case 'absence-desc':
+        arr.sort((a,b)=> cmpNumDesc(a.absence, b.absence)); break
+      case 'code-asc':
+        arr.sort((a,b)=> (a.project.code||'').localeCompare(b.project.code||'')); break
+      case 'name-asc':
+        arr.sort((a,b)=> (a.project.name||'').localeCompare(b.project.name||'')); break
+      case 'total-desc':
+      default:
+        arr.sort((a,b)=> cmpNumDesc(a.total, b.total)); break
+    }
+    return arr
+  }, [currentScopeEntriesAll, enhancedProjects, breakdownSort])
+
+  // Dynamic CSS for breakdown bars and color dots (avoid inline styles)
+  const breakdownCss = useMemo(()=>{
+    const total = periodSummary.totalHours || 0
+    const lines: string[] = []
+    projectsBreakdown.forEach((b, i)=>{
+      const pctB = total>0 ? (b.billable/total)*100 : 0
+      const pctNB = total>0 ? (b.nonBillable/total)*100 : 0
+      const pctA = total>0 ? (b.absence/total)*100 : 0
+      lines.push(`#calendar-breakdown [data-brk-b="${i}"]{width:${pctB.toFixed(2)}%;}`)
+      lines.push(`#calendar-breakdown [data-brk-nb="${i}"]{width:${pctNB.toFixed(2)}%;}`)
+      lines.push(`#calendar-breakdown [data-brk-a="${i}"]{width:${pctA.toFixed(2)}%;}`)
+    })
+    return lines.join('\n')
+  }, [projectsBreakdown, periodSummary.totalHours])
+  useAggregatedDynamicCss('calendar-breakdown', breakdownCss)
 
   // Precompute dynamic CSS for week and month fills (avoid calling hooks inside render helpers)
   const weekCss = useMemo(()=>{
@@ -688,44 +770,58 @@ export function CalendarView() {
   <Card className="dark:bg-[var(--card)]">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <CardTitle className="flex items-center gap-2">
-                {projectsLoading ? 'Loading projects…' : (viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`)}
+            {/* Single row with uniform spacing between all controls */}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={()=> viewMode==='week'? navigateWeek('prev'): navigateMonth('prev')} aria-label="Previous period">←</Button>
+              <CardTitle className="flex items-center justify-center">
+                <span className="inline-block text-center font-semibold tabular-nums w-[220px] truncate">
+                  {projectsLoading ? 'Loading…' : (viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`)}
+                </span>
               </CardTitle>
-              <div className="flex gap-2 items-center">
-                <div className="flex gap-0 rounded-md overflow-hidden shadow-xs border bg-muted/40" role="toolbar" aria-label="Calendar view mode">
-                  <Button
-                    variant="segmented"
-                    size="sm"
-                    data-active={viewMode==='month'}
-                    aria-pressed={viewMode==='month'}
-                    onClick={()=>setViewMode('month')}
-                    className="h-7 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
-                  >Month</Button>
-                  <Button
-                    variant="segmented"
-                    size="sm"
-                    data-active={viewMode==='week'}
-                    aria-pressed={viewMode==='week'}
-                    onClick={()=>setViewMode('week')}
-                    className="h-7 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
-                  >Week</Button>
-                </div>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={()=> viewMode==='week'? navigateWeek('next'): navigateMonth('next')} aria-label="Next period">→</Button>
+              <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={()=> setCurrentDate(new Date())} title="Jump to today">Today</Button>
+              <div className="flex gap-0 rounded-md overflow-hidden shadow-xs border bg-muted/40" role="toolbar" aria-label="Calendar view mode">
                 <Button
-                  type="button"
+                  variant="segmented"
                   size="sm"
-                  variant={aggregateDayEntries? 'default':'outline'}
-                  onClick={()=>setAggregateDayEntries(a=>!a)}
-                  className="h-7 px-3 text-xs"
-                  title="Toggle aggregation of same-project entries per day"
-                >
-                  {aggregateDayEntries ? 'Aggregated' : 'Aggregate'}
-                </Button>
+                  data-active={viewMode==='month'}
+                  aria-pressed={viewMode==='month'}
+                  onClick={()=>setViewMode('month')}
+                  className="h-8 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
+                >Month</Button>
+                <Button
+                  variant="segmented"
+                  size="sm"
+                  data-active={viewMode==='week'}
+                  aria-pressed={viewMode==='week'}
+                  onClick={()=>setViewMode('week')}
+                  className="h-8 px-3 text-xs rounded-none first:rounded-l-md last:rounded-r-md"
+                >Week</Button>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={()=> viewMode==='week'? navigateWeek('prev'): navigateMonth('prev')}>←</Button>
-              <Button variant="outline" size="sm" onClick={()=> viewMode==='week'? navigateWeek('next'): navigateMonth('next')}>→</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="surface"
+                data-active={aggregateDayEntries}
+                aria-pressed={aggregateDayEntries}
+                onClick={()=>setAggregateDayEntries(a=>!a)}
+                className="h-8 px-3 text-xs"
+                title="Toggle aggregation of same-project entries per day"
+              >
+                {aggregateDayEntries ? 'Aggregated' : 'Aggregate'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="surface"
+                data-active={breakdownOpen}
+                aria-pressed={breakdownOpen}
+                onClick={()=> setBreakdownOpen(true)}
+                className="h-8 px-3 text-xs"
+                title="Show projects breakdown for the visible period"
+              >
+                Breakdown
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -733,22 +829,100 @@ export function CalendarView() {
           {isMobile ? (
             renderMobileList()
           ) : viewMode==='week' ? (
-            <>
+            <div className="relative">
               <div className="grid grid-cols-7 gap-2 mb-4">
                 {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-token">{d}</div>)}
               </div>
               {renderWeekView()}
-            </>
+            </div>
           ) : (
-            <>
+            <div className="relative">
               <div className="grid grid-cols-7 gap-2 mb-4">
                 {dayNames.map(d=> <div key={d} className="p-2 text-center text-sm font-medium text-muted-token">{d}</div>)}
               </div>
               {renderMonthView()}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
+      {/* Right-side drawer with projects breakdown */}
+      <Sheet open={breakdownOpen} onOpenChange={setBreakdownOpen}>
+        <SheetContent side="right" className="sm:max-w-md w-full">
+          <SheetHeader>
+            <SheetTitle>Projects breakdown</SheetTitle>
+            <SheetDescription>
+              {viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`} • {projectsBreakdown.length} projects • {periodSummary.totalHours.toFixed(1)}h
+            </SheetDescription>
+            <div className="pt-1 flex items-center gap-2 text-xs">
+              <span className="text-muted-token">Sort by</span>
+              <Select value={breakdownSort} onValueChange={(v)=> setBreakdownSort(v as typeof breakdownSort)}>
+                <SelectTrigger className="h-7 w-[200px]">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="total-desc">Total hours (desc)</SelectItem>
+                  <SelectItem value="billable-desc">Billable hours (desc)</SelectItem>
+                  <SelectItem value="nonbillable-desc">Non-billable hours (desc)</SelectItem>
+                  <SelectItem value="absence-desc">Absence hours (desc)</SelectItem>
+                  <SelectItem value="code-asc">Code (A→Z)</SelectItem>
+                  <SelectItem value="name-asc">Name (A→Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </SheetHeader>
+          <div id="calendar-breakdown" className="px-4 pb-4 space-y-3">
+            <div className="flex items-center gap-2 text-[10px] text-muted-token">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6eedd9]"/>B</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#174076]"/>NB</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e03768]"/>A</span>
+            </div>
+            <div className="divide-y rounded-md border overflow-hidden">
+              {projectsBreakdown.length === 0 ? (
+                <div className="p-3 text-sm text-muted-token">No entries in this period.</div>
+              ) : projectsBreakdown.map((b,i)=>{
+                const share = periodSummary.totalHours>0 ? (b.total/periodSummary.totalHours)*100 : 0
+                const isAbs = isAbsenceProject(b.project.id, (b.project as any).code, (b.project as any).name)
+                const dotType = isAbs ? 'absence' : (b.billable >= b.nonBillable ? 'billable' : 'nonbillable')
+                return (
+                  <button
+                    key={b.project.id}
+                    type="button"
+                    className="w-full text-left p-3 hover:bg-muted/40 transition-colors"
+                    onClick={()=>{ setSelectedProjectId(b.project.id); setBreakdownOpen(false) }}
+                    title={`${b.project.name}${b.project.client? ` • ${b.project.client}`:''}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full shrink-0 dot-${dotType}`} />
+                        <div className="min-w-0">
+                          <div className="font-mono text-xs font-semibold truncate">{b.project.code || b.project.id}</div>
+                          <div className="text-[11px] text-muted-token truncate">{b.project.name}</div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-sm font-medium tabular-nums">{b.total.toFixed(1)}h</div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden relative">
+                        <div className="absolute inset-y-0 left-0 flex">
+                          <span className="h-full bg-[#6eedd9]" data-brk-b={i} />
+                          <span className="h-full bg-[#174076]" data-brk-nb={i} />
+                          <span className="h-full bg-[#e03768]" data-brk-a={i} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-token">
+                        <span title="Billable">B {b.billable.toFixed(1)}</span>
+                        <span title="Non-billable">NB {b.nonBillable.toFixed(1)}</span>
+                        <span title="Absence">A {b.absence.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[10px] text-muted-token">Share: {share.toFixed(1)}%</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
   {selectedProject && (
         <ProjectDetailPanel
           project={selectedProject}

@@ -107,6 +107,56 @@ export function ProjectsTable() {
   }, [projectsWithMetrics, sortField, sortDirection])
   allProjectsCount = filteredAndSortedProjects.length
 
+  // Precompute base list BEFORE applying billable filter, but AFTER scope/search and Only Reported
+  const preBillableBase = useMemo(() => {
+    const effectiveUserId = currentUserId || null
+    const myProjectIds = assignedIds
+      ? assignedIds
+      : effectiveUserId
+        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+        : new Set(filteredTimeEntries.map(e=> e.projectId))
+    const searching = (filters.searchQuery || '').trim().length > 0
+    let base = (projectScope==='my' && !searching)
+      ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
+      : filteredAndSortedProjects
+    if(onlyReported) base = base.filter(p=> p.actualHours > 0)
+    return base
+  }, [assignedIds, currentUserId, filteredTimeEntries, filteredAndSortedProjects, projectScope, filters.searchQuery, onlyReported])
+
+  const billableYesCount = useMemo(()=> preBillableBase.filter(p=> p.billable).length, [preBillableBase])
+  const billableNoCount = useMemo(()=> preBillableBase.filter(p=> !p.billable).length, [preBillableBase])
+
+  // Final rows for the table after applying billable filter (and onlyReported again for safety)
+  const tableRows = useMemo(()=>{
+    const effectiveUserId = currentUserId || null
+    const myProjectIds = assignedIds
+      ? assignedIds
+      : effectiveUserId
+        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+        : new Set(filteredTimeEntries.map(e=> e.projectId))
+    const searching = (filters.searchQuery || '').trim().length > 0
+    let base = (projectScope==='my' && !searching)
+      ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
+      : filteredAndSortedProjects
+    if(billableFilter==='yes') base = base.filter(p=>p.billable)
+    else if(billableFilter==='no') base = base.filter(p=>!p.billable)
+    if(onlyReported) base = base.filter(p=> p.actualHours > 0)
+    return base
+  }, [assignedIds, currentUserId, filteredTimeEntries, filteredAndSortedProjects, projectScope, filters.searchQuery, billableFilter, onlyReported])
+
+  // Inject bar widths CSS for visible rows (always call hook to keep hooks order consistent)
+  const hoursBarsCss = useMemo(()=>{
+    const base = tableRows
+    const maxHours = base.reduce((m,p)=> p.actualHours>m ? p.actualHours : m, 0) || 0
+    return base.map((p,i)=>{
+      const widthPct = maxHours>0 ? (p.actualHours/maxHours)*100 : 0
+      const billablePct = p.actualHours>0 ? (p.billableHours/p.actualHours)*100 : 0
+      const billWidth = (widthPct*billablePct)/100
+      return `.projects-table [data-hours-index='${i}'] [data-bar-total]{width:${widthPct.toFixed(2)}%;}\n.projects-table [data-hours-index='${i}'] [data-bar-billable]{width:${billWidth.toFixed(2)}%;}`
+    }).join('\n')
+  }, [tableRows])
+  useAggregatedDynamicCss('project-hours-bars', hoursBarsCss)
+
   const handleSort = (field: keyof Project | 'hours') => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -183,9 +233,8 @@ export function ProjectsTable() {
       </Card>
   <Card className="dark:bg-[var(--card)]">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-wrap">
-              <CardTitle>Projects ({filteredAndSortedProjects.length})</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
@@ -222,7 +271,7 @@ export function ProjectsTable() {
                   className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
                   data-active={billableFilter==='yes'}
                   onClick={()=>setBillableFilter('yes')}
-                >Yes</Button>
+                >Yes ({billableYesCount})</Button>
                 <Button
                   type="button"
                   size="sm"
@@ -230,7 +279,7 @@ export function ProjectsTable() {
                   className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
                   data-active={billableFilter==='no'}
                   onClick={()=>setBillableFilter('no')}
-                >No</Button>
+                >No ({billableNoCount})</Button>
               </div>
               <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
@@ -243,39 +292,38 @@ export function ProjectsTable() {
                   title={`Projects with your hours in range: ${reportedProjectsCount}`}
                 >Only Reported ({reportedProjectsCount})</Button>
               </div>
-              <div className="relative">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={showColumnMenu}
-                  onClick={()=> setShowColumnMenu(s=>!s)}
-                  title="Toggle optional columns"
-                  aria-haspopup="menu"
-                  aria-expanded={showColumnMenu}
-                >Columns</Button>
-                {showColumnMenu && (
-                  <div className="absolute z-20 mt-1 min-w-[180px] rounded-md border bg-[var(--surface-overlay)] text-[var(--text-primary)] backdrop-blur supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_90] p-2 shadow-lg flex flex-col gap-1 text-xs" aria-label="Toggle columns">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={cols.billable} onChange={e=> setCols(c=>({...c,billable:e.target.checked}))} /> Billable
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={cols.client} onChange={e=> setCols(c=>({...c,client:e.target.checked}))} /> Client
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={cols.allUsers} onChange={e=> setCols(c=>({...c,allUsers:e.target.checked}))} /> All Users
-                    </label>
-                    <button
-                      type="button"
-                      onClick={()=>{ setCols(defaultCols); }}
-                      className="mt-1 text-[10px] text-muted-token hover:text-foreground self-end"
-                    >Reset</button>
-                  </div>
-                )}
-              </div>
             </div>
-            <div />
+            <div className="relative ml-auto">
+              <Button
+                type="button"
+                size="sm"
+                variant="surface"
+                className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
+                data-active={showColumnMenu}
+                onClick={()=> setShowColumnMenu(s=>!s)}
+                title="Toggle optional columns"
+                aria-haspopup="menu"
+                aria-expanded={showColumnMenu}
+              >Columns</Button>
+              {showColumnMenu && (
+                <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-md border bg-[var(--surface-overlay)] text-[var(--text-primary)] backdrop-blur supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_90] p-2 shadow-lg flex flex-col gap-1 text-xs" aria-label="Toggle columns">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="accent-teal" checked={cols.billable} onChange={e=> setCols(c=>({...c,billable:e.target.checked}))} /> Billable
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="accent-teal" checked={cols.client} onChange={e=> setCols(c=>({...c,client:e.target.checked}))} /> Client
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="accent-teal" checked={cols.allUsers} onChange={e=> setCols(c=>({...c,allUsers:e.target.checked}))} /> All Users
+                  </label>
+                  <button
+                    type="button"
+                    onClick={()=>{ setCols(defaultCols); }}
+                    className="mt-1 text-[10px] text-muted-token hover:text-foreground self-end"
+                  >Reset</button>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -297,39 +345,14 @@ export function ProjectsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(() => {
-                  const effectiveUserId = currentUserId || null
-                  const myProjectIds = assignedIds
-                    ? assignedIds
-                    : effectiveUserId
-                      ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
-                      : new Set(filteredTimeEntries.map(e=> e.projectId))
-                  const searching = (filters.searchQuery || '').trim().length > 0
-                  let base = (projectScope==='my' && !searching)
-                    ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
-                    : filteredAndSortedProjects
-                  if(billableFilter==='yes') base = base.filter(p=>p.billable)
-                  else if(billableFilter==='no') base = base.filter(p=>!p.billable)
-                  if(onlyReported) base = base.filter(p=> p.actualHours > 0)
-                  if(base.length===0) {
-                    return (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-token">
-                          {projectScope==='my' ? (assignedIds? 'No assigned projects' : 'No projects with your recent time entries – switch to All to browse all codes.') : 'No projects'}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  }
-                  const maxHours = base.reduce((m,p)=> p.actualHours>m ? p.actualHours : m, 0) || 0
-                  // inject dynamic css for bars
-                  useAggregatedDynamicCss('project-hours-bars', base.map((p,i)=>{
-                    const widthPct = maxHours>0 ? (p.actualHours/maxHours)*100 : 0
-                    const billablePct = p.actualHours>0 ? (p.billableHours/p.actualHours)*100 : 0
-                    const billWidth = (widthPct*billablePct)/100
-                    return `.projects-table [data-hours-index='${i}'] [data-bar-total]{width:${widthPct.toFixed(2)}%;}
-.projects-table [data-hours-index='${i}'] [data-bar-billable]{width:${billWidth.toFixed(2)}%;}`
-                  }).join('\n'))
-                  return base.map((project, rowIndex) => {
+                {tableRows.length===0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-token">
+                      {projectScope==='my' ? (assignedIds? 'No assigned projects' : 'No projects with your recent time entries – switch to All to browse all codes.') : 'No projects'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tableRows.map((project, rowIndex) => {
                     const newForUser = isNew(project.id)
                     return (
                       <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
@@ -411,7 +434,7 @@ export function ProjectsTable() {
                       </TableRow>
                     )
                   })
-                })()}
+                )}
               </TableBody>
             </Table>
             </div>
