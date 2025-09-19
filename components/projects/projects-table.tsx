@@ -389,7 +389,10 @@ export function ProjectsTable() {
                               {(() => {
                                 const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
                                 const barTrackClass = isAbsence ? 'bg-[#e03768]/35' : (project.billable ? 'bg-[#6eedd9]/35' : 'bg-[#174076]/35')
-                                const barFillClass = isAbsence ? 'bg-[#e03768]' : (project.billable ? 'bg-[#6eedd9]' : 'bg-[#174076]')
+                                // make billable slightly softer like others and add shimmer
+                                const barFillClass = isAbsence
+                                  ? 'bg-[#e03768] bar-shimmer'
+                                  : (project.billable ? 'bg-[#6eedd9]/85 bar-shimmer' : 'bg-[#174076] bar-shimmer')
                                 return (
                                   <>
                                     <div className={`absolute inset-y-0 left-0 ${barTrackClass}`} data-bar-total aria-hidden="true" />
