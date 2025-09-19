@@ -399,7 +399,7 @@ export function CalendarView() {
                   <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
                     <div className="h-full flex-none bg-[#6eedd9] transition-[width] duration-700" data-week-fill-b={weekDays.indexOf(day)} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-week-fill-nb={weekDays.indexOf(day)} />
-                    <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-week-fill-a={weekDays.indexOf(day)} />
+                    <div className="h-full flex-none bg-[#e03768] transition-[width] duration-700" data-week-fill-a={weekDays.indexOf(day)} />
                   </div>
                   {/* Over-target visual rings */}
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
@@ -409,7 +409,7 @@ export function CalendarView() {
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />A {absence.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {absence.toFixed(1)}</span>
                 </div>
               </div>
             </div>
@@ -520,7 +520,7 @@ export function CalendarView() {
                   <div className="absolute inset-y-0 left-0 right-0 flex overflow-hidden rounded-full">
                     <div className="h-full flex-none bg-[#6eedd9] transition-[width] duration-700" data-month-fill-b={d} />
                     <div className="h-full flex-none bg-[#174076] transition-[width] duration-700" data-month-fill-nb={d} />
-                    <div className="h-full flex-none bg-red-500 transition-[width] duration-700" data-month-fill-a={d} />
+                    <div className="h-full flex-none bg-[#e03768] transition-[width] duration-700" data-month-fill-a={d} />
                   </div>
                   {/* Over-target visual rings */}
                   {total>targetHours && total <= targetHours*1.10 && <div className="absolute inset-0 ring-1 ring-emerald-500/30" />}
@@ -530,7 +530,7 @@ export function CalendarView() {
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
                   <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />A {absence.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {absence.toFixed(1)}</span>
                 </div>
               </div>
             </div>
@@ -675,7 +675,7 @@ export function CalendarView() {
               <div className="text-xs text-muted-token">Billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] text-[var(--text-primary)]">{periodSummary.nonBillableHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{periodSummary.nonBillableHours.toFixed(1)}</div>
               <div className="text-xs text-muted-token">Non-billable Hours</div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">

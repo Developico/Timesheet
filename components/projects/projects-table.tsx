@@ -386,8 +386,17 @@ export function ProjectsTable() {
                               title={`${project.actualHours.toFixed(1)}h total; ${project.billableHours.toFixed(1)}h billable`}
                               data-hours-index={rowIndex}
                             >
-                              <div className="absolute inset-y-0 left-0 bg-[#6eedd9]/35" data-bar-total aria-hidden="true" />
-                              <div className="absolute inset-y-0 left-0 bg-[#6eedd9]" data-bar-billable aria-label="Billable hours proportion" />
+                              {(() => {
+                                const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
+                                const barTrackClass = isAbsence ? 'bg-[#e03768]/35' : (project.billable ? 'bg-[#6eedd9]/35' : 'bg-[#174076]/35')
+                                const barFillClass = isAbsence ? 'bg-[#e03768]' : (project.billable ? 'bg-[#6eedd9]' : 'bg-[#174076]')
+                                return (
+                                  <>
+                                    <div className={`absolute inset-y-0 left-0 ${barTrackClass}`} data-bar-total aria-hidden="true" />
+                                    <div className={`absolute inset-y-0 left-0 ${barFillClass}`} data-bar-billable aria-label="Billable hours proportion" />
+                                  </>
+                                )
+                              })()}
                             </div>
                           </div>
                         </TableCell>
