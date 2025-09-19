@@ -41,7 +41,7 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
                 className={cn(
                   "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                   activeTab === tab.id
-                    ? "border-[#01EED4] text-teal-700 dark:text-teal-300 font-semibold"
+                    ? "border-[#01EED4] text-teal-400 dark:text-teal-300 font-semibold"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
                 )}
               >
