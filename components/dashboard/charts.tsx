@@ -146,7 +146,7 @@ export function ActiveProjectsCard() {
   return (
     <>
     {/* On large screens this card will take 1/2 or 1/3 width depending on parent grid; Hours Summary will span more columns */}
-  <Card id="active-projects-list" className={`relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--card)] ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}
+  <Card id="active-projects-list" className={`h-full relative overflow-hidden hover:shadow-xl transition-all duration-500 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--card)] ${isVisible? 'opacity-100 translate-y-0':'opacity-0 translate-y-[18px]'}`}
       data-dashboard-card data-type="active-projects">
       <CardHeader className="pb-3">
   <div className={`transition-all duration-700 ${isVisible? 'opacity-100 translate-x-0':'opacity-0 -translate-x-3'}`}>
@@ -236,6 +236,8 @@ export function HoursSummaryChart() {
   // width + data dependencies used inside dynamicCss
   const [isVisible, setIsVisible] = useState(false)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const hoverClearTimer = useRef<number | null>(null)
   const svgWrapRef = useRef<HTMLDivElement | null>(null)
   const [wrapWidth, setWrapWidth] = useState<number>(640)
   useEffect(() => {
@@ -596,7 +598,7 @@ export function HoursSummaryChart() {
   }, [bucketRanges])
 
   return (
-  <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden" data-dashboard-card data-type="hours-summary">
+  <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 shadow-sm bg-[var(--surface)] dark:bg-[var(--surface-alt)] overflow-hidden" data-dashboard-card data-type="hours-summary">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div
           className={`transition-all duration-700 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`}
@@ -735,9 +737,32 @@ export function HoursSummaryChart() {
           const maxY = padding.top + chartHeight - scaleY(unitMax)
           const maxLineLen = width - padding.left - padding.right
 
+          const handleMove = (evt: React.MouseEvent<SVGSVGElement>) => {
+            if (!svgRef.current) return
+            const pt = svgRef.current.createSVGPoint()
+            pt.x = evt.clientX
+            pt.y = evt.clientY
+            const ctm = svgRef.current.getScreenCTM()
+            if (!ctm) return
+            const inv = ctm.inverse()
+            const sp = pt.matrixTransform(inv)
+            // determine index based on x coordinate
+            const x = sp.x
+            let idx: number | null = null
+            for (let i = 0; i < n; i++) {
+              const bx = xFor(i)
+              if (x >= bx && x <= bx + barWidth) { idx = i; break }
+            }
+            setHoverIndex(idx)
+            if (hoverClearTimer.current) { window.clearTimeout(hoverClearTimer.current); hoverClearTimer.current = null }
+          }
+          const handleLeave = () => {
+            if (hoverClearTimer.current) window.clearTimeout(hoverClearTimer.current)
+            hoverClearTimer.current = window.setTimeout(() => setHoverIndex(null), 40)
+          }
           return (
             <div id="hours-summary-chart" data-visible={isVisible? 'true':'false'} ref={svgWrapRef} className={`mt-2 transition-all duration-700 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-              <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="overflow-visible">
+              <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="overflow-visible" onMouseMove={handleMove} onMouseLeave={handleLeave}>
                 {/* y-axis ticks & grid */}
                 {ticks.map((t, idx) => {
                   const y = padding.top + chartHeight - scaleY(t)
@@ -777,21 +802,7 @@ export function HoursSummaryChart() {
                       {hAbsence > 0 && (
                         <rect x={x} y={yAbsence} width={barWidth} height={hAbsence} fill="#e03768" rx={4} />
                       )}
-                      {/* hover capture */}
-                      <rect
-                        x={x}
-                        y={padding.top}
-                        width={barWidth}
-                        height={chartHeight}
-                        fill="transparent"
-                        pointerEvents="all"
-                        onMouseEnter={() => setHoverIndex(i)}
-                        onMouseLeave={() => setHoverIndex(null)}
-                        onFocus={() => setHoverIndex(i)}
-                        onBlur={() => setHoverIndex(null)}
-                        tabIndex={0}
-                        aria-label={`Details for ${d.label}`}
-                      />
+                      {/* hover handled on svg wrapper to avoid flicker; bars remain pointer-agnostic */}
                     </g>
                   )
                 })}
@@ -854,7 +865,7 @@ export function HoursSummaryChart() {
                   const tx = Math.min(Math.max(mid - ttW / 2, padding.left), width - padding.right - ttW)
                   const ty = padding.top + 8
                   return (
-                    <g>
+                    <g pointerEvents="none">
                       <rect x={tx} y={ty} width={ttW} height={ttH} rx={8} fill="#111827" opacity={0.92} />
                       <text x={tx + 10} y={ty + 16} fill="#ffffff" fontSize={12} fontWeight={600}>{d.label}</text>
                       <circle cx={tx + 10} cy={ty + 30} r={3} fill="#6eedd9" />
@@ -895,11 +906,11 @@ export function HoursSummaryChart() {
 
 export function Charts() {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" data-charts-layout>
-      <div className="lg:col-span-2 flex flex-col" data-charts-col="active">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch" data-charts-layout>
+      <div className="lg:col-span-2 flex flex-col h-full" data-charts-col="active">
         <ActiveProjectsCard />
       </div>
-      <div className="lg:col-span-3 flex flex-col" data-charts-col="hours">
+      <div className="lg:col-span-3 flex flex-col h-full" data-charts-col="hours">
         <HoursSummaryChart />
       </div>
     </div>

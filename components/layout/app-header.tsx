@@ -78,10 +78,6 @@ export function AppHeader() {
                   } else {
                     setLocalQuery(val)
                   }
-                  const t = val.trim()
-                  if (t.length > 0) {
-                    window.dispatchEvent(new CustomEvent('ts:setActiveTab', { detail: { tab: 'projects' } }))
-                  }
                 })
               }}
               aria-label="Search"
@@ -167,9 +163,15 @@ export function AppHeader() {
                   <p className="text-xs leading-none text-muted-token">{user.email}</p>
                   <div className="flex items-center gap-1 pt-1">
                     <span className="text-[10px] uppercase tracking-wide text-muted-token">Role:</span>
-                    <Badge variant={user.role === "Administrator" ? "destructive" : "secondary"} className="text-[10px] px-2 py-0.5 font-medium">
-                      {user.role}
-                    </Badge>
+                    {user.role === "Administrator" ? (
+                      <Badge className="text-[10px] px-2 py-0.5 font-medium border-transparent bg-[#e03768] text-white">
+                        {user.role}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium">
+                        {user.role}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <DropdownMenuSeparator />

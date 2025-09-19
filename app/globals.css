@@ -315,6 +315,8 @@ button[data-active="true"] {
   @media (prefers-reduced-motion: reduce) {
     .bar-shimmer { animation: none; }
   }
+  /* Teal accent utility for native inputs */
+  .accent-teal { accent-color: #6eedd9; }
   /* Responsive helpers (plain CSS to avoid custom processor lint issues) */
   .mobile-hidden { display: none; }
   .mobile-hidden-inline { display: none; }
