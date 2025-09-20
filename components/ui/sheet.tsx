@@ -58,6 +58,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
+          // z-index is below select portal (z-[70]) but above app
           "bg-[var(--surface)] dark:bg-[var(--card)] data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[60] flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
@@ -66,14 +67,14 @@ function SheetContent({
           side === "top" &&
             "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b",
           side === "bottom" &&
-            // Mobile bottom sheet styling: rounded top, safe-area padding, max height and scroll
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-2xl sm:rounded-none sm:bottom-auto sm:top-0 max-h-[85vh] pb-[env(safe-area-inset-bottom)] overflow-hidden",
+            // Mobile bottom sheet styling: rounded top, safe-area padding, max height. Avoid overflow hidden to prevent portals being clipped.
+            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t rounded-t-2xl sm:rounded-none sm:bottom-auto sm:top-0 max-h-[85vh] pb-[env(safe-area-inset-bottom)]",
           className
         )}
         {...props}
       >
         <div className={cn(
-          // Provide sensible default padding and scroll container for bottom sheets
+          // Provide sensible default padding and scroll container for bottom sheets; allow children popovers to escape
           side === "bottom" ? "p-4 pt-3 overflow-y-auto" : "",
         )}>
           {children}
