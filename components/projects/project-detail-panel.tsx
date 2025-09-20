@@ -242,7 +242,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             {openSections.team && (
               <div id="panel-team" className="px-3 pb-3 pt-1 space-y-2 text-sm">
                 {hasAllUsers(project) ? (
-                  <div className="text-muted-token text-xs leading-relaxed">All Users — wszyscy użytkownicy mają dostęp do tego projektu.</div>
+                  <div className="text-muted-token text-xs leading-relaxed">All Users — all users have access to this project.</div>
                 ) : (
                   (teamIds && teamIds.length === 0) ? (
                     <div className="text-muted-token">No team members assigned.</div>

@@ -40,6 +40,7 @@ import { useConsultants } from "@/hooks/use-consultants"
 import { useTimeEntries } from "@/hooks/use-time-entries"
 import { useFilters, FilterProvider } from "@/lib/filter-context"
 import { usePathname, useRouter } from "next/navigation"
+import { MobileOptions } from "@/components/layout/mobile-options"
 
 export default function HomePage() {
   const pathname = usePathname() || '/'
@@ -168,13 +169,13 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center space-y-4">
-          <h1 className="text-xl font-semibold">Brak dostępu</h1>
-          <p className="text-sm text-muted-token">Twoje konto zostało poprawnie uwierzytelnione, ale nie znajduje się w wymaganych grupach aplikacji. Skontaktuj się z administratorem aby uzyskać dostęp.</p>
+          <h1 className="text-xl font-semibold">No access</h1>
+          <p className="text-sm text-muted-token">Your account was authenticated successfully but is not in the required application groups. Please contact an administrator to request access.</p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={()=>{ window.location.href = '/api/auth/signout' }}
               className="text-xs underline text-muted-token hover:text-foreground"
-            >Wyloguj</button>
+            >Sign out</button>
           </div>
         </div>
       </div>
@@ -189,7 +190,7 @@ export default function HomePage() {
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-token">Ładowanie danych…</p>
+              <p className="text-muted-token">Loading data…</p>
             </div>
           </div>
         </FilterProvider>
@@ -246,6 +247,8 @@ export default function HomePage() {
         <FilterBar />
         <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
         <main className="py-8">
+          {/* Mobile bottom options drawer (listens to header event); desktop hidden by component */}
+          <MobileOptions activeTab={activeTab} />
           {fullLoading && (
             <div className="text-sm text-muted-token px-6 pb-4">Loading time entries...</div>
           )}

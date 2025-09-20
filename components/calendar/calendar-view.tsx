@@ -730,6 +730,27 @@ export function CalendarView() {
     }
   }
 
+  // Integrate with MobileOptions via custom events (no prop drilling)
+  useEffect(()=>{
+    const toggleAgg = () => setAggregateDayEntries(a=>!a)
+    const openBreakdown = () => setBreakdownOpen(true)
+    const setView = (e: Event) => {
+      const ce = e as CustomEvent<{ view?: 'month'|'week' }>
+      if(ce.detail?.view === 'month' || ce.detail?.view === 'week') setViewMode(ce.detail.view)
+    }
+    const goToday = () => setCurrentDate(new Date())
+    window.addEventListener('tt:calendar:toggle-aggregate', toggleAgg)
+    window.addEventListener('tt:calendar:open-breakdown', openBreakdown)
+    window.addEventListener('tt:calendar:set-view', setView)
+    window.addEventListener('tt:calendar:go-today', goToday)
+    return ()=>{
+      window.removeEventListener('tt:calendar:toggle-aggregate', toggleAgg)
+      window.removeEventListener('tt:calendar:open-breakdown', openBreakdown)
+      window.removeEventListener('tt:calendar:set-view', setView)
+      window.removeEventListener('tt:calendar:go-today', goToday)
+    }
+  }, [])
+
   return (
     <div
       ref={gestureRef}
@@ -747,22 +768,22 @@ export function CalendarView() {
       )}
   <Card className="dark:bg-[var(--card)]">
         <CardContent className="py-4">
-          <div className="grid grid-cols-4 gap-8 items-center">
+          <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-purple-600 leading-none">{periodSummary.totalHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Total Hours</div>
+              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{periodSummary.totalHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-billable">{periodSummary.billableHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Billable Hours</div>
+              <div className="text-2xl font-bold leading-none text-billable tabular-nums">{periodSummary.billableHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Billable</span><span className="hidden sm:inline">Billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{periodSummary.nonBillableHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Non-billable Hours</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{periodSummary.nonBillableHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Non‑billable</span><span className="hidden sm:inline">Non‑billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-absence">{periodSummary.absenceHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Absence Hours</div>
+              <div className="text-2xl font-bold leading-none text-absence tabular-nums">{periodSummary.absenceHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token"><span className="sm:hidden">Absence</span><span className="hidden sm:inline">Absence Hours</span></div>
             </div>
           </div>
         </CardContent>
@@ -779,8 +800,9 @@ export function CalendarView() {
                 </span>
               </CardTitle>
               <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={()=> viewMode==='week'? navigateWeek('next'): navigateMonth('next')} aria-label="Next period">→</Button>
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={()=> setCurrentDate(new Date())} title="Jump to today">Today</Button>
-              <div className="flex gap-0 rounded-md overflow-hidden shadow-xs border bg-muted/40" role="toolbar" aria-label="Calendar view mode">
+              {/* Hide secondary controls on mobile – available in Options drawer */}
+              <Button variant="outline" size="sm" className="h-8 px-3 text-xs hidden sm:inline-flex" onClick={()=> setCurrentDate(new Date())} title="Jump to today">Today</Button>
+              <div className="hidden sm:flex gap-0 rounded-md overflow-hidden shadow-xs border bg-muted/40" role="toolbar" aria-label="Calendar view mode">
                 <Button
                   variant="segmented"
                   size="sm"
@@ -805,7 +827,7 @@ export function CalendarView() {
                 data-active={aggregateDayEntries}
                 aria-pressed={aggregateDayEntries}
                 onClick={()=>setAggregateDayEntries(a=>!a)}
-                className="h-8 px-3 text-xs"
+                className="h-8 px-3 text-xs hidden sm:inline-flex"
                 title="Toggle aggregation of same-project entries per day"
               >
                 {aggregateDayEntries ? 'Aggregated' : 'Aggregate'}
@@ -817,7 +839,7 @@ export function CalendarView() {
                 data-active={breakdownOpen}
                 aria-pressed={breakdownOpen}
                 onClick={()=> setBreakdownOpen(true)}
-                className="h-8 px-3 text-xs"
+                className="h-8 px-3 text-xs hidden sm:inline-flex"
                 title="Show projects breakdown for the visible period"
               >
                 Breakdown
