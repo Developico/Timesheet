@@ -29,7 +29,8 @@ export function MobileOptions({ activeTab }: { activeTab: Tab }) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" className="sm:hidden p-0">
+      {/* Add a class scope to style controls inside the sheet */}
+      <SheetContent side="bottom" className="sm:hidden p-0 tt-mobile-sheet">
         {/* Top grabber for mobile feel */}
         <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-muted" aria-hidden="true" />
         <SheetHeader className="px-4 pb-2">
@@ -65,7 +66,27 @@ function DashboardOptions() {
 
 function CalendarOptions() {
   const { filters, updateFilter } = useFilters()
-  // Calendar-specific toggles will be wired in CalendarView state via custom events to avoid prop drilling
+  // Mirror CalendarView state to show active highlights in the sheet
+  const [aggregate, setAggregate] = useState<boolean>(true)
+  const [viewMode, setViewMode] = useState<'month'|'week'>('month')
+  useEffect(()=>{
+    const toggleAgg = () => setAggregate(a=>!a)
+    const openBreakdown = () => {/* action button only; no persistent highlight */}
+    const setView = (e: Event) => { const ce = e as CustomEvent<{ view?: 'month'|'week' }>; if(ce.detail?.view) setViewMode(ce.detail.view) }
+    const hydrate = (e: Event) => { const ce = e as CustomEvent<{ aggregate?: boolean; view?: 'month'|'week' }>; if(typeof ce.detail?.aggregate==='boolean') setAggregate(ce.detail.aggregate); if(ce.detail?.view) setViewMode(ce.detail.view) }
+    window.addEventListener('tt:calendar:toggle-aggregate', toggleAgg)
+    window.addEventListener('tt:calendar:open-breakdown', openBreakdown)
+    window.addEventListener('tt:calendar:set-view', setView)
+    window.addEventListener('tt:calendar:state', hydrate)
+    // Request current state on mount so our highlights rehydrate
+    try{ window.dispatchEvent(new CustomEvent('tt:calendar:request-state')) }catch{}
+    return ()=>{
+      window.removeEventListener('tt:calendar:toggle-aggregate', toggleAgg)
+      window.removeEventListener('tt:calendar:open-breakdown', openBreakdown)
+      window.removeEventListener('tt:calendar:set-view', setView)
+      window.removeEventListener('tt:calendar:state', hydrate)
+    }
+  }, [])
   return (
     <div className="space-y-4">
       <ThemeToggleRow />
@@ -73,11 +94,34 @@ function CalendarOptions() {
       <SearchField value={filters.searchQuery} onChange={(v)=> updateFilter('searchQuery', v)} />
       <div className="pt-1 border-t" />
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:toggle-aggregate')); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Aggregation</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:open-breakdown')); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Breakdown</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:set-view', { detail: { view: 'month' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Month</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:set-view', { detail: { view: 'week' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Week</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:go-today')); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Today</button>
+        <button
+          type="button"
+          data-active={aggregate}
+          className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+          onClick={()=> { setAggregate(a=>!a); window.dispatchEvent(new CustomEvent('tt:calendar:toggle-aggregate')) }}
+        >Aggregation</button>
+        <button
+          type="button"
+          className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15"
+          onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:open-breakdown')) }}
+        >Breakdown</button>
+        <button
+          type="button"
+          data-active={viewMode==='month'}
+          className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+          onClick={()=> { setViewMode('month'); window.dispatchEvent(new CustomEvent('tt:calendar:set-view', { detail: { view: 'month' }})) }}
+        >Month</button>
+        <button
+          type="button"
+          data-active={viewMode==='week'}
+          className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+          onClick={()=> { setViewMode('week'); window.dispatchEvent(new CustomEvent('tt:calendar:set-view', { detail: { view: 'week' }})) }}
+        >Week</button>
+        <button
+          type="button"
+          className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15"
+          onClick={()=> { window.dispatchEvent(new CustomEvent('tt:calendar:go-today')) }}
+        >Today</button>
       </div>
     </div>
   )
@@ -85,20 +129,111 @@ function CalendarOptions() {
 
 function ProjectsOptions() {
   const { filters, updateFilter } = useFilters()
+  // Mirror ProjectsTable local filters to provide visual feedback in the sheet
+  const [projectScope, setProjectScope] = useState<"my"|"all">("my")
+  const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
+  const [onlyReported, setOnlyReported] = useState<boolean>(false)
+  // Keep in sync with the events ProjectsTable listens to
+  useEffect(()=>{
+    const setScope = (e: Event) => {
+      const ce = e as CustomEvent<{ scope?: 'my'|'all' }>
+      if(ce.detail?.scope) setProjectScope(ce.detail.scope)
+    }
+    const setBillable = (e: Event) => {
+      const ce = e as CustomEvent<{ billable?: 'all'|'yes'|'no' }>
+      if(ce.detail?.billable) setBillableFilter(ce.detail.billable)
+    }
+    const toggleReported = () => setOnlyReported(o=>!o)
+  window.addEventListener('tt:projects:set-scope', setScope)
+    window.addEventListener('tt:projects:set-billable', setBillable)
+    window.addEventListener('tt:projects:toggle-only-reported', toggleReported)
+    const hydrate = (e: Event) => {
+      const ce = e as CustomEvent<{ scope?: 'my'|'all'; billable?: 'all'|'yes'|'no'; onlyReported?: boolean }>
+      if (ce.detail?.scope) setProjectScope(ce.detail.scope)
+      if (ce.detail?.billable) setBillableFilter(ce.detail.billable)
+      if (typeof ce.detail?.onlyReported === 'boolean') setOnlyReported(ce.detail.onlyReported)
+    }
+    window.addEventListener('tt:projects:state', hydrate)
+    // Ask for current state on mount so our buttons reflect existing filters
+    try { window.dispatchEvent(new CustomEvent('tt:projects:request-state')) } catch {}
+    return ()=>{
+      window.removeEventListener('tt:projects:set-scope', setScope)
+      window.removeEventListener('tt:projects:set-billable', setBillable)
+      window.removeEventListener('tt:projects:toggle-only-reported', toggleReported)
+      window.removeEventListener('tt:projects:state', hydrate)
+    }
+  }, [])
   return (
     <div className="space-y-4">
       <ThemeToggleRow />
       <DateRangePicker value={filters.dateRange} onChange={(v)=> updateFilter('dateRange', v)} />
       <SearchField value={filters.searchQuery} onChange={(v)=> updateFilter('searchQuery', v)} />
       <div className="pt-1 border-t" />
-      {/* Project filters moved here for mobile – events update ProjectsTable local state */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:set-scope', { detail: { scope: 'my' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>My Projects</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:set-scope', { detail: { scope: 'all' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>All</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'all' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Billable: All</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'yes' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Yes</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'no' }})); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>No</button>
-        <button type="button" className="h-9 rounded-md border px-3 text-left" onClick={()=> { window.dispatchEvent(new CustomEvent('tt:projects:toggle-only-reported')); window.dispatchEvent(new CustomEvent('tt:close-options')) }}>Only Reported</button>
+      {/* Project filters moved here for mobile – show active state with teal */}
+      <div className="space-y-2 text-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-active={projectScope==='my'}
+            className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+            onClick={()=> {
+              setProjectScope('my')
+              window.dispatchEvent(new CustomEvent('tt:projects:set-scope', { detail: { scope: 'my' }}))
+            }}
+          >My Projects</button>
+          <button
+            type="button"
+            data-active={projectScope==='all'}
+            className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+            onClick={()=> {
+              setProjectScope('all')
+              window.dispatchEvent(new CustomEvent('tt:projects:set-scope', { detail: { scope: 'all' }}))
+            }}
+          >All</button>
+        </div>
+        <div>
+          <div className="text-[11px] text-muted-token mb-1">Billable</div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              data-active={billableFilter==='yes'}
+              className="h-9 rounded-md border px-2 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+              onClick={()=> {
+                setBillableFilter('yes')
+                window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'yes' }}))
+              }}
+            >Yes</button>
+            <button
+              type="button"
+              data-active={billableFilter==='no'}
+              className="h-9 rounded-md border px-2 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+              onClick={()=> {
+                setBillableFilter('no')
+                window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'no' }}))
+              }}
+            >No</button>
+            <button
+              type="button"
+              data-active={billableFilter==='all'}
+              className="h-9 rounded-md border px-2 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+              onClick={()=> {
+                setBillableFilter('all')
+                window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'all' }}))
+              }}
+            >Both</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1">
+          <button
+            type="button"
+            data-active={onlyReported}
+            className="h-9 rounded-md border px-3 text-left active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
+            onClick={()=> {
+              setOnlyReported(o=>!o)
+              window.dispatchEvent(new CustomEvent('tt:projects:toggle-only-reported'))
+            }}
+          >Only Reported</button>
+        </div>
       </div>
       <div className="pt-2 border-t" />
       <ProjectsColumnsControls />
@@ -148,22 +283,19 @@ function ThemeToggleRow(){
   return (
     <div>
       <label className="text-[11px] text-muted-token block mb-1">Theme</label>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          className={`h-9 rounded-md border px-3 text-sm ${theme==='light'? 'bg-muted':''}`}
+          data-active={theme==='light'}
+          className="h-9 rounded-md border px-3 text-sm active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
           onClick={()=> setTheme('light')}
         >Light</button>
         <button
           type="button"
-          className={`h-9 rounded-md border px-3 text-sm ${theme==='dark'? 'bg-muted':''}`}
+          data-active={theme==='dark'}
+          className="h-9 rounded-md border px-3 text-sm active:bg-[#14b8a6]/15 data-[active=true]:bg-[#14b8a6]/20 data-[active=true]:border-[#14b8a6]/50 data-[active=true]:text-[#0f766e]"
           onClick={()=> setTheme('dark')}
         >Dark</button>
-        <button
-          type="button"
-          className={`h-9 rounded-md border px-3 text-sm ${theme!=='light' && theme!=='dark'? 'bg-muted':''}`}
-          onClick={()=> setTheme('system')}
-        >System</button>
       </div>
     </div>
   )
@@ -188,16 +320,16 @@ function ProjectsColumnsControls(){
       <div className="text-[11px] text-muted-token">Columns</div>
       <div className="space-y-2 text-sm">
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={cols.billable} onChange={e=> update({ billable: e.target.checked })} /> Billable
+          <input type="checkbox" className="accent-[#14b8a6]" checked={cols.billable} onChange={e=> update({ billable: e.target.checked })} /> Billable
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={cols.client} onChange={e=> update({ client: e.target.checked })} /> Client
+          <input type="checkbox" className="accent-[#14b8a6]" checked={cols.client} onChange={e=> update({ client: e.target.checked })} /> Client
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={cols.allUsers} onChange={e=> update({ allUsers: e.target.checked })} /> All Users
+          <input type="checkbox" className="accent-[#14b8a6]" checked={cols.allUsers} onChange={e=> update({ allUsers: e.target.checked })} /> All Users
         </label>
         <div className="flex justify-end">
-          <button type="button" className="h-8 rounded-md border px-3 text-xs" onClick={reset}>Reset</button>
+          <button type="button" className="h-8 rounded-md border px-3 text-xs active:bg-[#14b8a6]/15" onClick={reset}>Reset</button>
         </div>
       </div>
     </div>

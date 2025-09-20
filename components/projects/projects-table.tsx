@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,13 @@ export function ProjectsTable() {
   const [projectScope, setProjectScope] = useState<"my"|"all">("my")
   const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
   const [onlyReported, setOnlyReported] = useState<boolean>(false)
+  // Refs to hold latest filter state for event listeners
+  const projectScopeRef = useRef(projectScope)
+  const billableFilterRef = useRef(billableFilter)
+  const onlyReportedRef = useRef(onlyReported)
+  useEffect(()=>{ projectScopeRef.current = projectScope }, [projectScope])
+  useEffect(()=>{ billableFilterRef.current = billableFilter }, [billableFilter])
+  useEffect(()=>{ onlyReportedRef.current = onlyReported }, [onlyReported])
   const [assignedIds, setAssignedIds] = useState<Set<string>|null>(null)
   // Column visibility preferences (persisted)
   const defaultCols = { billable: true, client: true, allUsers: true }
@@ -205,6 +212,18 @@ export function ProjectsTable() {
     console.debug('[projects-table] user aggregation snapshot', userAgg)
   }
 
+  // Broadcast current filter state so mobile sheet can reflect active buttons
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent('tt:projects:state', {
+      detail: {
+        scope: projectScope,
+        billable: billableFilter,
+        onlyReported,
+      }
+    }))
+  }, [projectScope, billableFilter, onlyReported])
+
   // Listen to mobile options events to adjust local filters without prop drilling
   useEffect(()=>{
     const setScope = (e: Event) => {
@@ -228,11 +247,24 @@ export function ProjectsTable() {
     window.addEventListener('tt:projects:set-scope', setScope)
     window.addEventListener('tt:projects:set-billable', setBillable)
     window.addEventListener('tt:projects:toggle-only-reported', toggleReported)
+    const replyState = () => {
+      try {
+        window.dispatchEvent(new CustomEvent('tt:projects:state', {
+          detail: {
+            scope: projectScopeRef.current,
+            billable: billableFilterRef.current,
+            onlyReported: onlyReportedRef.current,
+          }
+        }))
+      } catch {}
+    }
+    window.addEventListener('tt:projects:request-state', replyState)
     window.addEventListener('tt:projects:set-columns', setColumns)
     return ()=>{
       window.removeEventListener('tt:projects:set-scope', setScope)
       window.removeEventListener('tt:projects:set-billable', setBillable)
       window.removeEventListener('tt:projects:toggle-only-reported', toggleReported)
+      window.removeEventListener('tt:projects:request-state', replyState)
       window.removeEventListener('tt:projects:set-columns', setColumns)
     }
   }, [])

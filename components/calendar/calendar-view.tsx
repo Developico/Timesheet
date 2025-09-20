@@ -32,6 +32,8 @@ type DayDisplayEntry = CalendarEntry & { project?: BasicProject } | AggregatedDa
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<"month" | "week">("month")
+  // Refs for broadcasting freshest state via custom events
+  const viewModeRef = useRef<"month"|"week">(viewMode)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [breakdownSort, setBreakdownSort] = useState<
     'total-desc' | 'billable-desc' | 'nonbillable-desc' | 'absence-desc' | 'code-asc' | 'name-asc'
@@ -49,6 +51,7 @@ export function CalendarView() {
   },[])
   // Aggregation now defaults ON per request
   const [aggregateDayEntries, setAggregateDayEntries] = useState(true)
+  const aggregateRef = useRef<boolean>(aggregateDayEntries)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const { projects, loading: projectsLoading, error: projectsError } = useProjects()
@@ -749,6 +752,24 @@ export function CalendarView() {
       window.removeEventListener('tt:calendar:set-view', setView)
       window.removeEventListener('tt:calendar:go-today', goToday)
     }
+  }, [])
+
+  // Keep refs in sync for fresh state when answering request-state
+  useEffect(()=>{ viewModeRef.current = viewMode }, [viewMode])
+  useEffect(()=>{ aggregateRef.current = aggregateDayEntries }, [aggregateDayEntries])
+
+  // Broadcast state changes so MobileOptions can highlight persistently
+  useEffect(()=>{
+    try{ window.dispatchEvent(new CustomEvent('tt:calendar:state', { detail: { aggregate: aggregateDayEntries, view: viewMode } })) }catch{}
+  }, [aggregateDayEntries, viewMode])
+
+  // Respond to hydration requests with freshest values
+  useEffect(()=>{
+    const handler = () => {
+      try{ window.dispatchEvent(new CustomEvent('tt:calendar:state', { detail: { aggregate: aggregateRef.current, view: viewModeRef.current } })) }catch{}
+    }
+    window.addEventListener('tt:calendar:request-state', handler)
+    return ()=> window.removeEventListener('tt:calendar:request-state', handler)
   }, [])
 
   return (
