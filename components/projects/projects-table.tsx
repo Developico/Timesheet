@@ -205,28 +205,60 @@ export function ProjectsTable() {
     console.debug('[projects-table] user aggregation snapshot', userAgg)
   }
 
+  // Listen to mobile options events to adjust local filters without prop drilling
+  useEffect(()=>{
+    const setScope = (e: Event) => {
+      const ce = e as CustomEvent<{ scope?: 'my'|'all' }>
+      if(ce.detail?.scope) setProjectScope(ce.detail.scope)
+    }
+    const setBillable = (e: Event) => {
+      const ce = e as CustomEvent<{ billable?: 'all'|'yes'|'no' }>
+      if(ce.detail?.billable) setBillableFilter(ce.detail.billable)
+    }
+    const toggleReported = () => setOnlyReported(o=>!o)
+    const setColumns = (e: Event) => {
+      const ce = e as CustomEvent<{ billable?: boolean; client?: boolean; allUsers?: boolean; reset?: boolean }>
+      if(ce.detail?.reset){ setCols(defaultCols); return }
+      setCols(c=> ({
+        billable: ce.detail?.billable ?? c.billable,
+        client: ce.detail?.client ?? c.client,
+        allUsers: ce.detail?.allUsers ?? c.allUsers,
+      }))
+    }
+    window.addEventListener('tt:projects:set-scope', setScope)
+    window.addEventListener('tt:projects:set-billable', setBillable)
+    window.addEventListener('tt:projects:toggle-only-reported', toggleReported)
+    window.addEventListener('tt:projects:set-columns', setColumns)
+    return ()=>{
+      window.removeEventListener('tt:projects:set-scope', setScope)
+      window.removeEventListener('tt:projects:set-billable', setBillable)
+      window.removeEventListener('tt:projects:toggle-only-reported', toggleReported)
+      window.removeEventListener('tt:projects:set-columns', setColumns)
+    }
+  }, [])
+
   return (
     <div className="space-y-6 relative">
       {/* Summary metrics card (analogous to calendar view) */}
   <Card className="dark:bg-[var(--card)]">
   <CardContent className="py-4">
-          <div className="grid grid-cols-4 gap-8 items-center">
+          <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-purple-600 leading-none">{totalUserHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Total Hours</div>
+              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{totalUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-billable leading-none">{totalBillableUserHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Billable Hours</div>
+              <div className="text-2xl font-bold text-billable leading-none tabular-nums">{totalBillableUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Billable</span><span className="hidden sm:inline">Billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
               {/* eslint-disable-next-line */}
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9]">{totalNonBillableUserHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Non-billable Hours</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{totalNonBillableUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Non‑billable</span><span className="hidden sm:inline">Non‑billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-absence leading-none">{absenceUserHours.toFixed(1)}</div>
-              <div className="text-xs text-muted-token">Absence Hours</div>
+              <div className="text-2xl font-bold text-absence leading-none tabular-nums">{absenceUserHours.toFixed(1)}</div>
+              <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Absence</span><span className="hidden sm:inline">Absence Hours</span></div>
             </div>
           </div>
         </CardContent>
@@ -235,7 +267,7 @@ export function ProjectsTable() {
         <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
+              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
@@ -255,7 +287,7 @@ export function ProjectsTable() {
                   title="All filtered projects"
                 >All ({allProjectsCount})</Button>
               </div>
-              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
+              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
@@ -281,7 +313,7 @@ export function ProjectsTable() {
                   onClick={()=>setBillableFilter('no')}
                 >No ({billableNoCount})</Button>
               </div>
-              <div className="flex items-center rounded-lg border p-1 bg-background group-filter">
+              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
                 <Button
                   type="button"
                   size="sm"
@@ -293,7 +325,7 @@ export function ProjectsTable() {
                 >Only Reported ({reportedProjectsCount})</Button>
               </div>
             </div>
-            <div className="relative ml-auto">
+            <div className="relative ml-auto hidden md:block">
               <Button
                 type="button"
                 size="sm"

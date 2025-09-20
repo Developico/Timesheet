@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
-import { Search, Sun, Moon, LogOut, User, Sparkles } from "lucide-react"
+import { Search, Sun, Moon, LogOut, User, Sparkles, SlidersHorizontal } from "lucide-react"
 import { useNewProjects } from "@/lib/use-new-projects"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -87,6 +87,24 @@ export function AppHeader() {
 
         {/* Actions */}
   <div className="flex items-center gap-3 relative">
+          {/* Mobile Options trigger (dispatch custom event, identical pattern to dvlp-snippets) */}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Options"
+            className="h-8 w-8 md:hidden"
+            onClick={()=>{
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('tt:open-options'))
+                // Also emit snippets-compatible event name for parity
+                window.dispatchEvent(new CustomEvent('snippetlib:open-options'))
+              }
+            }}
+            title="Open options"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
           {newProjects.length>0 && (
             <div className="relative">
               <Button
@@ -141,8 +159,9 @@ export function AppHeader() {
               variant="outline"
               size="icon"
               aria-label="Toggle theme"
-              className="h-8 w-8"
+              className="h-8 w-8 hidden md:inline-flex"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              title="Toggle theme"
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>

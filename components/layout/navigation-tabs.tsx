@@ -50,7 +50,7 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
             ))}
           </div>
 
-          <div className="py-2">
+          <div className="py-2 hidden md:block">
             {(() => {
               // Compute current date range boundaries to show in native tooltip
               const now = new Date()
