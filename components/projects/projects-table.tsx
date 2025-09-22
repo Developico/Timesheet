@@ -294,65 +294,80 @@ export function ProjectsTable() {
   <Card className="dark:bg-[var(--card)]">
         <CardHeader>
             <div className="flex items-center justify-between">
+              {/* Three toggle groups in horizontal layout */}
               <div className="flex items-center gap-4 flex-wrap">
-              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={projectScope==='my'}
-                  onClick={()=>setProjectScope('my')}
-                  title={assignedIds ? 'Assigned projects (plus ALL flagged)' : 'Projects you have time entries on (plus ALL flagged)'}
-                >My Projects ({myProjectsCount})</Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={projectScope==='all'}
-                  onClick={()=>setProjectScope('all')}
-                  title="All filtered projects"
-                >All ({allProjectsCount})</Button>
+                {/* Group 1: Project Scope - My/All */}
+                <div className="flex items-center rounded-full border p-1 bg-background">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={projectScope==='my'}
+                    onClick={()=>setProjectScope('my')}
+                    title={assignedIds ? 'Assigned projects (plus ALL flagged)' : 'Projects you have time entries on (plus ALL flagged)'}
+                  >My ({myProjectsCount})</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={projectScope==='all'}
+                    onClick={()=>setProjectScope('all')}
+                    title="All filtered projects"
+                  >All ({allProjectsCount})</Button>
+                </div>
+                
+                {/* Group 2: Billable Filter - Billable/Non-billable/All */}
+                <div className="flex items-center rounded-full border p-1 bg-background">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={billableFilter==='yes'}
+                    onClick={()=>setBillableFilter('yes')}
+                  >Billable ({billableYesCount})</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={billableFilter==='no'}
+                    onClick={()=>setBillableFilter('no')}
+                  >Non-billable ({billableNoCount})</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={billableFilter==='all'}
+                    onClick={()=>setBillableFilter('all')}
+                  >All ({allProjectsCount})</Button>
+                </div>
+                
+                {/* Group 3: Reported Filter - Reported/All */}
+                <div className="flex items-center rounded-full border p-1 bg-background">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={onlyReported}
+                    onClick={()=>setOnlyReported(true)}
+                    title={`Projects with your hours in range: ${reportedProjectsCount}`}
+                  >Reported ({reportedProjectsCount})</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    data-active={!onlyReported}
+                    onClick={()=>setOnlyReported(false)}
+                    title="All filtered projects"
+                  >All ({allProjectsCount})</Button>
+                </div>
               </div>
-              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={billableFilter==='all'}
-                  onClick={()=>setBillableFilter('all')}
-                >Billable: All</Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={billableFilter==='yes'}
-                  onClick={()=>setBillableFilter('yes')}
-                >Yes ({billableYesCount})</Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={billableFilter==='no'}
-                  onClick={()=>setBillableFilter('no')}
-                >No ({billableNoCount})</Button>
-              </div>
-              <div className="hidden md:flex items-center rounded-lg border p-1 bg-background group-filter">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="surface"
-                  className="h-7 px-3 text-xs data-[active=true]:shadow-sm"
-                  data-active={onlyReported}
-                  onClick={()=>setOnlyReported(o=>!o)}
-                  title={`Projects with your hours in range: ${reportedProjectsCount}`}
-                >Only Reported ({reportedProjectsCount})</Button>
-              </div>
-            </div>
             <div className="relative ml-auto hidden md:block">
               <Button
                 type="button"
