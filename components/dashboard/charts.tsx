@@ -13,12 +13,17 @@ import { format, addDays } from "date-fns"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { computeBarGeometry } from "@/lib/chart-geometry"
-import { formatHours } from "@/lib/time-entries-summary"
+import { formatHours, round2 } from "@/lib/time-entries-summary"
 
 function useAnimatedCounter(end: number, duration = 1000) {
   const [count, setCount] = useState(0)
 
   useEffect(() => {
+    if (duration === 0) {
+      setCount(end)
+      return
+    }
+    
     let startTime: number | undefined
     let raf = 0
     const animate = (now: number) => {
@@ -236,6 +241,7 @@ export function HoursSummaryChart() {
   const [viewMode, setViewMode] = useState<"weekly" | "daily" | "monthly">("weekly")
   // width + data dependencies used inside dynamicCss
   const [isVisible, setIsVisible] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const hoverClearTimer = useRef<number | null>(null)
@@ -253,7 +259,10 @@ export function HoursSummaryChart() {
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 100)
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+      setIsInitialLoad(false)
+    }, 100)
     return () => clearTimeout(timer)
   }, [])
 
@@ -301,15 +310,24 @@ export function HoursSummaryChart() {
     lines.push(`#hours-summary-metrics [data-metric="nonbillable"] .metric-bar-fill{background:#174076}`)
     lines.push(`#hours-summary-metrics [data-metric="absence"] .metric-bar-fill{background:#e03768}`)
     lines.push(`#hours-summary-metrics [data-metric="max"] .metric-bar-fill{background:#9169f4}`)
+    
+    // Use consistent scale-up animation for both initial load and mode switches
+    const segmentDelay = 40
+    const segmentDuration = 350
+    const lineDelay = 20
+    const lineDuration = 350
+    
     for(let i=0;i<120;i++){
-      lines.push(`#hours-summary-chart [data-seg="${i}"]{transform-origin:bottom center;transition:transform 600ms ease,opacity 600ms ease;transition-delay:${100 + i * 60}ms}`)
+      // Unified scale-up animation for all cases
+      lines.push(`#hours-summary-chart [data-seg="${i}"]{transform-origin:bottom center;transition:transform ${segmentDuration}ms ease,opacity ${segmentDuration}ms ease;transition-delay:${100 + i * segmentDelay}ms}`)
       lines.push(`#hours-summary-chart[data-visible="false"] [data-seg="${i}"]{transform:scaleY(.1);opacity:0}`)
       lines.push(`#hours-summary-chart[data-visible="true"] [data-seg="${i}"]{transform:scaleY(1);opacity:1}`)
-      const delay = 200 + i * 30
-      lines.push(`#hours-summary-chart [data-max-line="${i}"]{transition:stroke-dashoffset 600ms ease ${delay}ms}`)
-      lines.push(`#hours-summary-chart[data-visible="false"] [data-max-line="${i}"]{stroke-dashoffset:var(--seg-${i},0)}`)
-      lines.push(`#hours-summary-chart[data-visible="true"] [data-max-line="${i}"]{stroke-dashoffset:0}`)
-      lines.push(`#hours-summary-chart [data-max-group="${i}"]{transition:opacity 400ms ease ${180 + i * 30}ms}`)
+      
+      const delay = 200 + i * lineDelay
+      lines.push(`#hours-summary-chart [data-max-line="${i}"]{transition:stroke-dashoffset ${lineDuration}ms ease ${delay}ms,opacity ${lineDuration}ms ease ${delay}ms}`)
+      lines.push(`#hours-summary-chart[data-visible="false"] [data-max-line="${i}"]{stroke-dashoffset:var(--seg-${i},0);opacity:0.3}`)
+      lines.push(`#hours-summary-chart[data-visible="true"] [data-max-line="${i}"]{stroke-dashoffset:0;opacity:1}`)
+      lines.push(`#hours-summary-chart [data-max-group="${i}"]{transition:opacity ${lineDuration}ms ease ${180 + i * lineDelay}ms}`)
       lines.push(`#hours-summary-chart[data-visible="false"] [data-max-group="${i}"]{opacity:0}`)
       lines.push(`#hours-summary-chart[data-visible="true"] [data-max-group="${i}"]{opacity:1}`)
     }
@@ -322,7 +340,7 @@ export function HoursSummaryChart() {
     }
     return lines.join('\n')
   }, [entriesForChart, wrapWidth, computeBarGeometry])
-  useAggregatedDynamicCss('charts-hours-summary', hoursChartCss)
+  useAggregatedDynamicCss('charts-hours-summary-v2', hoursChartCss) // Added v2 to force cache refresh
 
     // (Merged variable CSS into main dynamicCss below)
 
@@ -419,14 +437,14 @@ export function HoursSummaryChart() {
         agg.max += maxCap
       cursor = addDays(cursor, 1)
     }
-    // round values to 1 decimal
+  // round values to 2 decimals for consistency
   const out: UnifiedPoint[] = []
   map.forEach((v) => {
       out.push({
         label: v.label,
-        billable: Math.round(v.billable * 10) / 10,
-        nonBillable: Math.round(v.nonBillable * 10) / 10,
-        absence: Math.round(v.absence * 10) / 10,
+        billable: round2(v.billable),
+        nonBillable: round2(v.nonBillable),
+        absence: round2(v.absence),
     max: v.max,
     isFuture: v.isFuture,
       })
@@ -479,9 +497,9 @@ export function HoursSummaryChart() {
       const isFuture = new Date(y, m - 1, 1) > today
       out.push({
         label: v.label,
-        billable: Math.round(v.billable * 10) / 10,
-        nonBillable: Math.round(v.nonBillable * 10) / 10,
-        absence: Math.round(v.absence * 10) / 10,
+        billable: round2(v.billable),
+        nonBillable: round2(v.nonBillable),
+        absence: round2(v.absence),
         max: v.max,
         isFuture,
       })
@@ -534,17 +552,26 @@ export function HoursSummaryChart() {
   // Max capacity remains computed from working days in the frame (Mon-Fri, minus holidays)
   const sumMax = currentData.reduce((sum, d) => sum + d.max, 0)
 
-  const animatedBillable = useAnimatedCounter(totalBillable, 1200)
-  const animatedNonBillable = useAnimatedCounter(totalNonBillable, 1400)
-  const animatedAbsence = useAnimatedCounter(totalAbsence, 1600)
-  const animatedMax = useAnimatedCounter(sumMax, 1800)
+  // Use animated counters only on initial load for smooth entry
+  const animatedBillable = useAnimatedCounter(totalBillable, isInitialLoad ? 1200 : 0)
+  const animatedNonBillable = useAnimatedCounter(totalNonBillable, isInitialLoad ? 1400 : 0)
+  const animatedAbsence = useAnimatedCounter(totalAbsence, isInitialLoad ? 1600 : 0)
+  const animatedMax = useAnimatedCounter(sumMax, isInitialLoad ? 1800 : 0)
+
+  // Use animated values for display
+  const displayBillable = animatedBillable
+  const displayNonBillable = animatedNonBillable
+  const displayAbsence = animatedAbsence
+  const displayMax = animatedMax
 
   // Re-animate chart when layout or data framing changes to maximize perceived responsiveness
   useEffect(() => {
+    if (isInitialLoad) return // Skip on initial load
+    // For mode changes, use same scale animation as initial load but faster
     setIsVisible(false)
-    const t = setTimeout(() => setIsVisible(true), 60)
+    const t = setTimeout(() => setIsVisible(true), 100) // Quick reset for smooth scale animation
     return () => clearTimeout(t)
-  }, [viewMode, wrapWidth, currentData.length])
+  }, [viewMode, wrapWidth, currentData.length, isInitialLoad])
 
   // Helpers for bucket ranges (Mon–Sun weeks, full months)
   const startOfWeek = (d: Date) => {
@@ -659,29 +686,29 @@ export function HoursSummaryChart() {
           className={`grid grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg transition-all duration-700 delay-300 ${isVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}
         >
           <div data-metric="billable" className="text-center group hover:scale-110 transition-transform duration-300">
-            <div className="text-lg font-bold animate-pulse text-billable">
-              {formatHours(animatedBillable)}
+            <div className="text-lg font-bold text-billable">
+              {formatHours(displayBillable)}
             </div>
             <div className="text-xs text-muted-token">Billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-500 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="nonbillable" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-nonbillable">
-              {formatHours(animatedNonBillable)}
+              {formatHours(displayNonBillable)}
             </div>
             <div className="text-xs text-muted-token">Non-billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-700 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="absence" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-absence">
-              {formatHours(animatedAbsence)}
+              {formatHours(displayAbsence)}
             </div>
             <div className="text-xs text-muted-token">Absence</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-900 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="max" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-max">
-              {formatHours(animatedMax)}
+              {formatHours(displayMax)}
             </div>
             <div className="text-xs text-muted-token">Max</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-1100 ${isVisible? 'w-full':'w-0'}`} /></div>
