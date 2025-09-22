@@ -200,45 +200,50 @@ export default function HomePage() {
 
   function RangeDrivenApp(){
     const { filters, setTimeEntries } = useFilters()
-    const now = new Date()
-    function fmt(d: Date){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
-    let start: Date; let end: Date
-    const currentQuarter = Math.floor(now.getMonth()/3)
-    switch(filters.dateRange){
-      case 'this-week': {
-        const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1)
-        start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
+    
+    // Memoize range calculation to prevent unnecessary re-renders and re-fetches
+    const range = useMemo(() => {
+      const now = new Date()
+      function fmt(d: Date){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+      let start: Date; let end: Date
+      const currentQuarter = Math.floor(now.getMonth()/3)
+      switch(filters.dateRange){
+        case 'this-week': {
+          const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1)
+          start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
+        }
+        case 'this-quarter': {
+          start = new Date(now.getFullYear(), currentQuarter*3, 1)
+          end = new Date(now.getFullYear(), (currentQuarter+1)*3, 0); break
+        }
+        case 'this-year': {
+          start = new Date(now.getFullYear(),0,1); end = new Date(now.getFullYear(),11,31); break
+        }
+        case 'previous-week': {
+          const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1 -7)
+          start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
+        }
+        case 'previous-month': {
+          start = new Date(now.getFullYear(), now.getMonth()-1,1); end = new Date(now.getFullYear(), now.getMonth(),0); break
+        }
+        case 'previous-quarter': {
+          const prevQ = currentQuarter-1 < 0 ? 3 : currentQuarter-1
+          const year = currentQuarter-1 < 0 ? now.getFullYear()-1 : now.getFullYear()
+          start = new Date(year, prevQ*3,1); end = new Date(year,(prevQ+1)*3,0); break
+        }
+        case 'previous-year': {
+          start = new Date(now.getFullYear()-1,0,1); end = new Date(now.getFullYear()-1,11,31); break
+        }
+        case 'this-month':
+        default: {
+          start = new Date(now.getFullYear(), now.getMonth(),1); end = new Date(now.getFullYear(), now.getMonth()+1,0); break
+        }
       }
-      case 'this-quarter': {
-        start = new Date(now.getFullYear(), currentQuarter*3, 1)
-        end = new Date(now.getFullYear(), (currentQuarter+1)*3, 0); break
-      }
-      case 'this-year': {
-        start = new Date(now.getFullYear(),0,1); end = new Date(now.getFullYear(),11,31); break
-      }
-      case 'previous-week': {
-        const monday = new Date(now); monday.setDate(now.getDate() - now.getDay() + 1 -7)
-        start = monday; end = new Date(monday); end.setDate(monday.getDate()+6); break
-      }
-      case 'previous-month': {
-        start = new Date(now.getFullYear(), now.getMonth()-1,1); end = new Date(now.getFullYear(), now.getMonth(),0); break
-      }
-      case 'previous-quarter': {
-        const prevQ = currentQuarter-1 < 0 ? 3 : currentQuarter-1
-        const year = currentQuarter-1 < 0 ? now.getFullYear()-1 : now.getFullYear()
-        start = new Date(year, prevQ*3,1); end = new Date(year,(prevQ+1)*3,0); break
-      }
-      case 'previous-year': {
-        start = new Date(now.getFullYear()-1,0,1); end = new Date(now.getFullYear()-1,11,31); break
-      }
-      case 'this-month':
-      default: {
-        start = new Date(now.getFullYear(), now.getMonth(),1); end = new Date(now.getFullYear(), now.getMonth()+1,0); break
-      }
-    }
-    const range = { from: fmt(start), to: fmt(end) }
-  const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
-  useEffect(()=>{ if(!entriesLoading) setTimeEntries(timeEntries) }, [entriesLoading, timeEntries, setTimeEntries])
+      return { from: fmt(start), to: fmt(end) }
+    }, [filters.dateRange])
+    
+    const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
+    useEffect(()=>{ if(!entriesLoading) setTimeEntries(timeEntries) }, [entriesLoading, timeEntries, setTimeEntries])
   const fullLoading = loading || entriesLoading
     return (
       <>

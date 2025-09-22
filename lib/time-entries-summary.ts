@@ -90,7 +90,7 @@ export function toPercent(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 1000) / 10
 }
 
-function round2(n: number){ return Math.round(n * 100) / 100 }
+export function round2(n: number){ return Math.round(n * 100) / 100 }
 
 // Smart hours formatting: shows integers without decimals, fractions with needed precision
 export function formatHours(hours: number): string {
