@@ -1,6 +1,7 @@
 "use client"
 import { useState, useMemo } from 'react'
 import { UserX } from 'lucide-react'
+import { formatHours } from '@/lib/time-entries-summary'
 
 export interface InactiveResolvedItem {
   t: { consultantId: string; hours: number; billable: number; nonBillable: number }
@@ -51,10 +52,10 @@ export function InactiveMembers({ items }: InactiveMembersProps) {
             const name = c?.name || 'Unknown'
             const email = c?.email
             const initials = computeInitials(c?.name)
-            const totalHrs = (t.hours || 0).toFixed(1)
-            const billHrs = (t.billable || 0).toFixed(1)
-            const nbHrs = (t.nonBillable || 0).toFixed(1)
-            const title = `${name}${email ? ' ('+email+')' : ''}\nTotal: ${totalHrs}h • Billable: ${billHrs}h • Non: ${nbHrs}h`
+            const totalHrs = formatHours(t.hours || 0)
+            const billHrs = formatHours(t.billable || 0)
+            const nbHrs = formatHours(t.nonBillable || 0)
+            const title = `${name}${email ? ' ('+email+')' : ''}\nTotal: ${totalHrs} • Billable: ${billHrs} • Non: ${nbHrs}`
             return (
               <li
                 key={t.consultantId}

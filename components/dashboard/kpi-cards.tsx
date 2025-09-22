@@ -9,6 +9,7 @@ import { calculateKPIMetrics } from '@/lib/metrics'
 import { useConsultants } from '@/hooks/use-consultants'
 import { useAuth } from '@/lib/auth-client'
 import { useViewingScope } from '@/lib/viewing-scope'
+import { formatHours } from '@/lib/time-entries-summary'
 import { useDaysOff } from '@/hooks/use-days-off'
 
 // Simple count-up animation hook
@@ -57,7 +58,14 @@ interface KpiCardProps {
 function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }: KpiCardProps) {
   // Using hook inside its own component keeps rule-of-hooks compliance (was previously inside map loop)
   const animated = useCountUp(card.raw, 900 + index * 150)
-  const display = `${card.unit === '%' ? animated.toFixed(1) : animated.toFixed(1)}${card.unit}`
+  
+  // For percentage cards, use animated value. For hours, use pre-formatted value to maintain precision
+  const display = card.unit === '%' 
+    ? `${animated.toFixed(1)}%` 
+    : card.unit === 'h' 
+      ? card.value  // Use pre-formatted value instead of re-formatting animated
+      : `${animated.toFixed(1)}${card.unit}`
+      
   const hasGoal = card.target !== undefined && card.progress !== undefined
   const belowTarget = hasGoal && (card.progress as number) < (card.target as number)
   const critical = belowTarget && (card.progress as number) < (card.target as number) * 0.8
@@ -146,7 +154,7 @@ function KpiCard({ card, index, isVisible, reportedCard, microDaily, todayIso }:
               const hA = (d.absence / capacity) * 100 * scale
               const overflow = Math.max(0, d.total - capacity)
               const isToday = d.iso === todayIso
-              const title = `${d.label}: B ${d.billable.toFixed(1)}h, NB ${d.nonBillable.toFixed(1)}h, Abs ${d.absence.toFixed(1)}h — Total ${d.total.toFixed(1)}h / 8h`
+              const title = `${d.label}: B ${formatHours(d.billable)}, NB ${formatHours(d.nonBillable)}, Abs ${formatHours(d.absence)} — Total ${formatHours(d.total)} / 8h`
               const baseDelay = index * 120 + i * 60
               return (
                 <div
@@ -366,7 +374,7 @@ export function KPICards() {
   const cards: CardDescriptor[] = useMemo(()=>[
     {
       title: "Reported Hours",
-      value: `${totalHours.toFixed(1)}h`,
+      value: formatHours(totalHours),
       raw: totalHours,
       unit: 'h',
   subtitle: `${entriesForKPI.length} entries in range`,
@@ -382,7 +390,7 @@ export function KPICards() {
       value: `${reportedKPI.toFixed(1)}%`,
       raw: reportedKPI,
       unit: '%',
-  subtitle: `Target: 99% | ${totalHours.toFixed(1)}h / ${requiredHours}h`,
+  subtitle: `Target: 99% | ${formatHours(totalHours)} / ${requiredHours}h`,
       icon: "📊",
       color: reportedColors.text,
       bgColor: reportedColors.bg,
@@ -397,7 +405,7 @@ export function KPICards() {
       value: `${billableKPI.toFixed(1)}%`,
   raw: billableKPI,
   unit: '%',
-  subtitle: `Target: 85% | ${billableHours.toFixed(1)}h billable`,
+  subtitle: `Target: 85% | ${formatHours(billableHours)} billable`,
       icon: "💼",
       color: billableColors.text,
       bgColor: billableColors.bg,
@@ -421,7 +429,7 @@ export function KPICards() {
       target: undefined,
       trend: '',
       trendColor: 'text-teal-600'
-    }]: []),
+    }] : []),
   ], [totalHours, entriesForKPI.length, reportedKPI, requiredHours, billableKPI, billableHours, newProjects.length, reportedColors, billableColors])
 
   // Generate CSS custom property assignments for each KPI card & its micro bars
