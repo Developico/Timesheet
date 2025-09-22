@@ -919,7 +919,8 @@ export function CalendarView() {
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#174076]"/>NB</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#e03768]"/>A</span>
             </div>
-            <div className="divide-y rounded-md border overflow-hidden">
+            {/* Scrollable container for compact project list */}
+            <div className="max-h-[60vh] overflow-y-auto rounded-md border">
               {projectsBreakdown.length === 0 ? (
                 <div className="p-3 text-sm text-muted-token">No entries in this period.</div>
               ) : projectsBreakdown.map((b,i)=>{
@@ -930,35 +931,23 @@ export function CalendarView() {
                   <button
                     key={b.project.id}
                     type="button"
-                    className="w-full text-left p-3 hover:bg-muted/40 transition-colors"
+                    className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors border-b border-border/50 last:border-b-0"
                     onClick={()=>{ setSelectedProjectId(b.project.id); setBreakdownOpen(false) }}
-                    title={`${b.project.name}${b.project.client? ` • ${b.project.client}`:''}`}
+                    title={`${b.project.name}${b.project.client? ` • ${b.project.client}`:''}\nB: ${formatHours(b.billable)} | NB: ${formatHours(b.nonBillable)} | A: ${formatHours(b.absence)}`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded-full shrink-0 dot-${dotType}`} />
-                        <div className="min-w-0">
-                          <div className="font-mono text-xs font-semibold truncate">{b.project.code || b.project.id}</div>
-                          <div className="text-[11px] text-muted-token truncate">{b.project.name}</div>
+                        <span className={`w-2 h-2 rounded-full shrink-0 dot-${dotType}`} />
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-foreground">{b.project.code || b.project.id}</span>
+                          <span className="text-xs text-muted-token truncate">{b.project.name}</span>
                         </div>
                       </div>
-                      <div className="shrink-0 text-sm font-medium tabular-nums">{formatHours(b.total)}</div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden relative">
-                        <div className="absolute inset-y-0 left-0 flex">
-                          <span className="h-full bg-[#6eedd9]" data-brk-b={i} />
-                          <span className="h-full bg-[#174076]" data-brk-nb={i} />
-                          <span className="h-full bg-[#e03768]" data-brk-a={i} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-token">
-                        <span title="Billable">B {formatHours(b.billable)}</span>
-                        <span title="Non-billable">NB {formatHours(b.nonBillable)}</span>
-                        <span title="Absence">A {formatHours(b.absence)}</span>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="text-sm font-medium tabular-nums">{formatHours(b.total)}</span>
+                        <span className="text-xs text-muted-token">{share.toFixed(1)}%</span>
                       </div>
                     </div>
-                    <div className="mt-1 text-[10px] text-muted-token">Share: {share.toFixed(1)}%</div>
                   </button>
                 )
               })}
