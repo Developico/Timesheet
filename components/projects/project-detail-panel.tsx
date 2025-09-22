@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast"
 import type { Project } from "@/lib/data"
 import { useFilters } from "@/lib/filter-context"
 import { useConsultants } from "@/hooks/use-consultants"
+import { formatHours } from "@/lib/time-entries-summary"
 import { InactiveMembers, InactiveResolvedItem } from './inactive-members'
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
@@ -208,9 +209,9 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
             <div className="flex items-center gap-2 text-xs">
               <span className={`px-1.5 py-0.5 rounded font-medium ${project.billable ? 'bg-[#6eedd9]/20 text-[#174076]' : 'bg-slate-200 text-slate-800'}`}>{projectTypeLabel}</span>
               <span className="text-muted-token">•</span>
-              <span>Total: <span className="font-semibold">{total.toFixed(1)}h</span></span>
+              <span>Total: <span className="font-semibold">{formatHours(total)}</span></span>
               <span className="text-muted-token">•</span>
-              <span>Your: <span className="font-semibold">{myHours.toFixed(1)}h</span></span>
+              <span>Your: <span className="font-semibold">{formatHours(myHours)}</span></span>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1 text-xs"><span>Your share</span><span className="font-medium">{mySharePct.toFixed(1)}%</span></div>
@@ -324,7 +325,7 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                           <div className="truncate">{taskText}</div>
                         </div>
                       </div>
-                      <div className="shrink-0 tabular-nums">{e.hours.toFixed(1)}h</div>
+                      <div className="shrink-0 tabular-nums">{formatHours(e.hours)}</div>
                     </div>
                   )
                 })}

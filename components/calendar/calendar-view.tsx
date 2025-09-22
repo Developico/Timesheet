@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useProjects, type BasicProject } from "@/hooks/use-projects"
-import { summarize, isAbsenceProject } from "@/lib/time-entries-summary"
+import { summarize, isAbsenceProject, formatHours } from "@/lib/time-entries-summary"
 import { useConsultants, type BasicConsultant } from "@/hooks/use-consultants"
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
@@ -440,7 +440,7 @@ export function CalendarView() {
                   {holiday && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
                   {total>0 && active && (
                     <div className="text-[10px] text-muted-token font-medium tabular-nums">
-                      {total.toFixed(1)}h
+                      {formatHours(total)}
                       <span className="ml-1 text-[9px] text-muted-token opacity-70">{reportedPct.toFixed(0)}%</span>
                     </div>
                   )}
@@ -467,7 +467,7 @@ export function CalendarView() {
                             {project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? ` (${(e as AggregatedDayEntry).count})` : ''}
                           </button>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{e.hours.toFixed(1)}h</span></div>
+                        <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{formatHours(e.hours)}</span></div>
                       </div>
                     )
                   })}
@@ -477,7 +477,7 @@ export function CalendarView() {
               ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary with segmented KPI progress bar (B / NB / A) */}
               <div className="pt-1 mt-1 border-t border-dashed">
-                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B ${billable.toFixed(1)}h • NB ${nonBillable.toFixed(1)}h • A ${absence.toFixed(1)}h — Total ${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
+                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B {formatHours(billable)} • NB {formatHours(nonBillable)} • A {formatHours(absence)} — Total {formatHours(total)} / 8h (${reportedPct.toFixed(0)}%)`}>
                   {/* Base overlay */}
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
@@ -492,9 +492,9 @@ export function CalendarView() {
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
                 </div>
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {absence.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {formatHours(billable)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {formatHours(nonBillable)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {formatHours(absence)}</span>
                 </div>
               </div>
             </div>
@@ -560,7 +560,7 @@ export function CalendarView() {
                   {holiday && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold">OFF</span>}
                   {total>0 && active && (
                     <div className="text-[10px] text-muted-token font-medium tabular-nums">
-                      {total.toFixed(1)}h
+                      {formatHours(total)}
                       <span className="ml-1 text-[9px] text-muted-token opacity-70">{reportedPct.toFixed(0)}%</span>
                     </div>
                   )}
@@ -587,7 +587,7 @@ export function CalendarView() {
                             {project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? ` (${(e as AggregatedDayEntry).count})` : ''}
                           </button>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{e.hours.toFixed(1)}h</span></div>
+                        <div className="flex items-center gap-1 shrink-0 tabular-nums"><span>{formatHours(e.hours)}</span></div>
                       </div>
                     )
                   })}
@@ -598,7 +598,7 @@ export function CalendarView() {
               ) : <div className="text-[11px] text-muted-token mt-2 flex-1 flex items-center">{active? 'No entries':'Inactive'}</div>}
               {/* Footer summary with segmented KPI progress bar (B / NB / A) */}
               <div className="pt-1 mt-1 border-t border-dashed">
-                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B ${billable.toFixed(1)}h • NB ${nonBillable.toFixed(1)}h • A ${absence.toFixed(1)}h — Total ${total.toFixed(1)}h / 8h (${reportedPct.toFixed(0)}%)`}>
+                <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden mb-1" title={`B {formatHours(billable)} • NB {formatHours(nonBillable)} • A {formatHours(absence)} — Total {formatHours(total)} / 8h (${reportedPct.toFixed(0)}%)`}>
                   {/* Base overlay */}
                   <div className="absolute inset-0 bg-gray-200/40 dark:bg-[color:var(--surface-overlay)_/_25]" />
                   {/* Segments container */}
@@ -613,9 +613,9 @@ export function CalendarView() {
                   {total>targetHours*1.25 && <div className="absolute inset-0 ring-1 ring-red-500/50" />}
                 </div>
                 <div className="flex justify-between text-[9px] font-medium tabular-nums opacity-80">
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {billable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {nonBillable.toFixed(1)}</span>
-                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {absence.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#6eedd9]" />B {formatHours(billable)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#174076]" />NB {formatHours(nonBillable)}</span>
+                  <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-[#e03768]" />A {formatHours(absence)}</span>
                 </div>
               </div>
             </div>
@@ -658,7 +658,7 @@ export function CalendarView() {
                   <span className="text-[10px] uppercase tracking-wide text-muted-token">{weekdayShort}</span>
                   <span className="font-semibold text-sm">{dateKey}</span>
                 </div>
-                {total>0 && <div className="text-xs font-medium tabular-nums">{total.toFixed(1)}h</div>}
+                {total>0 && <div className="text-xs font-medium tabular-nums">{formatHours(total)}</div>}
               </div>
               {displayEntries.length>0 ? (
                 <div className="space-y-1">
@@ -671,16 +671,16 @@ export function CalendarView() {
                           <span className={`w-2 h-2 rounded-full dot-${dotType}`}/>
                           <span className="truncate font-mono text-[11px]">{project?.code||e.projectId}{(e as AggregatedDayEntry).aggregated && (e as AggregatedDayEntry).count>1 ? `(${(e as AggregatedDayEntry).count})`: ''}</span>
                         </button>
-                        <span className="tabular-nums">{e.hours.toFixed(1)}h</span>
+                        <span className="tabular-nums">{formatHours(e.hours)}</span>
                       </div>
                     )
                   })}
                 </div>
               ) : <div className="text-[11px] text-muted-token">No entries</div>}
               <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-token opacity-80 tabular-nums">
-                <span>B {billable.toFixed(1)}</span>
-                <span>NB {nonBillable.toFixed(1)}</span>
-                <span>A {absence.toFixed(1)}</span>
+                <span>B {formatHours(billable)}</span>
+                <span>NB {formatHours(nonBillable)}</span>
+                <span>A {formatHours(absence)}</span>
               </div>
             </div>
           )
@@ -791,19 +791,19 @@ export function CalendarView() {
         <CardContent className="py-4">
           <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{periodSummary.totalHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{formatHours(periodSummary.totalHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-billable tabular-nums">{periodSummary.billableHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-billable tabular-nums">{formatHours(periodSummary.billableHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Billable</span><span className="hidden sm:inline">Billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{periodSummary.nonBillableHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{formatHours(periodSummary.nonBillableHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Non‑billable</span><span className="hidden sm:inline">Non‑billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold leading-none text-absence tabular-nums">{periodSummary.absenceHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-absence tabular-nums">{formatHours(periodSummary.absenceHours)}</div>
               <div className="text-xs text-muted-token"><span className="sm:hidden">Absence</span><span className="hidden sm:inline">Absence Hours</span></div>
             </div>
           </div>
@@ -894,7 +894,7 @@ export function CalendarView() {
           <SheetHeader>
             <SheetTitle>Projects breakdown</SheetTitle>
             <SheetDescription>
-              {viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`} • {projectsBreakdown.length} projects • {periodSummary.totalHours.toFixed(1)}h
+              {viewMode==='week' ? `Week of ${getWeekDays(currentDate)[0].toLocaleDateString()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`} • {projectsBreakdown.length} projects • {formatHours(periodSummary.totalHours)}
             </SheetDescription>
             <div className="pt-1 flex items-center gap-2 text-xs">
               <span className="text-muted-token">Sort by</span>
@@ -942,7 +942,7 @@ export function CalendarView() {
                           <div className="text-[11px] text-muted-token truncate">{b.project.name}</div>
                         </div>
                       </div>
-                      <div className="shrink-0 text-sm font-medium tabular-nums">{b.total.toFixed(1)}h</div>
+                      <div className="shrink-0 text-sm font-medium tabular-nums">{formatHours(b.total)}</div>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden relative">
@@ -953,9 +953,9 @@ export function CalendarView() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-token">
-                        <span title="Billable">B {b.billable.toFixed(1)}</span>
-                        <span title="Non-billable">NB {b.nonBillable.toFixed(1)}</span>
-                        <span title="Absence">A {b.absence.toFixed(1)}</span>
+                        <span title="Billable">B {formatHours(b.billable)}</span>
+                        <span title="Non-billable">NB {formatHours(b.nonBillable)}</span>
+                        <span title="Absence">A {formatHours(b.absence)}</span>
                       </div>
                     </div>
                     <div className="mt-1 text-[10px] text-muted-token">Share: {share.toFixed(1)}%</div>

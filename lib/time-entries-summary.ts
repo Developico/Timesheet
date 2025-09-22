@@ -44,7 +44,8 @@ export function summarize(entries: TimeEntry[]): TimeEntriesSummary {
     if (e.billable) billable += e.hours
   }
   const nonBillable = total - billable - absence
-  return roundSummary({ total, billable, nonBillable, absence })
+  const result = roundSummary({ total, billable, nonBillable, absence })
+  return result
 }
 
 export function summarizeByDay(entries: TimeEntry[]): Record<string, DailySummary> {
@@ -69,17 +70,17 @@ export function summarizeByDay(entries: TimeEntry[]): Record<string, DailySummar
 
 function roundSummary(s: TimeEntriesSummary): TimeEntriesSummary {
   return {
-    total: round1(s.total),
-    billable: round1(s.billable),
-    nonBillable: round1(s.nonBillable),
-    absence: round1(s.absence),
+    total: round2(s.total),
+    billable: round2(s.billable),
+    nonBillable: round2(s.nonBillable),
+    absence: round2(s.absence),
   }
 }
 function roundSummaryMut(s: TimeEntriesSummary){
-  s.total = round1(s.total)
-  s.billable = round1(s.billable)
-  s.nonBillable = round1(s.nonBillable)
-  s.absence = round1(s.absence)
+  s.total = round2(s.total)
+  s.billable = round2(s.billable)
+  s.nonBillable = round2(s.nonBillable)
+  s.absence = round2(s.absence)
 }
 function round1(n: number){ return Math.round(n * 10) / 10 }
 
@@ -87,4 +88,12 @@ function round1(n: number){ return Math.round(n * 10) / 10 }
 export function toPercent(numerator: number, denominator: number): number {
   if (denominator <= 0) return 0
   return Math.round((numerator / denominator) * 1000) / 10
+}
+
+function round2(n: number){ return Math.round(n * 100) / 100 }
+
+// Smart hours formatting: shows integers without decimals, fractions with needed precision
+export function formatHours(hours: number): string {
+  const rounded = round2(hours)
+  return Number.isInteger(rounded) ? rounded.toString() + 'h' : rounded.toFixed(2) + 'h'
 }

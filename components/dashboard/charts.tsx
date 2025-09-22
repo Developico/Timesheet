@@ -13,6 +13,7 @@ import { format, addDays } from "date-fns"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { computeBarGeometry } from "@/lib/chart-geometry"
+import { formatHours } from "@/lib/time-entries-summary"
 
 function useAnimatedCounter(end: number, duration = 1000) {
   const [count, setCount] = useState(0)
@@ -177,7 +178,7 @@ export function ActiveProjectsCard() {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-sm text-[var(--text-primary)]">{percent}%</div>
-                  <div className="text-xs text-muted-token">{hours.toFixed(1)}h</div>
+                  <div className="text-xs text-muted-token">{formatHours(hours)}</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -208,7 +209,7 @@ export function ActiveProjectsCard() {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-sm text-[var(--text-primary)]">{percent}%</div>
-                  <div className="text-xs text-muted-token">{hours.toFixed(1)}h</div>
+                  <div className="text-xs text-muted-token">{formatHours(hours)}</div>
                 </div>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
@@ -659,28 +660,28 @@ export function HoursSummaryChart() {
         >
           <div data-metric="billable" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold animate-pulse text-billable">
-              {animatedBillable.toFixed(1)}h
+              {formatHours(animatedBillable)}
             </div>
             <div className="text-xs text-muted-token">Billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-500 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="nonbillable" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-nonbillable">
-              {animatedNonBillable.toFixed(1)}h
+              {formatHours(animatedNonBillable)}
             </div>
             <div className="text-xs text-muted-token">Non-billable</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-700 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="absence" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-absence">
-              {animatedAbsence.toFixed(1)}h
+              {formatHours(animatedAbsence)}
             </div>
             <div className="text-xs text-muted-token">Absence</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-900 ${isVisible? 'w-full':'w-0'}`} /></div>
           </div>
           <div data-metric="max" className="text-center group hover:scale-110 transition-transform duration-300">
             <div className="text-lg font-bold text-max">
-              {animatedMax.toFixed(1)}h
+              {formatHours(animatedMax)}
             </div>
             <div className="text-xs text-muted-token">Max</div>
             <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden"><div className={`metric-bar-fill h-full rounded-full transition-all duration-1000 delay-1100 ${isVisible? 'w-full':'w-0'}`} /></div>
@@ -869,16 +870,16 @@ export function HoursSummaryChart() {
                       <rect x={tx} y={ty} width={ttW} height={ttH} rx={8} fill="#111827" opacity={0.92} />
                       <text x={tx + 10} y={ty + 16} fill="#ffffff" fontSize={12} fontWeight={600}>{d.label}</text>
                       <circle cx={tx + 10} cy={ty + 30} r={3} fill="#6eedd9" />
-                      <text x={tx + 18} y={ty + 34} fill="#ffffff" fontSize={11}>Billable: {d.billable.toFixed(1)}h</text>
+                      <text x={tx + 18} y={ty + 34} fill="#ffffff" fontSize={11}>Billable: {formatHours(d.billable)}</text>
                       <circle cx={tx + 10} cy={ty + 46} r={3} fill="#174076" />
-                      <text x={tx + 18} y={ty + 50} fill="#ffffff" fontSize={11}>Non-billable: {d.nonBillable.toFixed(1)}h</text>
+                      <text x={tx + 18} y={ty + 50} fill="#ffffff" fontSize={11}>Non-billable: {formatHours(d.nonBillable)}</text>
                       {d.absence > 0 && (
                         <>
                           <circle cx={tx + 10} cy={ty + 62} r={3} fill="#e03768" />
-                          <text x={tx + 18} y={ty + 66} fill="#ffffff" fontSize={11}>Absence: {d.absence.toFixed(1)}h</text>
+                          <text x={tx + 18} y={ty + 66} fill="#ffffff" fontSize={11}>Absence: {formatHours(d.absence)}</text>
                         </>
                       )}
-                      <text x={tx + 10} y={ty + ttH - 24} fill="#c7d2fe" fontSize={11}>Total: {total.toFixed(1)}h / Max: {d.max.toFixed(1)}h</text>
+                      <text x={tx + 10} y={ty + ttH - 24} fill="#c7d2fe" fontSize={11}>Total: {formatHours(total)} / Max: {formatHours(d.max)}</text>
                       <text x={tx + 10} y={ty + ttH - 8} fill="#c7d2fe" fontSize={11}>Utilization: {util.toFixed(1)}%</text>
                     </g>
                   )
@@ -916,3 +917,4 @@ export function Charts() {
     </div>
   )
 }
+

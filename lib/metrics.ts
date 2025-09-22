@@ -1,6 +1,9 @@
 import type { TimeEntry, KPIMetrics, ProjectMetrics } from "@/types"
 import { summarize, summarizeByDay, toPercent } from "@/lib/time-entries-summary"
 
+// Import round2 function for 2-decimal precision
+function round2(n: number){ return Math.round(n * 100) / 100 }
+
 export function getWorkingDays(from: string, to: string): number {
   const startDate = new Date(from)
   const endDate = new Date(to)
@@ -34,11 +37,11 @@ export function calculateKPIMetrics(timeEntries: TimeEntry[], from: string, to: 
   const activeProjects = new Set(timeEntries.map((entry) => entry.projectId)).size
 
   return {
-    reportedHours: Math.round(reportedHours * 10) / 10,
+    reportedHours: round2(reportedHours),
     requiredHours,
-    realizedPercentage: Math.round(realizedPercentage * 10) / 10,
-    billableHours: Math.round(billableHours * 10) / 10,
-    billablePercentage: Math.round(billablePercentage * 10) / 10,
+    realizedPercentage: round2(realizedPercentage),
+    billableHours: round2(billableHours),
+    billablePercentage: round2(billablePercentage),
     activeProjects,
   }
 }
@@ -66,9 +69,9 @@ export function calculateProjectMetrics(
         projectId,
         projectName: project.name,
         projectCode: project.code,
-        totalHours: Math.round(hours.total * 10) / 10,
-        billableHours: Math.round(hours.billable * 10) / 10,
-        percentage: totalHours > 0 ? Math.round((hours.total / totalHours) * 1000) / 10 : 0,
+        totalHours: round2(hours.total),
+        billableHours: round2(hours.billable),
+        percentage: totalHours > 0 ? round2((hours.total / totalHours) * 100) : 0,
         color: project.color,
       })
     }
@@ -91,9 +94,9 @@ export function calculateProjectMetrics(
         projectId: "other",
         projectName: "Other Projects",
         projectCode: "OTHER",
-        totalHours: Math.round(otherTotal * 10) / 10,
-        billableHours: Math.round(otherBillable * 10) / 10,
-        percentage: Math.round(otherPercentage * 10) / 10,
+        totalHours: round2(otherTotal),
+        billableHours: round2(otherBillable),
+        percentage: round2(otherPercentage),
         color: "#6B7280",
       })
     }

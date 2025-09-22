@@ -13,6 +13,7 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { useConsultants } from "@/hooks/use-consultants"
 import { useViewingScope } from "@/lib/viewing-scope"
+import { formatHours } from "@/lib/time-entries-summary"
 import type { Project } from "@/lib/data"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 import { useAuth } from "@/lib/auth-client"
@@ -207,11 +208,6 @@ export function ProjectsTable() {
   const totalNonBillableUserHours = userAgg.nonBillable
   const absenceUserHours = userAgg.absence
 
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.debug('[projects-table] user aggregation snapshot', userAgg)
-  }
-
   // Broadcast current filter state so mobile sheet can reflect active buttons
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -276,20 +272,20 @@ export function ProjectsTable() {
   <CardContent className="py-4">
           <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{totalUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{formatHours(totalUserHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-billable leading-none tabular-nums">{totalBillableUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-billable leading-none tabular-nums">{formatHours(totalBillableUserHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Billable</span><span className="hidden sm:inline">Billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
               {/* eslint-disable-next-line */}
-              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{totalNonBillableUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold leading-none text-[#174076] dark:text-[#6e93c9] tabular-nums">{formatHours(totalNonBillableUserHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Non‑billable</span><span className="hidden sm:inline">Non‑billable Hours</span></div>
             </div>
             <div className="flex flex-col items-center justify-center text-center gap-1">
-              <div className="text-2xl font-bold text-absence leading-none tabular-nums">{absenceUserHours.toFixed(1)}</div>
+              <div className="text-2xl font-bold text-absence leading-none tabular-nums">{formatHours(absenceUserHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Absence</span><span className="hidden sm:inline">Absence Hours</span></div>
             </div>
           </div>
@@ -466,11 +462,11 @@ export function ProjectsTable() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <div className="text-sm min-w-[70px]" title={`Your hours: ${project.actualHours.toFixed(1)}h (B ${project.billableHours.toFixed(1)} / NB ${(project.actualHours - project.billableHours).toFixed(1)})`}>
-                            <div className="tabular-nums font-medium">{project.actualHours.toFixed(1)}h</div>
+                          <div className="text-sm min-w-[70px]" title={`Your hours: ${formatHours(project.actualHours)} (B ${formatHours(project.billableHours)} / NB ${formatHours(project.actualHours - project.billableHours)})`}>
+                            <div className="tabular-nums font-medium">{formatHours(project.actualHours)}</div>
                             <div
                               className="hidden md:block h-1.5 w-full rounded bg-muted/70 overflow-hidden mt-1 relative"
-                              title={`${project.actualHours.toFixed(1)}h total; ${project.billableHours.toFixed(1)}h billable`}
+                              title={`${formatHours(project.actualHours)} total; ${formatHours(project.billableHours)} billable`}
                               data-hours-index={rowIndex}
                             >
                               {(() => {
