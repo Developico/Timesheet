@@ -9,6 +9,8 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev -p 3000",
+    "dev-turbo": "next dev -p 3000 --turbo",
+    "dev-webpack": "next dev -p 3000",
     "lint": "next lint",
   "typecheck": "tsc --noEmit",
   "test:geom": "ts-node ./scripts/verify-chart-geometry.ts",

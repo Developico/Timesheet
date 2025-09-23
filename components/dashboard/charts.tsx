@@ -842,7 +842,7 @@ export function HoursSummaryChart() {
                   const x2 = x1 + barWidth
                   const xm = xMidFor(i)
                   const seg = Math.max(2, barWidth)
-                  const yText = Math.max(y - 2, padding.top + 8)
+                  const yText = y - 6  // Always place label above the line
                   if (d.max <= 0) return null
                   return (
                     <g key={`max-${i}`} data-max-group={i} className="opacity-0">

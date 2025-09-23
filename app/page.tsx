@@ -244,7 +244,7 @@ export default function HomePage() {
     
     const { entries: timeEntries, loading: entriesLoading } = useTimeEntries({ ...range, billable: 'all' })
     useEffect(()=>{ if(!entriesLoading) setTimeEntries(timeEntries) }, [entriesLoading, timeEntries, setTimeEntries])
-  const fullLoading = loading || entriesLoading
+    const fullLoading = loading || entriesLoading
     return (
       <>
   <HeaderWrapper />
