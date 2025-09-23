@@ -22,7 +22,15 @@ export function useTimeEntries(opts: Options) {
     const key = `timeEntries:v1:${from}:${to}:${projectIds?.join(',')||'-'}:${billable||'-'}`
 
     const stateBefore = peekState(key)
-    if (stateBefore === 'stale') setRefreshing(true)
+    
+    // Don't show loading spinner for cache hits
+    if (stateBefore === 'fresh') {
+      setLoading(false)
+    } else if (stateBefore === 'stale') {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
     getOrLoad<BasicTimeEntry[]>(
       key,
       async () => {
@@ -32,8 +40,8 @@ export function useTimeEntries(opts: Options) {
         return Array.isArray(json.value)? json.value: []
       },
       {
-        ttlMs: 30_000,            // 30s fresh
-        staleWindowMs: 5 * 60_000, // 5 min stale
+        ttlMs: 15 * 60_000,            // 15 min fresh (same as projects)
+        staleWindowMs: 2 * 60 * 60_000, // 2 hour stale (same as projects)
         onBackgroundRefresh: fresh => { if(!cancelled){ setEntries(fresh); setRefreshing(false) } }
       }
     )

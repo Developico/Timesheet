@@ -225,6 +225,7 @@ export function FilterProvider({ children, initialTimeEntries, projects }: { chi
   // Optional: expose normalized entries if other consumers need guaranteed consistency
   // @ts-expect-error backward compat (not declared in context type); kept internal for now
   normalizedEntries,
+  allProjects: projects,
   effectiveRange,
       }}
     >

@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 // Sheet removed in favor of shared ProjectDetailPanel
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, ChevronUp, ChevronDown, Copy as CopyIcon } from "lucide-react"
+import { Eye, ChevronUp, ChevronDown, Copy as CopyIcon, X } from "lucide-react"
 import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useFilters } from "@/lib/filter-context"
 import { useConsultants } from "@/hooks/use-consultants"
 import { useViewingScope } from "@/lib/viewing-scope"
 import { formatHours } from "@/lib/time-entries-summary"
 import type { Project } from "@/lib/data"
+import type { TimeEntry } from "@/types"
 import { useNewProjects, NEW_DAYS } from "@/lib/use-new-projects"
 import { useAuth } from "@/lib/auth-client"
 import { toast } from "@/hooks/use-toast"
@@ -22,15 +23,97 @@ import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { summarize } from "@/lib/time-entries-summary"
 
 export function ProjectsTable() {
-  const { filteredProjects, filteredTimeEntries, filters } = useFilters()
+  const filtersContext = useFilters()
+  const { filteredProjects, filteredTimeEntries, filters } = filtersContext
+  const allTimeEntries = (filtersContext as any).normalizedEntries as TimeEntry[] || []
+  const allProjectsUnfiltered = (filtersContext as any).allProjects as Project[] || []
   const { newProjects, isNew, markViewed } = useNewProjects()
   // Sortable fields per requirement: Hours (computed), Name, Client, Code. Others static.
   const [sortField, setSortField] = useState<keyof Project | 'hours'>("hours")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [projectScope, setProjectScope] = useState<"my"|"all">("my")
-  const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
-  const [onlyReported, setOnlyReported] = useState<boolean>(false)
+  
+  // Persistent project filters - use lazy initialization from localStorage
+  const [projectScope, setProjectScope] = useState<"my"|"all">(() => {
+    if (typeof window === 'undefined') return "my"
+    try {
+      const saved = window.localStorage.getItem('tt_project_filters')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return parsed.projectScope || "my"
+      }
+    } catch {}
+    return "my"
+  })
+  
+  const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>(() => {
+    if (typeof window === 'undefined') return 'all'
+    try {
+      const saved = window.localStorage.getItem('tt_project_filters')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return parsed.billableFilter || 'all'
+      }
+    } catch {}
+    return 'all'
+  })
+  
+  const [onlyReported, setOnlyReported] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const saved = window.localStorage.getItem('tt_project_filters')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return parsed.onlyReported || false
+      }
+    } catch {}
+    return false
+  })
+  
+  // Debug state changes - remove in production
+  // useEffect(() => { console.log('Project scope changed to:', projectScope) }, [projectScope])
+  // useEffect(() => { console.log('Billable filter changed to:', billableFilter) }, [billableFilter])  
+  // useEffect(() => { console.log('Only reported changed to:', onlyReported) }, [onlyReported])
+  
+  // Load sorting from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('tt_project_sorting') : null
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.sortField) setSortField(parsed.sortField)
+        if (parsed.sortDirection) setSortDirection(parsed.sortDirection)
+      }
+    } catch {
+      // ignore errors
+    }
+  }, [])
+  
+    // Save project filters to localStorage when they change
+    try {
+      if (typeof window !== 'undefined') {
+        const data = {
+          projectScope,
+          billableFilter,
+          onlyReported
+        }
+        window.localStorage.setItem('tt_project_filters', JSON.stringify(data))
+      }
+    } catch (e) {
+      // ignore
+    }  // Save sorting to localStorage when it changes
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('tt_project_sorting', JSON.stringify({
+          sortField,
+          sortDirection
+        }))
+      }
+    } catch {
+      // ignore errors
+    }
+  }, [sortField, sortDirection])
   // Refs to hold latest filter state for event listeners
   const projectScopeRef = useRef(projectScope)
   const billableFilterRef = useRef(billableFilter)
@@ -49,6 +132,32 @@ export function ProjectsTable() {
   const currentUserEmail = user?.email?.toLowerCase() || null
   const currentUserId = scopedConsultant || consultants.find(c=> c.email && c.email.toLowerCase() === currentUserEmail)?.id || null
   const primaryConsultantId = currentUserId
+  
+  // Initialize assigned projects for current user
+  useEffect(() => {
+    let ignore = false
+    if (!currentUserId) return
+    
+    fetch('/api/dataverse/project-assignments', { 
+      cache: 'default',
+      // Add cache headers to respect cache for 15 minutes like other endpoints
+      headers: {
+        'Cache-Control': 'max-age=900' // 15 minutes
+      }
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to fetch assignments')))
+      .then(json => {
+        if (!ignore && Array.isArray(json.value)) {
+          setAssignedIds(new Set(json.value))
+        }
+      })
+      .catch(err => {
+        console.warn('Failed to load project assignments:', err)
+        // Keep assignedIds as null - fallback to time-based calculation
+      })
+    
+    return () => { ignore = true }
+  }, [currentUserId])
 
   // Persist column visibility preferences
   useEffect(()=>{
@@ -84,21 +193,21 @@ export function ProjectsTable() {
     })
   }, [filteredProjects, filteredTimeEntries, currentUserId])
 
-  // Precompute count of projects where current user has >0h in current filtered window
-  const reportedProjectsCount = useMemo(()=> projectsWithMetrics.filter(p=> p.actualHours > 0).length, [projectsWithMetrics])
-  // Count of projects that would appear under 'my' scope (ignoring search so it stays stable while typing)
-  const myProjectsCount = useMemo(()=>{
-    const effectiveUserId = currentUserId || null
-    const myProjectIds = assignedIds
-      ? assignedIds
-      : effectiveUserId
-        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
-        : new Set(filteredTimeEntries.map(e=> e.projectId))
-    // Include projects marked allUsers explicitly or belonging to user via assignments/time entries
-  return projectsWithMetrics.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id)).length
-  }, [assignedIds, filteredTimeEntries, projectsWithMetrics, currentUserId])
-  // allProjectsCount computed after filteredAndSortedProjects is defined (placeholder, will set later)
-  let allProjectsCount = 0
+  // Build metrics for ALL projects (unfiltered) for counter calculations  
+  const allProjectsWithMetrics = useMemo(()=>{
+    return allProjectsUnfiltered.map(project => {
+      const entries = allTimeEntries.filter(e=> e.projectId === project.id)
+      const userEntries = currentUserId ? entries.filter(e=> e.consultantId === currentUserId) : entries
+      const userHours = userEntries.reduce((s,e)=> s+e.hours,0)
+      const userBillableHours = userEntries.filter(e=>e.billable).reduce((s,e)=> s+e.hours,0)
+      return {
+        ...project,
+        actualHours: userHours,
+        billableHours: userBillableHours,
+        allUsers: (project as any).allUsers === true,
+      }
+    })
+  }, [allProjectsUnfiltered, allTimeEntries, currentUserId])
 
   const filteredAndSortedProjects = useMemo(()=>{
     const arr = [...projectsWithMetrics]
@@ -113,44 +222,74 @@ export function ProjectsTable() {
     })
     return arr
   }, [projectsWithMetrics, sortField, sortDirection])
-  allProjectsCount = filteredAndSortedProjects.length
 
-  // Precompute base list BEFORE applying billable filter, but AFTER scope/search and Only Reported
-  const preBillableBase = useMemo(() => {
+  // Common helper to compute myProjectIds - uses global time entries for fallback
+  const myProjectIds = useMemo(() => {
     const effectiveUserId = currentUserId || null
-    const myProjectIds = assignedIds
+    return assignedIds
       ? assignedIds
       : effectiveUserId
-        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
-        : new Set(filteredTimeEntries.map(e=> e.projectId))
+        ? new Set(allTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+        : new Set(allTimeEntries.map(e=> e.projectId))
+  }, [assignedIds, currentUserId, allTimeEntries])
+
+  // Base for all computations - applies search filtering
+  const searchFiltered = useMemo(() => {
     const searching = (filters.searchQuery || '').trim().length > 0
-    let base = (projectScope==='my' && !searching)
-      ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
-      : filteredAndSortedProjects
-    if(onlyReported) base = base.filter(p=> p.actualHours > 0)
-    return base
-  }, [assignedIds, currentUserId, filteredTimeEntries, filteredAndSortedProjects, projectScope, filters.searchQuery, onlyReported])
+    if (!searching) return filteredAndSortedProjects
+    return filteredAndSortedProjects // search is already applied in filter context
+  }, [filteredAndSortedProjects, filters.searchQuery])
 
-  const billableYesCount = useMemo(()=> preBillableBase.filter(p=> p.billable).length, [preBillableBase])
-  const billableNoCount = useMemo(()=> preBillableBase.filter(p=> !p.billable).length, [preBillableBase])
-
-  // Final rows for the table after applying billable filter (and onlyReported again for safety)
-  const tableRows = useMemo(()=>{
+  // Project Scope filtering bases - for counters use ALL projects, for display use filtered
+  const myProjectsForCounts = useMemo(() => {
+    // For counters, always use time entries based calculation regardless of assignments
     const effectiveUserId = currentUserId || null
-    const myProjectIds = assignedIds
-      ? assignedIds
-      : effectiveUserId
-        ? new Set(filteredTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
-        : new Set(filteredTimeEntries.map(e=> e.projectId))
-    const searching = (filters.searchQuery || '').trim().length > 0
-    let base = (projectScope==='my' && !searching)
-      ? filteredAndSortedProjects.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
-      : filteredAndSortedProjects
+    const timeBasedProjectIds = effectiveUserId
+      ? new Set(allTimeEntries.filter(e=> e.consultantId === effectiveUserId).map(e=> e.projectId))
+      : new Set(allTimeEntries.map(e=> e.projectId))
+    
+    return allProjectsWithMetrics.filter(p=> (p.allUsers === true) || timeBasedProjectIds.has(p.id))
+  }, [allProjectsWithMetrics, currentUserId, allTimeEntries])
+
+  const allProjectsForCounts = useMemo(() => {
+    return projectsWithMetrics  // Use filtered projects with metrics instead of all projects
+  }, [projectsWithMetrics, projectScope])
+
+  // For table display, use filtered projects
+  const myProjects = useMemo(() => {
+    return searchFiltered.filter(p=> (p.allUsers === true) || myProjectIds.has(p.id))
+  }, [searchFiltered, myProjectIds])
+
+  const allProjects = useMemo(() => {
+    return searchFiltered
+  }, [searchFiltered])
+
+  // Base for table filtering - applies all filters and sorting
+  const baseForReportedFilter = useMemo(() => {
+    let base = projectScope === 'my' ? myProjectsForCounts : allProjectsForCounts  // Use scope-appropriate projects
     if(billableFilter==='yes') base = base.filter(p=>p.billable)
     else if(billableFilter==='no') base = base.filter(p=>!p.billable)
-    if(onlyReported) base = base.filter(p=> p.actualHours > 0)
     return base
-  }, [assignedIds, currentUserId, filteredTimeEntries, filteredAndSortedProjects, projectScope, filters.searchQuery, billableFilter, onlyReported])
+  }, [projectScope, myProjectsForCounts, allProjectsForCounts, billableFilter])
+
+  // Final rows for the table - use the computed baseForReportedFilter and apply final filters and sorting
+  const tableRows = useMemo(()=>{
+    let base = baseForReportedFilter
+    if(onlyReported) base = base.filter(p=> p.actualHours > 0)
+    
+    // Apply sorting to final table data
+    const direction = sortDirection === 'asc' ? 1 : -1
+    base.sort((a,b)=>{
+      if (sortField === 'hours') return (a.actualHours - b.actualHours) * direction
+      const aValue = a[sortField]
+      const bValue = b[sortField]
+      if (typeof aValue === 'string' && typeof bValue === 'string') return aValue.localeCompare(bValue) * direction
+      if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * direction
+      return 0
+    })
+    
+    return base
+  }, [baseForReportedFilter, onlyReported, sortField, sortDirection])
 
   // Inject bar widths CSS for visible rows (always call hook to keep hooks order consistent)
   const hoursBarsCss = useMemo(()=>{
@@ -173,6 +312,16 @@ export function ProjectsTable() {
       setSortDirection("asc")
     }
   }
+
+  // Reset filters to default state (My / All / All)
+  const resetFilters = () => {
+    setProjectScope('my')
+    setBillableFilter('all')
+    setOnlyReported(false)
+  }
+
+  // Check if filters are in non-default state
+  const hasNonDefaultFilters = projectScope !== 'my' || billableFilter !== 'all' || onlyReported !== false
 
   // Status column removed per requirement; helper no longer needed.
 
@@ -294,28 +443,28 @@ export function ProjectsTable() {
   <Card className="dark:bg-[var(--card)]">
         <CardHeader>
             <div className="flex items-center justify-between">
-              {/* Three toggle groups in horizontal layout */}
-              <div className="flex items-center gap-4 flex-wrap">
+              {/* Three toggle groups in horizontal layout with fixed widths */}
+              <div className="flex items-center gap-4 flex-wrap min-w-0">
                 {/* Group 1: Project Scope - My/All */}
                 <div className="flex items-center rounded-full border p-1 bg-background">
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[50px]"
                     data-active={projectScope==='my'}
                     onClick={()=>setProjectScope('my')}
                     title={assignedIds ? 'Assigned projects (plus ALL flagged)' : 'Projects you have time entries on (plus ALL flagged)'}
-                  >My ({myProjectsCount})</Button>
+                  >My</Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[50px]"
                     data-active={projectScope==='all'}
                     onClick={()=>setProjectScope('all')}
                     title="All filtered projects"
-                  >All ({allProjectsCount})</Button>
+                  >All</Button>
                 </div>
                 
                 {/* Group 2: Billable Filter - Billable/Non-billable/All */}
@@ -324,26 +473,26 @@ export function ProjectsTable() {
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[90px] tabular-nums"
                     data-active={billableFilter==='yes'}
                     onClick={()=>setBillableFilter('yes')}
-                  >Billable ({billableYesCount})</Button>
+                  >Billable</Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[110px] tabular-nums"
                     data-active={billableFilter==='no'}
                     onClick={()=>setBillableFilter('no')}
-                  >Non-billable ({billableNoCount})</Button>
+                  >Non-billable</Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[70px] tabular-nums"
                     data-active={billableFilter==='all'}
                     onClick={()=>setBillableFilter('all')}
-                  >All ({allProjectsCount})</Button>
+                  >All</Button>
                 </div>
                 
                 {/* Group 3: Reported Filter - Reported/All */}
@@ -352,21 +501,41 @@ export function ProjectsTable() {
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[90px] tabular-nums"
                     data-active={onlyReported}
                     onClick={()=>setOnlyReported(true)}
-                    title={`Projects with your hours in range: ${reportedProjectsCount}`}
-                  >Reported ({reportedProjectsCount})</Button>
+                    title="Projects with your hours in range"
+                  >Reported</Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full"
+                    className="h-7 px-4 text-xs data-[active=true]:shadow-sm rounded-full min-w-[70px] tabular-nums"
                     data-active={!onlyReported}
                     onClick={()=>setOnlyReported(false)}
                     title="All filtered projects"
-                  >All ({allProjectsCount})</Button>
+                  >All</Button>
                 </div>
+                
+                {/* Results counter */}
+                <div className="text-sm text-muted-foreground px-2">
+                  {tableRows.length} {tableRows.length === 1 ? 'project' : 'projects'}
+                </div>
+                
+                {/* Reset filters button - visible only when filters are changed */}
+                {hasNonDefaultFilters && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="surface"
+                    className="h-7 w-7 p-0 text-xs rounded-full border transition-all hover:shadow-sm active:scale-95 data-[active=true]:shadow-sm"
+                    data-active={false}
+                    onClick={resetFilters}
+                    title="Reset filters to default (My / All / All)"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             <div className="relative ml-auto hidden md:block">
               <Button
@@ -408,7 +577,8 @@ export function ProjectsTable() {
             <Table className="projects-table table-sticky text-[13px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky top-0 left-0 z-20 bg-background min-w-[140px]">{/* Code column first & sticky */}
+                  <TableHead className="sticky top-0 left-0 z-20 bg-background w-12 text-center text-xs text-muted-foreground">#</TableHead>
+                  <TableHead className="sticky top-0 left-0 z-20 bg-background min-w-[140px] pl-2">{/* Code column first & sticky */}
                     <SortButton field="code">Code</SortButton>
                   </TableHead>
                   {cols.billable && <TableHead className="mobile-hidden sticky top-0 bg-background">Billable</TableHead>}
@@ -422,7 +592,7 @@ export function ProjectsTable() {
               <TableBody>
                 {tableRows.length===0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-token">
+                    <TableCell colSpan={9} className="text-center py-10 text-sm text-muted-token">
                       {projectScope==='my' ? (assignedIds? 'No assigned projects' : 'No projects with your recent time entries – switch to All to browse all codes.') : 'No projects'}
                     </TableCell>
                   </TableRow>
@@ -431,7 +601,10 @@ export function ProjectsTable() {
                     const newForUser = isNew(project.id)
                     return (
                       <TableRow key={project.id} className={`hover:bg-muted/50 transition-colors ${newForUser?'ring-1 ring-[#6eedd9]':''}`}>
-                        <TableCell className="sticky left-0 z-10 bg-background">
+                        <TableCell className="sticky left-0 z-10 bg-background w-12 text-center">
+                          <span className="text-xs text-gray-300 dark:text-gray-600 font-mono opacity-90">{rowIndex + 1}</span>
+                        </TableCell>
+                        <TableCell className="sticky left-0 z-10 bg-background pl-2">
                           <div className="flex items-center gap-2 min-w-[140px] pr-2">
                             {(() => {
                               const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
