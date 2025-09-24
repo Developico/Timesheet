@@ -1,6 +1,25 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Prevent animations during window focus changes */
+.window-focus-change * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* Disable specific animation classes during focus changes */
+.window-focus-change .animate-in {
+  animation: none !important;
+}
+
+.window-focus-change .slide-in-from-right {
+  animation: none !important;
+}
+
+.window-focus-change .fade-in {
+  animation: none !important;
+}
+
 /* Replaced unsupported @custom-variant with manual dark class scoping (handled by .dark root) */
 
 :root {

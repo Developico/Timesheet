@@ -9,6 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Disable Fast Refresh to reduce console noise
+  reactStrictMode: false,
   // Minimal config - back to basics
 }
 

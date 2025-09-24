@@ -789,7 +789,8 @@ export function CalendarView() {
       )}
   <Card className="dark:bg-[var(--card)]">
         <CardContent className="py-4">
-          <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
+          {/* Mobile: 2x2 grid, Desktop: 1x4 grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
               <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{formatHours(periodSummary.totalHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
