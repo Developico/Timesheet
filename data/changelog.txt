@@ -1,4 +1,4 @@
-# DVLP Time Tracker - Changelog
+# Developico Time Tracker - Changelog
 
 ## v1.2.4 - 2024-09-24
 ### 🥚 Added
