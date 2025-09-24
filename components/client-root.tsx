@@ -5,8 +5,12 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ReactNode, Suspense, useEffect } from 'react';
 import { prime } from '@/lib/client-cache';
 import { ViewingScopeProvider } from '@/lib/viewing-scope';
+import { usePreventFocusAnimations } from '@/hooks/use-prevent-focus-animations';
 
 export function ClientRoot({ children }: { children: ReactNode }) {
+  // Suppress animations during window focus changes
+  usePreventFocusAnimations();
+  
   // Simple prefetch (fire-and-forget). We don't block rendering.
   useEffect(() => {
     let cancelled = false;
@@ -40,7 +44,14 @@ export function ClientRoot({ children }: { children: ReactNode }) {
       <SessionProvider>
         <AuthProvider>
           <ViewingScopeProvider>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <ThemeProvider 
+              attribute="class" 
+              defaultTheme="light" 
+              enableSystem={false}
+              disableTransitionOnChange={true}
+              themes={['light', 'dark']}
+              storageKey="tt-theme"
+            >
               {children}
             </ThemeProvider>
           </ViewingScopeProvider>

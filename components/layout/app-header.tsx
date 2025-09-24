@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/lib/auth-client"
 import Link from "next/link"
 import { useFilters } from "@/lib/filter-context"
+import { ChangelogModal } from "./changelog-modal"
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme()
@@ -41,13 +42,47 @@ export function AppHeader() {
   // Ensure popover is closed if there are no new projects
   useEffect(()=>{ if(newProjects.length===0 && openNew) setOpenNew(false) }, [newProjects.length, openNew])
 
+  // Easter egg state
+  const [clickCount, setClickCount] = useState(0)
+  const [showChangelog, setShowChangelog] = useState(false)
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  // Easter egg: Triple click handler
+  const handleTitleClick = () => {
+    // Clear existing timeout
+    if (clickTimeout) {
+      clearTimeout(clickTimeout)
+    }
+
+    const newCount = clickCount + 1
+
+    if (newCount === 3) {
+      // Success! Show changelog
+      setShowChangelog(true)
+      setClickCount(0)
+      setClickTimeout(null)
+    } else {
+      // Update count and set timeout to reset
+      setClickCount(newCount)
+      const timeout = setTimeout(() => {
+        setClickCount(0)
+        setClickTimeout(null)
+      }, 1000) // Reset after 1 second
+      setClickTimeout(timeout)
+    }
+  }
+
   return (
     <header
       className="sticky top-2 z-50 w-full bg-transparent transition-[padding,background] mb-4"
     >
       <div className="h-16 w-full flex items-center justify-between rounded-xl border border-border/60 bg-background/80 backdrop-blur-md backdrop-saturate-150 shadow-sm px-4 md:px-6 supports-[backdrop-filter]:bg-background/60">
-        {/* Logo & Title */}
-        <div className="flex items-center gap-3 select-none">
+        {/* Logo & Title - Easter Egg: Triple click to show changelog */}
+        <div 
+          className="flex items-center gap-3 select-none cursor-pointer hover:opacity-80 transition-opacity" 
+          onClick={handleTitleClick}
+          title={clickCount > 0 ? `Click ${3 - clickCount} more time${3 - clickCount !== 1 ? 's' : ''}...` : undefined}
+        >
           <div className="flex h-8 w-8 items-center justify-center">
             {logoOk ? (
               <Image src="/developico-logo.png" alt="Developico" width={32} height={32} className="rounded-lg" priority onError={() => setLogoOk(false)} />
@@ -218,6 +253,12 @@ export function AppHeader() {
           )}
         </div>
       </div>
+
+      {/* Easter Egg Modal */}
+      <ChangelogModal 
+        isOpen={showChangelog} 
+        onClose={() => setShowChangelog(false)} 
+      />
     </header>
   )
 }

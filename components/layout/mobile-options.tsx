@@ -133,6 +133,7 @@ function ProjectsOptions() {
   const [projectScope, setProjectScope] = useState<"my"|"all">("my")
   const [billableFilter, setBillableFilter] = useState<'all'|'yes'|'no'>('all')
   const [onlyReported, setOnlyReported] = useState<boolean>(false)
+  const [projectCount, setProjectCount] = useState<number>(0)
   // Keep in sync with the events ProjectsTable listens to
   useEffect(()=>{
     const setScope = (e: Event) => {
@@ -148,10 +149,11 @@ function ProjectsOptions() {
     window.addEventListener('tt:projects:set-billable', setBillable)
     window.addEventListener('tt:projects:toggle-only-reported', toggleReported)
     const hydrate = (e: Event) => {
-      const ce = e as CustomEvent<{ scope?: 'my'|'all'; billable?: 'all'|'yes'|'no'; onlyReported?: boolean }>
+      const ce = e as CustomEvent<{ scope?: 'my'|'all'; billable?: 'all'|'yes'|'no'; onlyReported?: boolean; projectCount?: number }>
       if (ce.detail?.scope) setProjectScope(ce.detail.scope)
       if (ce.detail?.billable) setBillableFilter(ce.detail.billable)
       if (typeof ce.detail?.onlyReported === 'boolean') setOnlyReported(ce.detail.onlyReported)
+      if (typeof ce.detail?.projectCount === 'number') setProjectCount(ce.detail.projectCount)
     }
     window.addEventListener('tt:projects:state', hydrate)
     // Ask for current state on mount so our buttons reflect existing filters
@@ -171,6 +173,11 @@ function ProjectsOptions() {
       <div className="pt-1 border-t" />
       {/* Project filters moved here for mobile – show active state with teal */}
       <div className="space-y-2 text-sm">
+        {/* Project count for mobile */}
+        <div className="text-xs text-muted-foreground text-center py-1">
+          {projectCount} {projectCount === 1 ? 'project' : 'projects'}
+        </div>
+        
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -234,6 +241,29 @@ function ProjectsOptions() {
             }}
           >Only Reported</button>
         </div>
+        
+        {/* Reset filters button for mobile */}
+        {(projectScope !== 'my' || billableFilter !== 'all' || onlyReported !== false) && (
+          <div className="pt-2 border-t">
+            <button
+              type="button"
+              className="w-full h-9 rounded-md border px-3 text-center text-sm text-muted-foreground hover:bg-muted/50"
+              onClick={() => {
+                setProjectScope('my')
+                setBillableFilter('all') 
+                setOnlyReported(false)
+                window.dispatchEvent(new CustomEvent('tt:projects:set-scope', { detail: { scope: 'my' }}))
+                window.dispatchEvent(new CustomEvent('tt:projects:set-billable', { detail: { billable: 'all' }}))
+                // Only toggle if currently true
+                if (onlyReported) {
+                  window.dispatchEvent(new CustomEvent('tt:projects:toggle-only-reported'))
+                }
+              }}
+            >
+              Reset Project Filters
+            </button>
+          </div>
+        )}
       </div>
       <div className="pt-2 border-t" />
       <ProjectsColumnsControls />

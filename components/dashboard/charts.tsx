@@ -1,5 +1,6 @@
 "use client"
 
+import { useUltraStablePanelState } from '@/hooks/use-ultra-stable-panel-state'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
@@ -14,6 +15,7 @@ import { ProjectDetailPanel } from "@/components/projects/project-detail-panel"
 import { useAggregatedDynamicCss } from "@/lib/dynamic-styles"
 import { computeBarGeometry } from "@/lib/chart-geometry"
 import { formatHours, round2 } from "@/lib/time-entries-summary"
+import { useStablePanelState } from "@/hooks/use-stable-panel-state"
 
 function useAnimatedCounter(end: number, duration = 1000) {
   const [count, setCount] = useState(0)
@@ -93,8 +95,8 @@ export function ActiveProjectsCard() {
   const [isVisible, setIsVisible] = useState(false)
   useEffect(()=>{ const t=setTimeout(()=>setIsVisible(true),100); return ()=>clearTimeout(t); },[])
 
-  // Local panel state
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  // Local panel state - using stable state to prevent closure on window focus
+  const [selectedProjectId, setSelectedProjectId] = useUltraStablePanelState<string | null>(null)
   const selectedProjectRaw = useMemo(() => filteredProjects.find(p => p.id === selectedProjectId), [filteredProjects, selectedProjectId])
   const selectedProject = useMemo(()=>{
     if(!selectedProjectRaw) return undefined

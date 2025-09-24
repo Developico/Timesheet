@@ -13,6 +13,7 @@ import { InactiveMembers, InactiveResolvedItem } from './inactive-members'
 import { useAuth } from "@/lib/auth-client"
 import { useViewingScope } from "@/lib/viewing-scope"
 import { Copy as CopyIcon, ChevronDown, ChevronRight, Maximize2, Minimize2 } from "lucide-react"
+import { useUltraBackdropClose } from "@/hooks/use-ultra-backdrop-close"
 
 interface EntryLike { id?: string; date?: string; consultantId?: string; hours: number; billable: boolean; isAbsence?: boolean; note?: string; task?: string; description?: string }
 
@@ -37,6 +38,9 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
   const [expanded, setExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
   const openerRef = useRef<HTMLElement | null>(null)
+  
+  // Enhanced backdrop close handler
+  const { handleBackdropClick, handleFocusChange, protectedOnClose, blockAllCloseEvents } = useUltraBackdropClose(onClose)
 
   // Pull global filtered entries and scope to this project, fallback to provided entries if any
   const { filteredTimeEntries } = useFilters()
@@ -130,8 +134,19 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
     setMounted(true)
     // store opener for focus return
     openerRef.current = document.activeElement as HTMLElement | null
+    
+    // Add ultra-protective focus change listeners
+    const events = ['focus', 'blur', 'visibilitychange', 'pageshow', 'pagehide', 'beforeunload', 'resize', 'scroll']
+    events.forEach(event => {
+      if (event === 'visibilitychange') {
+        document.addEventListener(event, blockAllCloseEvents)
+      } else {
+        window.addEventListener(event, blockAllCloseEvents)
+      }
+    })
+    
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') protectedOnClose()
       else if (e.key === 'Tab' && panelRef.current) {
         const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -147,18 +162,26 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
     closeBtnRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', handleKey)
+      // Remove all event listeners
+      events.forEach(event => {
+        if (event === 'visibilitychange') {
+          document.removeEventListener(event, blockAllCloseEvents)
+        } else {
+          window.removeEventListener(event, blockAllCloseEvents)
+        }
+      })
       // Restore focus
       if(openerRef.current && document.contains(openerRef.current)) {
         openerRef.current.focus()
       }
     }
-  }, [onClose, markViewed, project.id])
+  }, [protectedOnClose, markViewed, project.id, blockAllCloseEvents])
 
   // Dynamic CSS for project color & share width
   useAggregatedDynamicCss(`project-panel-${project.id}`, `#project-panel-${project.id} [data-project-color]{background:${project.color};} #project-panel-${project.id} [data-share]{width:${mySharePct.toFixed(2)}%;}`)
   const content = (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] animate-in fade-in" onClick={handleBackdropClick} aria-hidden="true" />
   <div
     id={`project-panel-${project.id}`}
     ref={panelRef}

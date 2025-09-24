@@ -365,9 +365,10 @@ export function ProjectsTable() {
         scope: projectScope,
         billable: billableFilter,
         onlyReported,
+        projectCount: tableRows.length, // Add project count
       }
     }))
-  }, [projectScope, billableFilter, onlyReported])
+  }, [projectScope, billableFilter, onlyReported, tableRows.length])
 
   // Listen to mobile options events to adjust local filters without prop drilling
   useEffect(()=>{
@@ -419,7 +420,8 @@ export function ProjectsTable() {
       {/* Summary metrics card (analogous to calendar view) */}
   <Card className="dark:bg-[var(--card)]">
   <CardContent className="py-4">
-          <div className="grid grid-cols-4 gap-4 sm:gap-8 items-center">
+          {/* Mobile: 2x2 grid, Desktop: 1x4 grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-8 items-center">
             <div className="flex flex-col items-center justify-center text-center gap-1">
               <div className="text-2xl font-bold text-purple-600 leading-none tabular-nums">{formatHours(totalUserHours)}</div>
               <div className="text-xs text-muted-token whitespace-nowrap"><span className="sm:hidden">Total</span><span className="hidden sm:inline">Total Hours</span></div>
@@ -443,8 +445,8 @@ export function ProjectsTable() {
   <Card className="dark:bg-[var(--card)]">
         <CardHeader>
             <div className="flex items-center justify-between">
-              {/* Three toggle groups in horizontal layout with fixed widths */}
-              <div className="flex items-center gap-4 flex-wrap min-w-0">
+              {/* Three toggle groups in horizontal layout with fixed widths - HIDDEN ON MOBILE */}
+              <div className="hidden lg:flex items-center gap-4 flex-wrap min-w-0">
                 {/* Group 1: Project Scope - My/All */}
                 <div className="flex items-center rounded-full border p-1 bg-background">
                   <Button
@@ -517,18 +519,18 @@ export function ProjectsTable() {
                   >All</Button>
                 </div>
                 
-                {/* Results counter */}
+                {/* Results counter - ALWAYS VISIBLE */}
                 <div className="text-sm text-muted-foreground px-2">
                   {tableRows.length} {tableRows.length === 1 ? 'project' : 'projects'}
                 </div>
                 
-                {/* Reset filters button - visible only when filters are changed */}
+                {/* Reset filters button - visible only when filters are changed, HIDDEN ON MOBILE */}
                 {hasNonDefaultFilters && (
                   <Button
                     type="button"
                     size="sm"
                     variant="surface"
-                    className="h-7 w-7 p-0 text-xs rounded-full border transition-all hover:shadow-sm active:scale-95 data-[active=true]:shadow-sm"
+                    className="hidden lg:flex h-7 px-4 text-xs rounded-full border transition-all hover:shadow-sm active:scale-95"
                     data-active={false}
                     onClick={resetFilters}
                     title="Reset filters to default (My / All / All)"
