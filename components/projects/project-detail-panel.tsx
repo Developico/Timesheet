@@ -193,12 +193,20 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
           <div className="sticky top-0 z-10 p-5 border-b flex items-start justify-between gap-4 bg-[color:var(--surface-overlay)_/_95] dark:bg-[color:var(--surface-overlay)_/_90] backdrop-blur supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_80] dark:supports-[backdrop-filter]:bg-[color:var(--surface-overlay)_/_75]">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
-              {/* eslint-disable-next-line */}
-              <span
-                className="w-4 h-4 rounded-full shrink-0"
-                data-project-color
-                aria-hidden="true"
-              />
+              {(() => {
+                // Check if it's an absence project
+                const isAbsence = project.code === 'Office.Absences' || project.name?.toLowerCase().includes('absence')
+                const dotType = isAbsence ? 'absence' : (project.billable ? 'billable' : 'nonbillable')
+                const label = isAbsence ? 'Absence' : (project.billable ? 'Billable' : 'Non-billable')
+                return (
+                  <span
+                    className={`w-4 h-4 rounded-full shrink-0 dot-${dotType}`}
+                    title={label}
+                    aria-label={label}
+                    aria-hidden="true"
+                  />
+                )
+              })()}
               <span id="project-detail-title" className="font-mono text-sm font-semibold truncate">{project.code}</span>
               <button
                 type="button"
@@ -286,12 +294,28 @@ export function ProjectDetailPanel({ project, entries, scopeLabel = "Current sco
                                 <div key={t.consultantId} className="flex items-center text-xs">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-semibold text-gray-700">
-                                      {c && (c as any).avatarUrl ? (
+                                      {c && (c as any).aadObjectId ? (
+                                        // Use Graph API with aadObjectId
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={(c as any).avatarUrl} alt={c.name} className="w-6 h-6 object-cover" />
-                                      ) : (
-                                        (c?.name ? c.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase() : '•')
-                                      )}
+                                        <img 
+                                          src={`/api/graph/users/${encodeURIComponent((c as any).aadObjectId)}/photo`} 
+                                          alt={c.name} 
+                                          className="w-6 h-6 object-cover rounded-full" 
+                                          onError={(e)=>{ 
+                                            // Fallback to initials by hiding image and showing span
+                                            const target = e.target as HTMLImageElement
+                                            target.classList.add('hidden')
+                                            const parent = target.parentElement
+                                            const initialsSpan = parent?.querySelector('.initials-fallback')
+                                            if (initialsSpan) {
+                                              initialsSpan.classList.remove('hidden')
+                                            }
+                                          }} 
+                                        />
+                                      ) : null}
+                                      <span className={`initials-fallback text-[10px] font-semibold text-gray-700 ${(c && (c as any).aadObjectId) ? 'hidden' : ''}`}>
+                                        {c?.name ? c.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase() : '•'}
+                                      </span>
                                     </div>
                                     <div className="truncate">
                                       <div className="font-medium truncate">{c?.name || 'Unknown'}</div>
