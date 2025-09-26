@@ -1,5 +1,12 @@
 # DVLP Time Tracker - Changelog
 
+## v1.2.5 - 2025-09-26
+### 🔧 Fixed
+- User profile photos now display correctly in project team panels
+- Improved avatar loading from Microsoft Graph API
+
+---
+
 ## v1.2.4 - 2024-09-24
 ### 🥚 Added
 - Triple-click easter egg on app title to reveal changelog
