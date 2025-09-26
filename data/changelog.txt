@@ -1,5 +1,20 @@
 # Developico Time Tracker - Changelog
 
+## v1.2.5 - 2025-09-26
+### 🔧 Fixed
+- User avatars now correctly display in project team panels
+- Fixed Graph API integration using Azure AD Object ID instead of system user ID
+- Resolved "[object Object] is not valid JSON" errors in avatar loading
+- Improved avatar fallback system with proper initials display
+- Enhanced error handling for Microsoft Graph photo API calls
+
+### ⚡ Changed
+- Optimized Graph API calls for user photos using aadObjectId
+- Better fallback mechanism when user photos are not available
+- Improved avatar loading performance and error recovery
+
+---
+
 ## v1.2.4 - 2024-09-24
 ### 🥚 Added
 - Triple-click easter egg on app title to reveal changelog
