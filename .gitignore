@@ -38,3 +38,6 @@ app-debug.log
 nextauth-debug.log
 tsconfig.json
 .github/instructions
+
+# VS Code local settings (use .vscode/settings.sample.json)
+.vscode/settings.json
