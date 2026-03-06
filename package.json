@@ -2,9 +2,10 @@
   "name": "developico-timesheet",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": "20.x || 22.x",
-    "pnpm": ">=8.0.0 <12"
+    "pnpm": ">=10.0.0 <12"
   },
   "scripts": {
     "build": "next build",
