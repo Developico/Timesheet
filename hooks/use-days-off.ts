@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { getOrLoad, peekState } from '@/lib/client-cache'
+import { CACHE_DAYS_OFF_TTL_MS, CACHE_DAYS_OFF_STALE_WINDOW_MS } from '@/lib/constants'
 
 export interface DayOff { date: string; name?: string }
 
@@ -28,8 +29,8 @@ export function useDaysOff({ from, to, enabled = true }: Options) {
         return Array.isArray(json.value)? json.value: []
       },
       {
-        ttlMs: 12 * 60 * 60_000,           // 12h fresh
-        staleWindowMs: 7 * 24 * 60 * 60_000, // 7d stale window
+        ttlMs: CACHE_DAYS_OFF_TTL_MS,
+        staleWindowMs: CACHE_DAYS_OFF_STALE_WINDOW_MS,
         onBackgroundRefresh: fresh => { if(!cancelled){ setData(fresh); setRefreshing(false) } }
       }
     )

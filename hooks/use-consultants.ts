@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { getOrLoad, peekState } from '@/lib/client-cache'
+import { CACHE_TTL_MS, CACHE_STALE_WINDOW_MS } from '@/lib/constants'
 
 export interface BasicConsultant { id: string; name: string; email?: string; avatarUrl?: string; isActive?: boolean }
 
@@ -25,8 +26,8 @@ export function useConsultants() {
         return Array.isArray(json.value)? json.value: []
       },
       {
-        ttlMs: 15 * 60_000,
-        staleWindowMs: 2 * 60 * 60_000,
+        ttlMs: CACHE_TTL_MS,
+        staleWindowMs: CACHE_STALE_WINDOW_MS,
         onBackgroundRefresh: fresh => { if(!cancelled){ setConsultants(fresh); setRefreshing(false) } }
       }
     )

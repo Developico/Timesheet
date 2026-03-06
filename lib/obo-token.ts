@@ -1,5 +1,5 @@
 import { ConfidentialClientApplication, type Configuration, type OnBehalfOfRequest } from '@azure/msal-node';
-import { createLogger } from './server-log';
+import { createLogger } from './logger';
 
 let cca: ConfidentialClientApplication | null = null;
 const tokenCache = new Map<string, { token: string; exp: number }>();

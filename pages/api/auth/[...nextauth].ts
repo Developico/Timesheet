@@ -1,41 +1,16 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import type { JWT } from 'next-auth/jwt';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import { vsSet } from '@/lib/volatile-store';
+import { createLogger, sanitizeError } from '@/lib/logger';
 
 // Group-claim strategy (groups in id_token) -> only need openid+profile+email+offline_access scope (optionally custom app scope)
-const LOG_MODE = (process.env.LOG_MODE || (process.env.NODE_ENV === 'production' ? 'console':'file')).toLowerCase();
-const logFilePath = path.join(process.cwd(), 'nextauth-debug.log');
-
-interface LogPayload { level?: 'debug'|'info'|'warn'|'error'; msg: string; data?: unknown; }
-function writeStructured({ level='debug', msg, data }: LogPayload){
-  try {
-    const out = JSON.stringify({ ts: new Date().toISOString(), lvl: level, msg, ...(data? { data }: {}) });
-    if (LOG_MODE === 'file' && process.env.NODE_ENV !== 'production') fs.appendFileSync(logFilePath, out + '\n');
-    else if (LOG_MODE !== 'silent' && process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'debug'](out);
-    }
-  } catch { /* ignore logging errors */ }
-}
-const logDebug = (msg: string, data?: unknown)=> writeStructured({ level: 'debug', msg, data });
-const logInfo  = (msg: string, data?: unknown)=> writeStructured({ level: 'info', msg, data });
-const logWarn  = (msg: string, data?: unknown)=> writeStructured({ level: 'warn', msg, data });
-const logError = (msg: string, err?: unknown)=> writeStructured({ level: 'error', msg, data: sanitizeError(err) });
-
-function sanitizeError(e: unknown){
-  if(!e || typeof e !== 'object') return undefined
-  const err = e as { name?: string; message?: string; stack?: unknown; code?: unknown }
-  return {
-    name: err.name,
-    message: err.message,
-    stack: typeof err.stack === 'string' ? err.stack.split('\n').slice(0,6).join('\n') : undefined,
-    code: err.code
-  }
-}
+const log = createLogger({ route: 'nextauth' });
+const logDebug = (msg: string, data?: unknown)=> log.debug(msg, data ? { detail: data } : undefined);
+const logInfo  = (msg: string, data?: unknown)=> log.info(msg, data ? { detail: data } : undefined);
+const logWarn  = (msg: string, data?: unknown)=> log.warn(msg, data ? { detail: data } : undefined);
+const logError = (msg: string, err?: unknown)=> log.error(msg, err ? { detail: sanitizeError(err) } : undefined);
 
 function normalizeAppScope(raw: string | undefined){ const val=(raw||'').trim(); if(!val) return null; const needs=/^api:\/\/[0-9a-f-]+\/?$/i.test(val); const base=val.replace(/\/$/,''); return needs? `${base}/access_as_user`: val; }
 
@@ -46,10 +21,10 @@ logInfo('Auth env summary', {
   hasTenant: !!process.env.AZURE_AD_TENANT_ID,
   hasSecret: !!rawSecret,
   appScopeSet: !!process.env.AZURE_AD_APP_SCOPE,
-  adminGroupSet: !!process.env.NEXT_PUBLIC_ADMIN_GROUP,
-  consultantGroupSet: !!process.env.NEXT_PUBLIC_CONSULTANT_GROUP
+  adminGroupSet: !!(process.env.ADMIN_GROUP_ID || process.env.NEXT_PUBLIC_ADMIN_GROUP),
+  consultantGroupSet: !!(process.env.CONSULTANT_GROUP_ID || process.env.NEXT_PUBLIC_CONSULTANT_GROUP)
 });
-logDebug('Node/Env meta', { node: process.version, env: process.env.NODE_ENV, logMode: LOG_MODE });
+logDebug('Node/Env meta', { node: process.version, env: process.env.NODE_ENV, logMode: process.env.LOG_MODE });
 
 const tenantIdForUrl = process.env.AZURE_AD_TENANT_ID || 'common';
 
@@ -120,8 +95,8 @@ export const authOptions: NextAuthOptions = {
         }
   } catch (e) { logWarn('Group parse failed', sanitizeError(e)); }
       const groupIds = {
-        admin: process.env.NEXT_PUBLIC_ADMIN_GROUP || '',
-        consultant: process.env.NEXT_PUBLIC_CONSULTANT_GROUP || '',
+        admin: process.env.ADMIN_GROUP_ID || process.env.NEXT_PUBLIC_ADMIN_GROUP || '',
+        consultant: process.env.CONSULTANT_GROUP_ID || process.env.NEXT_PUBLIC_CONSULTANT_GROUP || '',
       };
       const nextRoles: string[] = [];
       if (groupIds.admin && resolvedGroups.includes(groupIds.admin)) nextRoles.push('Administrator');

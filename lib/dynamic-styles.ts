@@ -18,7 +18,7 @@ export function useDynamicStyles(styleId: string, css: string) {
 
 // Central aggregated style tag to reduce DOM nodes.
 const AGG_ID = 'app-dynamic-styles'
-let aggregated: Record<string,string> = {}
+const aggregated: Record<string,string> = {}
 
 export function useAggregatedDynamicCss(key: string, css: string){
   useEffect(()=>{
