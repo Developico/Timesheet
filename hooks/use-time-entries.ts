@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { getOrLoad, peekState } from '@/lib/client-cache'
+import { CACHE_TTL_MS, CACHE_STALE_WINDOW_MS } from '@/lib/constants'
 
 export interface BasicTimeEntry { id: string; date: string; projectId: string; consultantId: string; hours: number; billable: boolean; note?: string }
 
@@ -40,8 +41,8 @@ export function useTimeEntries(opts: Options) {
         return Array.isArray(json.value)? json.value: []
       },
       {
-        ttlMs: 15 * 60_000,            // 15 min fresh (same as projects)
-        staleWindowMs: 2 * 60 * 60_000, // 2 hour stale (same as projects)
+        ttlMs: CACHE_TTL_MS,
+        staleWindowMs: CACHE_STALE_WINDOW_MS,
         onBackgroundRefresh: fresh => { if(!cancelled){ setEntries(fresh); setRefreshing(false) } }
       }
     )

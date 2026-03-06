@@ -1,11 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { type NextRequest } from "next/server"
 import { getDataSource } from "@/data/source"
 import { z } from "zod"
-import { getToken } from 'next-auth/jwt'
 import { mapAadOidToConsultantId } from '@/lib/dataverse-user-map'
 import { appLog } from '@/lib/app-logger'
-
-const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || ''
+import { requireAuth, isAuthError } from '@/lib/api-auth-guard'
+import { apiSuccess, apiError } from '@/lib/api-response'
 
 export const revalidate = 0
 
@@ -18,6 +17,8 @@ const QuerySchema = z.object({
 })
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth(req)
+  if (isAuthError(auth)) return auth
   const cid = `time-${Math.random().toString(36).slice(2,10)}`
   const started = Date.now()
   try {
@@ -25,22 +26,16 @@ export async function GET(req: NextRequest) {
     const parsed = QuerySchema.safeParse(Object.fromEntries(url.searchParams))
     if (!parsed.success) {
       appLog('error','timeentries invalid query',{ cid, issues: parsed.error.issues })
-      return NextResponse.json({ error: "Invalid query", cid, details: parsed.error.flatten() }, { status: 400 })
+      return apiError(400, 'Invalid query', { code: 'VALIDATION_FAILED', cid, details: parsed.error.flatten() })
     }
 
   // Prefer const for immutable fields; consultantId may be inferred later
   const { from, to, billable, projectIds } = parsed.data
   let { consultantId } = parsed.data
-    if (!consultantId && NEXTAUTH_SECRET) {
+    if (!consultantId && auth.oid) {
       try {
-  const token = await getToken({ req, secret: NEXTAUTH_SECRET })
-  const rec = token as Record<string, unknown> | null
-  const rawOid = rec?.['oid'] || rec?.['OID'] || null
-  const oid = typeof rawOid === 'string' ? rawOid : null
-        if (oid) {
-          const mapped = await mapAadOidToConsultantId(oid)
-          if (mapped) consultantId = mapped
-        }
+        const mapped = await mapAadOidToConsultantId(auth.oid)
+        if (mapped) consultantId = mapped
       } catch {/* ignore */}
     }
     const ds = getDataSource()
@@ -61,11 +56,11 @@ export async function GET(req: NextRequest) {
       throw e
     }
     appLog('info','timeentries ok',{ cid, ms: Date.now()-started, count: entries.length })
-    return NextResponse.json({ value: entries, cid })
+    return apiSuccess(entries, { cid })
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : 'Dataverse time entries error'
     const stack = e instanceof Error && e.stack ? e.stack.split('\n').slice(0,4).join(' | ') : undefined
     appLog('error','timeentries unhandled',{ cid, message: errMsg, stack })
-    return NextResponse.json({ error: errMsg, cid }, { status: 500 })
+    return apiError(500, errMsg, { cid })
   }
 }

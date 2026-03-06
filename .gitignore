@@ -39,5 +39,11 @@ nextauth-debug.log
 tsconfig.json
 .github/instructions
 
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # VS Code local settings (use .vscode/settings.sample.json)
 .vscode/settings.json

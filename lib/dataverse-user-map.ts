@@ -1,5 +1,6 @@
 import { DV } from './dataverse-config';
 import { dataverseClient } from './dataverse-client';
+import { odataGuid } from './odata-sanitizer';
 
 // Simple in-memory cache (process scoped) to reduce Dataverse lookups
 const cache = new Map<string, { id: string; ts: number }>();
@@ -19,8 +20,9 @@ export async function mapAadOidToConsultantId(aadOid: string): Promise<string | 
   if (hit && now - hit.ts < TTL_MS) return hit.id;
   const c = DV.consultant;
   const select = c.id;
-  // For GUID equality do not wrap in quotes
-  const filter = encodeURIComponent(`${c.azureAdObjectId} eq ${aadOid}`);
+  // Sanitize GUID to prevent OData injection
+  const safeOid = odataGuid(aadOid);
+  const filter = encodeURIComponent(`${c.azureAdObjectId} eq ${safeOid}`);
   try {
     const data = await dataverseClient.list(c.entitySet, `$select=${select}&$filter=${filter}`) as { value?: Array<Record<string, unknown>> }
     const records = Array.isArray(data.value) ? data.value : []

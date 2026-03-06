@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import Markdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { getBuildInfo } from "@/lib/version";
 
@@ -16,8 +17,12 @@ export function ChangelogModal({ isOpen, onClose }: ChangelogModalProps) {
 
   useEffect(() => {
     if (isOpen) {
-      // Load changelog from text file
-      fetch("/changelog.txt")
+      // Load changelog from markdown file (fallback to txt)
+      fetch("/changelog.md")
+        .then(response => {
+          if (!response.ok) return fetch("/changelog.txt");
+          return response;
+        })
         .then(response => response.text())
         .then(text => {
           setChangelog(text);
@@ -25,7 +30,7 @@ export function ChangelogModal({ isOpen, onClose }: ChangelogModalProps) {
         })
         .catch(error => {
           console.error("Failed to load changelog:", error);
-          setChangelog("Failed to load changelog. Please try again later.");
+          setChangelog("# Error\n\nFailed to load changelog. Please try again later.");
           setLoading(false);
         });
     }
@@ -80,10 +85,26 @@ export function ChangelogModal({ isOpen, onClose }: ChangelogModalProps) {
                   <p className="text-gray-600 dark:text-gray-400">Loading changelog...</p>
                 </div>
               ) : (
-                <div className="p-6">
-                  <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-50 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto text-gray-800 dark:text-gray-200">
+                <div className="p-6 prose prose-sm dark:prose-invert max-w-none">
+                  <Markdown
+                    components={{
+                      h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-xl font-semibold mt-6 mb-3 text-gray-800 dark:text-gray-100 border-b pb-2 border-gray-200 dark:border-gray-700">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-lg font-medium mt-4 mb-2 text-gray-800 dark:text-gray-200">{children}</h3>,
+                      ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-4">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-4">{children}</ol>,
+                      li: ({ children }) => <li className="text-gray-700 dark:text-gray-300">{children}</li>,
+                      p: ({ children }) => <p className="mb-3 text-gray-700 dark:text-gray-300">{children}</p>,
+                      code: ({ children }) => <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono text-primary">{children}</code>,
+                      pre: ({ children }) => <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto mb-4">{children}</pre>,
+                      a: ({ href, children }) => <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                      strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                      blockquote: ({ children }) => <blockquote className="border-l-4 border-primary pl-4 italic text-gray-600 dark:text-gray-400 my-4">{children}</blockquote>,
+                      hr: () => <hr className="my-6 border-gray-200 dark:border-gray-700" />,
+                    }}
+                  >
                     {changelog}
-                  </pre>
+                  </Markdown>
                 </div>
               )}
             </div>

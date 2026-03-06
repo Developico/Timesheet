@@ -2,9 +2,9 @@
  * Application version information
  */
 
-export const APP_VERSION = "1.2.4";
-export const BUILD_DATE = "2024-09-24";
-export const APP_NAME = "DVLP Time Tracker";
+export const APP_VERSION = "1.3.0";
+export const BUILD_DATE = "2026-03-06";
+export const APP_NAME = "Developico Timesheet";
 
 /**
  * Get formatted version string
