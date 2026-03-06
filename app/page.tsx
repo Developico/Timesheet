@@ -5,7 +5,7 @@ import { HeaderWrapper } from "@/components/layout/header-wrapper"
 import { useAuth } from "@/lib/auth-client"
 import { SignInScreen } from "@/components/auth/signin-screen"
 import { FilterBar } from "@/components/layout/filter-bar"
-import { NavigationTabs } from "@/components/layout/navigation-tabs"
+import { NavigationTabs, type TabId } from "@/components/layout/navigation-tabs"
 import { KPICards } from "@/components/dashboard/kpi-cards"
 import dynamic from 'next/dynamic'
 const Charts = dynamic(()=> import('@/components/dashboard/charts').then(m=> m.Charts), {
@@ -33,6 +33,7 @@ const Charts = dynamic(()=> import('@/components/dashboard/charts').then(m=> m.C
 })
 import { CalendarView } from "@/components/calendar/calendar-view"
 import { ProjectsTable } from "@/components/projects/projects-table"
+import { ReportBuilder } from "@/components/reports/report-builder"
 import { ViewingBanner } from "@/components/admin/viewing-banner"
 import { ConsultantDock } from "@/components/admin/consultant-dock"
 import { useProjects } from "@/hooks/use-projects"
@@ -62,15 +63,16 @@ export default function HomePage() {
     if (pathname.startsWith('/projects')) return 'projects' as const
     if (pathname.startsWith('/calendar')) return 'calendar' as const
     if (pathname.startsWith('/dashboard')) return 'dashboard' as const
+    if (pathname.startsWith('/reports')) return 'reports' as const
     // Root '/' should always open Dashboard (do not override with cookie)
     if (pathname === '/') return 'dashboard' as const
     // Fallback to cookie only for unknown paths
-    const saved = readCookie('tt_tab') as 'dashboard'|'calendar'|'projects'|null
-    if (saved === 'projects' || saved === 'calendar' || saved === 'dashboard') return saved
+    const saved = readCookie('tt_tab') as TabId | null
+    if (saved === 'projects' || saved === 'calendar' || saved === 'dashboard' || saved === 'reports') return saved
     return 'dashboard' as const
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
-  const [activeTab, setActiveTab] = useState<"dashboard" | "calendar" | "projects">(initialTab)
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   // Persist tab to cookie and optionally update URL
   useEffect(() => {
     writeCookie('tt_tab', activeTab)
@@ -86,6 +88,10 @@ export default function HomePage() {
     }
     if (activeTab === 'calendar') {
       if (!pathname.startsWith('/calendar')) router.replace('/calendar')
+      return
+    }
+    if (activeTab === 'reports') {
+      if (!pathname.startsWith('/reports')) router.replace('/reports')
       return
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,7 +133,7 @@ export default function HomePage() {
 
   // Listen for global events from header (new project shortcuts)
   useEffect(()=>{
-    type TabDetail = { tab?: 'dashboard' | 'calendar' | 'projects' }
+    type TabDetail = { tab?: TabId }
     const handleSetTab = (e: Event) => {
       const de = e as CustomEvent<TabDetail>
       if(de.detail?.tab) setActiveTab(de.detail.tab)
@@ -273,6 +279,7 @@ export default function HomePage() {
           )}
           {!fullLoading && activeTab === "calendar" && <CalendarView />}
           {!fullLoading && activeTab === "projects" && <ProjectsTable />}
+          {!fullLoading && activeTab === "reports" && user?.role === "Administrator" && <ReportBuilder projects={projects} consultants={consultants} />}
         </main>
         <ConsultantDock />
       </>

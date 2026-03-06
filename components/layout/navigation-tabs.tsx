@@ -3,19 +3,24 @@
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useFilters } from "@/lib/filter-context"
+import { useAuth } from "@/lib/auth-client"
+
+export type TabId = "dashboard" | "calendar" | "projects" | "reports"
 
 interface NavigationTabsProps {
-  activeTab: "dashboard" | "calendar" | "projects"
-  onTabChange: (tab: "dashboard" | "calendar" | "projects") => void
+  activeTab: TabId
+  onTabChange: (tab: TabId) => void
 }
 
 export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
   const { filters, updateFilter } = useFilters()
+  const { user } = useAuth()
 
-  const tabs = [
-    { id: "dashboard" as const, label: "Dashboard" },
-    { id: "calendar" as const, label: "Calendar" },
-    { id: "projects" as const, label: "Projects" },
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "calendar", label: "Calendar" },
+    { id: "projects", label: "Projects" },
+    ...(user?.role === "Administrator" ? [{ id: "reports" as TabId, label: "Reports" }] : []),
   ]
 
   const dateRangeOptions = [
