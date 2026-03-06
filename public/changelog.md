@@ -1,5 +1,24 @@
 # Developico Time Tracker — Changelog
 
+## v1.4.0 — 2026-03-06
+
+### 🆕 Added — Reports Module (admin-only)
+- New **Reports** tab in navigation (visible only to Administrators)
+- Report Builder with custom filters: date range, group by (consultant/project/client), billable filter, project & consultant selectors
+- 4 quick report presets: Weekly by Consultant, Monthly by Project, Team Utilization, Billing Summary
+- Animated horizontal bar chart showing hours distribution with billable/non-billable gradient
+- Summary cards with color accents (total hours, billable hours, billable %, projects, consultants)
+- CSV export with UTF-8 BOM (Excel-compatible Polish characters)
+- PDF export via printable HTML (no heavy dependencies)
+- Server-side auth guard: API returns 403 for non-admin users
+- Zod validation on all report query parameters
+
+### 🧪 Testing
+- 19 new tests: report engine aggregation (10) + CSV/filename export (9)
+- All 73 tests passing
+
+---
+
 ## v1.3.0 — 2026-03-06
 
 ### 🔒 Security

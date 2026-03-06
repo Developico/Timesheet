@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useTheme } from "next-themes"
 
-type Tab = "dashboard" | "calendar" | "projects"
+type Tab = "dashboard" | "calendar" | "projects" | "reports"
 
 export function MobileOptions({ activeTab }: { activeTab: Tab }) {
   const [open, setOpen] = useState(false)
