@@ -13,7 +13,7 @@
     "dev-turbo": "next dev -p 3000 --turbo",
     "dev-webpack": "next dev -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
