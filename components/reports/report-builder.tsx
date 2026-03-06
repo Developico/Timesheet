@@ -127,6 +127,7 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
                 type="date"
                 value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)}
+                aria-label="Date From"
                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -137,6 +138,7 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
                 type="date"
                 value={dateTo}
                 onChange={e => setDateTo(e.target.value)}
+                aria-label="Date To"
                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
