@@ -69,6 +69,77 @@ describe('generateCSV', () => {
     }))
     expect(csv).toContain('Client,')
   })
+
+  it('includes task detail sub-rows when taskDetails are present', () => {
+    const csv = generateCSV(makeResult({
+      rows: [
+        {
+          groupKey: 'c1',
+          groupLabel: 'Alice',
+          totalHours: 12,
+          billableHours: 8,
+          nonBillableHours: 4,
+          billablePercentage: 66.67,
+          entryCount: 2,
+          taskDetails: [
+            { task: 'Development', date: '2024-03-01', consultantName: 'Alice', hours: 8, billable: true },
+            { task: 'Meetings', date: '2024-03-02', consultantName: 'Alice', hours: 4, billable: false },
+          ],
+        },
+      ],
+      summary: {
+        totalHours: 12,
+        billableHours: 8,
+        nonBillableHours: 4,
+        billablePercentage: 66.67,
+        uniqueProjects: 1,
+        uniqueConsultants: 1,
+      },
+    }))
+    expect(csv).toContain('Alice,12,8,4,66.67%,2')
+    expect(csv).toContain('Development')
+    expect(csv).toContain('Meetings')
+    expect(csv).toContain('2024-03-01')
+  })
+
+  it('includes grouped task sub-rows when groupTasks option is set', () => {
+    const csv = generateCSV(makeResult({
+      rows: [
+        {
+          groupKey: 'c1',
+          groupLabel: 'Alice',
+          totalHours: 14,
+          billableHours: 10,
+          nonBillableHours: 4,
+          billablePercentage: 71.43,
+          entryCount: 3,
+          taskDetails: [
+            { task: 'Development', date: '2024-03-01', consultantName: 'Alice', hours: 6, billable: true },
+            { task: 'Development', date: '2024-03-02', consultantName: 'Alice', hours: 4, billable: true },
+            { task: 'Meetings', date: '2024-03-01', consultantName: 'Alice', hours: 4, billable: false },
+          ],
+        },
+      ],
+      summary: {
+        totalHours: 14,
+        billableHours: 10,
+        nonBillableHours: 4,
+        billablePercentage: 71.43,
+        uniqueProjects: 1,
+        uniqueConsultants: 1,
+      },
+    }), { groupTasks: true })
+    // Grouped: Development 10h, Meetings 4h
+    expect(csv).toContain('Development')
+    expect(csv).toContain('Meetings')
+    // Grouped rows should not contain individual dates (metadata header has period dates, that's fine)
+    const dataLines = csv.split('\n').filter(l => !l.startsWith('#') && !l.startsWith('\ufeff#'))
+    const taskLines = dataLines.filter(l => l.trimStart().startsWith('Development') || l.trimStart().startsWith('Meetings'))
+    for (const line of taskLines) {
+      expect(line).not.toContain('2024-03-01')
+      expect(line).not.toContain('2024-03-02')
+    }
+  })
 })
 
 describe('reportFilename', () => {

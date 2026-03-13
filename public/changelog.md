@@ -1,5 +1,21 @@
 # Developico Time Tracker — Changelog
 
+## v1.5.0 — 2026-03-13
+
+### 🆕 Added — Reports: Task Details & Grouped View
+- **Include Tasks** toggle — expands report rows to show individual time entries (task, date, consultant, hours, billable)
+- **Group by Task** toggle — aggregates task entries by name with totals (hours, billable/non-billable, entry count)
+- Expand All / Collapse All buttons for task sub-rows
+- Searchable combobox for Project and Consultant dropdowns (sorted alphabetically, powered by cmdk + Radix Popover)
+- CSV export supports both individual and grouped task modes
+- PDF export supports both individual and grouped task modes
+
+### 🧪 Testing
+- 8 new tests: `groupTaskDetails` utility (3), report engine `includeTasks` (3), CSV export with task details (1), CSV grouped export (1)
+- All 81 tests passing
+
+---
+
 ## v1.4.0 — 2026-03-06
 
 ### 🆕 Added — Reports Module (admin-only)

@@ -12,6 +12,7 @@ const ReportParamsSchema = z.object({
   projectIds: z.string().optional(),
   consultantIds: z.string().optional(),
   billable: z.enum(['all', 'billable', 'non-billable']).default('all'),
+  includeTasks: z.enum(['true', 'false']).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
     projectIds: p.projectIds ? p.projectIds.split(',').filter(Boolean) : undefined,
     consultantIds: p.consultantIds ? p.consultantIds.split(',').filter(Boolean) : undefined,
     billable: p.billable,
+    includeTasks: p.includeTasks === 'true',
   })
 
   return apiSuccess(result)

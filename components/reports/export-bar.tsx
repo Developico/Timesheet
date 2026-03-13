@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { generateCSV, downloadBlob, reportFilename } from "@/lib/report-export"
 import type { ReportResult } from "@/types/reports"
 
-export function ExportBar({ result }: { result: ReportResult }) {
+export function ExportBar({ result, groupTasks = false }: { result: ReportResult; groupTasks?: boolean }) {
   const [pdfLoading, setPdfLoading] = useState(false)
 
   function handleCSV() {
-    const csv = generateCSV(result)
+    const csv = generateCSV(result, { groupTasks })
     downloadBlob(csv, reportFilename(result, "csv"), "text/csv;charset=utf-8")
   }
 
@@ -19,7 +19,7 @@ export function ExportBar({ result }: { result: ReportResult }) {
       const res = await fetch("/api/reports/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(result),
+        body: JSON.stringify({ ...result, _options: { groupTasks } }),
       })
       if (!res.ok) throw new Error("PDF generation failed")
       const html = await res.text()

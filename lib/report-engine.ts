@@ -1,5 +1,5 @@
 import type { TimeEntry, Project, Consultant } from '@/types'
-import type { ReportParams, ReportResult, ReportRow, ReportSummary } from '@/types/reports'
+import type { ReportParams, ReportResult, ReportRow, ReportSummary, TaskDetail } from '@/types/reports'
 
 /**
  * Pure aggregation engine — takes raw data + params and returns a ReportResult.
@@ -78,6 +78,19 @@ export function aggregateReport(
     const totalHours = round(groupEntries.reduce((s, e) => s + e.hours, 0))
     const billableHours = round(groupEntries.filter(e => e.billable).reduce((s, e) => s + e.hours, 0))
     const nonBillableHours = round(totalHours - billableHours)
+
+    let taskDetails: TaskDetail[] | undefined
+    if (params.includeTasks) {
+      taskDetails = groupEntries.map(e => ({
+        task: e.task ?? '(no task)',
+        date: e.date,
+        consultantName: consultantMap.get(e.consultantId)?.name ?? e.consultantId,
+        hours: e.hours,
+        billable: e.billable,
+      }))
+      taskDetails.sort((a, b) => a.date.localeCompare(b.date) || a.task.localeCompare(b.task))
+    }
+
     rows.push({
       groupKey,
       groupLabel: label,
@@ -87,6 +100,7 @@ export function aggregateReport(
       billablePercentage: totalHours > 0 ? round((billableHours / totalHours) * 100) : 0,
       entryCount: groupEntries.length,
       ...meta,
+      ...(taskDetails ? { taskDetails } : {}),
     })
   }
 
