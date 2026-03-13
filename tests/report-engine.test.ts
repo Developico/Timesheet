@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { aggregateReport } from '@/lib/report-engine'
 import type { TimeEntry, Project, Consultant } from '@/types'
 import type { ReportParams } from '@/types/reports'
+import { groupTaskDetails } from '@/types/reports'
 
 function entry(overrides: Partial<TimeEntry> = {}): TimeEntry {
   return {
@@ -146,5 +147,90 @@ describe('aggregateReport', () => {
 
     expect(result.params).toEqual(baseParams)
     expect(result.generatedAt).toBeTruthy()
+  })
+
+  it('includes taskDetails when includeTasks is true', () => {
+    const entries = [
+      entry({ id: 'e1', consultantId: 'c1', hours: 8, task: 'Development', date: '2024-03-01' }),
+      entry({ id: 'e2', consultantId: 'c1', hours: 4, task: 'Code review', date: '2024-03-02' }),
+      entry({ id: 'e3', consultantId: 'c2', hours: 6, task: 'Testing', date: '2024-03-01' }),
+    ]
+    const result = aggregateReport(entries, projects, consultants, { ...baseParams, includeTasks: true })
+
+    expect(result.rows).toHaveLength(2)
+    // Alice row (12h total) comes first
+    const aliceRow = result.rows[0]
+    expect(aliceRow.taskDetails).toHaveLength(2)
+    // Sorted by date then task
+    expect(aliceRow.taskDetails![0].task).toBe('Development')
+    expect(aliceRow.taskDetails![0].date).toBe('2024-03-01')
+    expect(aliceRow.taskDetails![1].task).toBe('Code review')
+    expect(aliceRow.taskDetails![1].date).toBe('2024-03-02')
+
+    const bobRow = result.rows[1]
+    expect(bobRow.taskDetails).toHaveLength(1)
+    expect(bobRow.taskDetails![0].task).toBe('Testing')
+    expect(bobRow.taskDetails![0].consultantName).toBe('Bob')
+  })
+
+  it('omits taskDetails when includeTasks is false or undefined', () => {
+    const entries = [
+      entry({ id: 'e1', consultantId: 'c1', hours: 8, task: 'Development' }),
+    ]
+    const result = aggregateReport(entries, projects, consultants, baseParams)
+
+    expect(result.rows[0].taskDetails).toBeUndefined()
+  })
+
+  it('uses "(no task)" for entries without task field', () => {
+    const entries = [
+      entry({ id: 'e1', consultantId: 'c1', hours: 8 }),
+    ]
+    const result = aggregateReport(entries, projects, consultants, { ...baseParams, includeTasks: true })
+
+    expect(result.rows[0].taskDetails![0].task).toBe('(no task)')
+  })
+})
+
+describe('groupTaskDetails', () => {
+  it('aggregates entries by task name', () => {
+    const details = [
+      { task: 'Development', date: '2024-03-01', consultantName: 'Alice', hours: 4, billable: true },
+      { task: 'Development', date: '2024-03-02', consultantName: 'Alice', hours: 6, billable: true },
+      { task: 'Meetings', date: '2024-03-01', consultantName: 'Alice', hours: 2, billable: false },
+    ]
+    const grouped = groupTaskDetails(details)
+
+    expect(grouped).toHaveLength(2)
+    // Sorted by totalHours descending
+    expect(grouped[0].task).toBe('Development')
+    expect(grouped[0].totalHours).toBe(10)
+    expect(grouped[0].billableHours).toBe(10)
+    expect(grouped[0].nonBillableHours).toBe(0)
+    expect(grouped[0].entryCount).toBe(2)
+
+    expect(grouped[1].task).toBe('Meetings')
+    expect(grouped[1].totalHours).toBe(2)
+    expect(grouped[1].billableHours).toBe(0)
+    expect(grouped[1].nonBillableHours).toBe(2)
+    expect(grouped[1].entryCount).toBe(1)
+  })
+
+  it('returns empty array for empty input', () => {
+    expect(groupTaskDetails([])).toEqual([])
+  })
+
+  it('handles mixed billable/non-billable for same task', () => {
+    const details = [
+      { task: 'Review', date: '2024-03-01', consultantName: 'Alice', hours: 3, billable: true },
+      { task: 'Review', date: '2024-03-02', consultantName: 'Bob', hours: 2, billable: false },
+    ]
+    const grouped = groupTaskDetails(details)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0].totalHours).toBe(5)
+    expect(grouped[0].billableHours).toBe(3)
+    expect(grouped[0].nonBillableHours).toBe(2)
+    expect(grouped[0].entryCount).toBe(2)
   })
 })

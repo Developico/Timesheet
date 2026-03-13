@@ -1,10 +1,14 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, FolderKanban, BarChart3, Receipt, FileBarChart, Loader2 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Users, FolderKanban, BarChart3, Receipt, FileBarChart, Loader2, ChevronsUpDown, Check } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { REPORT_PRESETS } from "@/lib/report-presets"
 import { ReportPreview } from "./report-preview"
 import { ExportBar } from "./export-bar"
@@ -39,9 +43,34 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
   const [billable, setBillable] = useState<'all' | 'billable' | 'non-billable'>('all')
   const [selectedProjects, setSelectedProjects] = useState<string>('all')
   const [selectedConsultants, setSelectedConsultants] = useState<string>('all')
+  const [includeTasks, setIncludeTasks] = useState(false)
+  const [groupTasks, setGroupTasks] = useState(false)
   const [result, setResult] = useState<ReportResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [projectsOpen, setProjectsOpen] = useState(false)
+  const [consultantsOpen, setConsultantsOpen] = useState(false)
+
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => a.code.localeCompare(b.code)),
+    [projects],
+  )
+  const sortedConsultants = useMemo(
+    () => [...consultants].sort((a, b) => a.name.localeCompare(b.name)),
+    [consultants],
+  )
+
+  const selectedProjectLabel = useMemo(() => {
+    if (selectedProjects === 'all') return 'All projects'
+    const p = projects.find(p => p.id === selectedProjects)
+    return p ? `${p.code} — ${p.name}` : 'All projects'
+  }, [selectedProjects, projects])
+
+  const selectedConsultantLabel = useMemo(() => {
+    if (selectedConsultants === 'all') return 'All consultants'
+    const c = consultants.find(c => c.id === selectedConsultants)
+    return c?.name ?? 'All consultants'
+  }, [selectedConsultants, consultants])
 
   const generate = useCallback(async (overrideParams?: Partial<ReportParams>) => {
     setLoading(true)
@@ -59,6 +88,8 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
       }
       if (overrideParams?.projectIds) params.set('projectIds', overrideParams.projectIds.join(','))
       if (overrideParams?.consultantIds) params.set('consultantIds', overrideParams.consultantIds.join(','))
+      const shouldIncludeTasks = overrideParams?.includeTasks ?? includeTasks
+      if (shouldIncludeTasks) params.set('includeTasks', 'true')
 
       const res = await fetch(`/api/reports/data?${params.toString()}`)
       if (!res.ok) {
@@ -80,7 +111,7 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
     } finally {
       setLoading(false)
     }
-  }, [dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants])
+  }, [dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants, includeTasks])
 
   const handlePreset = (presetId: string) => {
     const preset = REPORT_PRESETS.find(p => p.id === presetId)
@@ -170,35 +201,93 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
                 </SelectContent>
               </Select>
             </div>
-            {/* Projects */}
+            {/* Projects — searchable combobox */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Project</label>
-              <Select value={selectedProjects} onValueChange={setSelectedProjects}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All projects</SelectItem>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={projectsOpen} onOpenChange={setProjectsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={projectsOpen}
+                    className="h-9 w-full justify-between font-normal"
+                  >
+                    <span className="truncate">{selectedProjectLabel}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search projects…" />
+                    <CommandList>
+                      <CommandEmpty>No project found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all-projects"
+                          onSelect={() => { setSelectedProjects('all'); setProjectsOpen(false) }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", selectedProjects === 'all' ? "opacity-100" : "opacity-0")} />
+                          All projects
+                        </CommandItem>
+                        {sortedProjects.map(p => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.code} ${p.name}`}
+                            onSelect={() => { setSelectedProjects(p.id); setProjectsOpen(false) }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedProjects === p.id ? "opacity-100" : "opacity-0")} />
+                            {p.code} — {p.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-            {/* Consultants */}
+            {/* Consultants — searchable combobox */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Consultant</label>
-              <Select value={selectedConsultants} onValueChange={setSelectedConsultants}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All consultants</SelectItem>
-                  {consultants.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={consultantsOpen} onOpenChange={setConsultantsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={consultantsOpen}
+                    className="h-9 w-full justify-between font-normal"
+                  >
+                    <span className="truncate">{selectedConsultantLabel}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search consultants…" />
+                    <CommandList>
+                      <CommandEmpty>No consultant found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all-consultants"
+                          onSelect={() => { setSelectedConsultants('all'); setConsultantsOpen(false) }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", selectedConsultants === 'all' ? "opacity-100" : "opacity-0")} />
+                          All consultants
+                        </CommandItem>
+                        {sortedConsultants.map(c => (
+                          <CommandItem
+                            key={c.id}
+                            value={c.name}
+                            onSelect={() => { setSelectedConsultants(c.id); setConsultantsOpen(false) }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedConsultants === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -211,6 +300,24 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Generate Report
             </Button>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox
+                checked={includeTasks}
+                onCheckedChange={v => { setIncludeTasks(v === true); if (!v) setGroupTasks(false) }}
+                aria-label="Include Tasks"
+              />
+              <span className="text-sm font-medium">Include Tasks</span>
+            </label>
+            {includeTasks && (
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox
+                  checked={groupTasks}
+                  onCheckedChange={v => setGroupTasks(v === true)}
+                  aria-label="Group by Task"
+                />
+                <span className="text-sm font-medium">Group by Task</span>
+              </label>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         </CardContent>
@@ -219,8 +326,8 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
       {/* Results */}
       {result && (
         <>
-          <ExportBar result={result} />
-          <ReportPreview result={result} />
+          <ExportBar result={result} groupTasks={groupTasks} />
+          <ReportPreview result={result} groupTasks={groupTasks} />
         </>
       )}
     </div>

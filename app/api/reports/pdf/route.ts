@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { requireAuth, isAuthError } from '@/lib/api-auth-guard'
 import { apiError } from '@/lib/api-response'
 import type { ReportResult } from '@/types/reports'
+import { groupTaskDetails } from '@/types/reports'
 
 /**
  * POST /api/reports/pdf
@@ -21,8 +22,14 @@ export async function POST(req: NextRequest) {
 
   // 3. Parse body
   let result: ReportResult
+  let groupTasks = false
   try {
-    result = await req.json()
+    const body = await req.json()
+    // _options is a client-side display preference, not part of ReportResult
+    if (body._options?.groupTasks) groupTasks = true
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _options, ...rest } = body
+    result = rest
   } catch {
     return apiError(400, 'Invalid JSON body', { code: 'INVALID_BODY' })
   }
@@ -34,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Generate PDF HTML
-  const html = buildReportHTML(result)
+  const html = buildReportHTML(result, groupTasks)
 
   // Return HTML that the client will print to PDF via window.print()
   // This avoids heavy server-side PDF dependencies while still providing
@@ -52,13 +59,14 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-function buildReportHTML(result: ReportResult): string {
+function buildReportHTML(result: ReportResult, groupTasksFlag: boolean): string {
   const { params, rows, summary } = result
   const groupLabel = capitalize(params.groupBy)
 
   const tableRows = rows
     .map(
-      r => `
+      r => {
+        let html = `
     <tr>
       <td>${escapeHtml(r.groupLabel)}</td>
       <td class="num">${r.totalHours}</td>
@@ -66,7 +74,39 @@ function buildReportHTML(result: ReportResult): string {
       <td class="num">${r.nonBillableHours}</td>
       <td class="num">${r.billablePercentage}%</td>
       <td class="num">${r.entryCount}</td>
-    </tr>`,
+    </tr>`
+
+        if (r.taskDetails && r.taskDetails.length > 0) {
+          if (groupTasksFlag) {
+            for (const gs of groupTaskDetails(r.taskDetails)) {
+              const pct = gs.totalHours > 0 ? Math.round((gs.billableHours / gs.totalHours) * 100) : 0
+              html += `
+    <tr class="task-row">
+      <td style="padding-left:24px;font-size:9pt;color:#666"><strong>${escapeHtml(gs.task)}</strong> <span style="color:#999">(${gs.entryCount} ${gs.entryCount === 1 ? 'entry' : 'entries'})</span></td>
+      <td class="num" style="font-size:9pt;font-weight:500">${gs.totalHours}</td>
+      <td class="num" style="font-size:9pt">${gs.billableHours}</td>
+      <td class="num" style="font-size:9pt">${gs.nonBillableHours}</td>
+      <td class="num" style="font-size:9pt">${pct}%</td>
+      <td class="num" style="font-size:9pt">${gs.entryCount}</td>
+    </tr>`
+            }
+          } else {
+            for (const td of r.taskDetails) {
+              html += `
+    <tr class="task-row">
+      <td style="padding-left:24px;font-size:9pt;color:#666">${escapeHtml(td.task)} <span style="color:#999">${escapeHtml(td.date)} · ${escapeHtml(td.consultantName)}</span></td>
+      <td class="num" style="font-size:9pt">${td.hours}</td>
+      <td class="num" style="font-size:9pt">${td.billable ? td.hours : '—'}</td>
+      <td class="num" style="font-size:9pt">${td.billable ? '—' : td.hours}</td>
+      <td></td>
+      <td></td>
+    </tr>`
+            }
+          }
+        }
+
+        return html
+      },
     )
     .join('')
 

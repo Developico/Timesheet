@@ -1,12 +1,17 @@
 import type { ReportResult } from '@/types/reports'
+import { groupTaskDetails } from '@/types/reports'
 
 const BOM = '\uFEFF'
+
+export interface ExportOptions {
+  groupTasks?: boolean
+}
 
 /**
  * Generate a CSV string from a ReportResult.
  * Includes UTF-8 BOM for correct display of Polish characters in Excel.
  */
-export function generateCSV(result: ReportResult): string {
+export function generateCSV(result: ReportResult, options: ExportOptions = {}): string {
   const { params, rows, summary } = result
   const lines: string[] = []
 
@@ -28,7 +33,7 @@ export function generateCSV(result: ReportResult): string {
   ]
   lines.push(headers.map(csvEscape).join(','))
 
-  // Data rows
+  // Data rows (with optional task details)
   for (const row of rows) {
     lines.push(
       [
@@ -42,6 +47,42 @@ export function generateCSV(result: ReportResult): string {
         .map(csvEscape)
         .join(','),
     )
+
+    if (row.taskDetails && row.taskDetails.length > 0) {
+      if (options.groupTasks) {
+        for (const gs of groupTaskDetails(row.taskDetails)) {
+          lines.push(
+            [
+              `  ${gs.task}`,
+              gs.totalHours.toString(),
+              gs.billableHours.toString(),
+              gs.nonBillableHours.toString(),
+              gs.totalHours > 0 ? `${Math.round((gs.billableHours / gs.totalHours) * 100)}%` : '',
+              gs.entryCount.toString(),
+            ]
+              .map(csvEscape)
+              .join(','),
+          )
+        }
+      } else {
+        for (const td of row.taskDetails) {
+          lines.push(
+            [
+              `  ${td.task}`,
+              td.hours.toString(),
+              td.billable ? td.hours.toString() : '0',
+              td.billable ? '0' : td.hours.toString(),
+              '',
+              '',
+              td.date,
+              td.consultantName,
+            ]
+              .map(csvEscape)
+              .join(','),
+          )
+        }
+      }
+    }
   }
 
   // Summary row
