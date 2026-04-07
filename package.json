@@ -19,6 +19,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:geom": "ts-node ./scripts/verify-chart-geometry.ts",
+    "seed:demo": "ts-node ./scripts/seed-demo-data.ts",
+    "seed:demo:dry": "ts-node ./scripts/seed-demo-data.ts --dry-run",
+    "seed:cleanup": "ts-node ./scripts/cleanup-demo-data.ts",
+    "seed:cleanup:dry": "ts-node ./scripts/cleanup-demo-data.ts --dry-run",
     "start": "next start"
   },
   "dependencies": {
