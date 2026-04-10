@@ -42,6 +42,7 @@ import { useTimeEntries } from "@/hooks/use-time-entries"
 import { useFilters, FilterProvider } from "@/lib/filter-context"
 import { usePathname, useRouter } from "next/navigation"
 import { MobileOptions } from "@/components/layout/mobile-options"
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
 
 export default function HomePage() {
   const pathname = usePathname() || '/'
@@ -257,7 +258,7 @@ export default function HomePage() {
   <ViewingBanner />
         <FilterBar />
         <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="py-8">
+        <main className="py-8 pb-24 md:pb-8">
           {/* Mobile bottom options drawer (listens to header event); desktop hidden by component */}
           <MobileOptions activeTab={activeTab} />
           {fullLoading && (
@@ -282,6 +283,7 @@ export default function HomePage() {
           {!fullLoading && activeTab === "reports" && user?.role === "Administrator" && <ReportBuilder projects={projects} consultants={consultants} />}
         </main>
         <ConsultantDock />
+        <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </>
     )
   }

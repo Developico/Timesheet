@@ -35,7 +35,7 @@ export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) 
   ]
 
   return (
-    <div className="border-b bg-background">
+    <div className="hidden md:block border-b bg-background">
       <div className="container px-6">
         <nav className="flex justify-between items-center" aria-label="Tabs">
           <div className="flex space-x-8">

@@ -1,5 +1,18 @@
 # Developico Time Tracker — Changelog
 
+## v1.6.0 — 2026-04-10
+
+### 🆕 Added — Mobile Bottom Navigation
+- New **bottom navigation bar** on mobile (below `md` breakpoint) with icon+label tabs: Dashboard, Calendar, Projects, Reports
+- Lucide monochrome icons for each tab; active tab highlighted with solid teal pill background
+- Reports tab visible only for Administrators (consistent with desktop)
+- Safe-area padding for notched phones (`env(safe-area-inset-bottom)`)
+- Top `NavigationTabs` hidden on mobile to avoid duplication
+- Consultant context-switch button repositioned above bottom nav on mobile
+- Extra bottom padding on `<main>` to prevent content from being obscured by the nav bar
+
+---
+
 ## v1.5.0 — 2026-03-13
 
 ### 🆕 Added — Reports: Task Details & Grouped View
