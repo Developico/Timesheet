@@ -28,63 +28,15 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function computeDatesFromRange(dateRange: string): { dateFrom: string; dateTo: string } {
-  const now = new Date()
-  const startOfWeek = (b: Date) => {
-    const d = new Date(b)
-    const day = d.getDay() === 0 ? 7 : d.getDay()
-    d.setDate(d.getDate() - day + 1)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  switch (dateRange) {
-    case 'this-week': {
-      const s = startOfWeek(now)
-      const e = new Date(s); e.setDate(s.getDate() + 6)
-      return { dateFrom: fmt(s), dateTo: fmt(e) }
-    }
-    case 'previous-week': {
-      const e = startOfWeek(now); e.setDate(e.getDate() - 1)
-      const s = new Date(e); s.setDate(e.getDate() - 6)
-      return { dateFrom: fmt(s), dateTo: fmt(e) }
-    }
-    case 'this-month':
-      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
-    case 'previous-month':
-    case 'last-month':
-      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth(), 0)) }
-    case 'this-quarter': {
-      const q = Math.floor(now.getMonth() / 3)
-      return { dateFrom: fmt(new Date(now.getFullYear(), q * 3, 1)), dateTo: fmt(new Date(now.getFullYear(), q * 3 + 3, 0)) }
-    }
-    case 'previous-quarter': {
-      const q = Math.floor(now.getMonth() / 3) - 1
-      const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear()
-      const eff = q < 0 ? 3 : q
-      return { dateFrom: fmt(new Date(year, eff * 3, 1)), dateTo: fmt(new Date(year, eff * 3 + 3, 0)) }
-    }
-    case 'this-year':
-      return { dateFrom: fmt(new Date(now.getFullYear(), 0, 1)), dateTo: fmt(new Date(now.getFullYear(), 11, 31)) }
-    case 'previous-year':
-      return { dateFrom: fmt(new Date(now.getFullYear() - 1, 0, 1)), dateTo: fmt(new Date(now.getFullYear() - 1, 11, 31)) }
-    default:
-      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
-  }
-}
-
 const STORAGE_KEY = 'tt_report_filters'
 
 interface StoredFilters {
-  dateFrom: string
-  dateTo: string
   groupBy: ReportParams['groupBy']
   billable: 'all' | 'billable' | 'non-billable'
   selectedProjects: string
   selectedConsultants: string
   includeTasks: boolean
   groupTasks: boolean
-  /** Track which global dateRange was last synced so we only auto-sync once per change */
-  lastSyncedDateRange?: string
 }
 
 function loadStoredFilters(): Partial<StoredFilters> {
@@ -104,24 +56,31 @@ function saveStoredFilters(filters: StoredFilters): void {
 type GraphConsultant = { aadObjectId: string; name: string; consultantId?: string }
 
 export function ReportBuilder({ projects, consultants: _dataverseConsultants }: ReportBuilderProps) {
-  const { filters: globalFilters } = useFilters()
+  const { filters: globalFilters, effectiveRange } = useFilters()
   const stored = useRef(loadStoredFilters()).current
 
-  // Compute initial dates: if global dateRange changed since last session, use global; otherwise restore session
-  const initialDates = useMemo(() => {
-    if (stored.lastSyncedDateRange !== globalFilters.dateRange && stored.dateFrom) {
-      // Global period changed since last visit — sync
-      return computeDatesFromRange(globalFilters.dateRange)
-    }
-    if (stored.dateFrom && stored.dateTo) {
-      return { dateFrom: stored.dateFrom, dateTo: stored.dateTo }
-    }
-    return computeDatesFromRange(globalFilters.dateRange)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Dates derived from the global period selector (effectiveRange is always up-to-date)
+  const globalDateFrom = fmt(effectiveRange.start)
+  const globalDateTo = fmt(effectiveRange.end)
 
-  const [dateFrom, setDateFrom] = useState(initialDates.dateFrom)
-  const [dateTo, setDateTo] = useState(initialDates.dateTo)
+  // Track whether user has manually overridden dates
+  const [customDateFrom, setCustomDateFrom] = useState<string | null>(null)
+  const [customDateTo, setCustomDateTo] = useState<string | null>(null)
+
+  // Reset custom overrides when global period changes
+  const prevGlobalRange = useRef(globalFilters.dateRange)
+  useEffect(() => {
+    if (globalFilters.dateRange !== prevGlobalRange.current) {
+      prevGlobalRange.current = globalFilters.dateRange
+      setCustomDateFrom(null)
+      setCustomDateTo(null)
+    }
+  }, [globalFilters.dateRange])
+
+  // Effective dates: custom override > global
+  const dateFrom = customDateFrom ?? globalDateFrom
+  const dateTo = customDateTo ?? globalDateTo
+
   const [groupBy, setGroupBy] = useState<ReportParams['groupBy']>(stored.groupBy ?? 'consultant')
   const [billable, setBillable] = useState<'all' | 'billable' | 'non-billable'>(stored.billable ?? 'all')
   const [selectedProjects, setSelectedProjects] = useState<string>(stored.selectedProjects ?? 'all')
@@ -166,21 +125,10 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
     return _dataverseConsultants
   }, [graphConsultants, _dataverseConsultants])
 
-  // Sync dates when global period selector changes
-  const prevGlobalRange = useRef(globalFilters.dateRange)
+  // Persist non-date filter state to sessionStorage
   useEffect(() => {
-    if (globalFilters.dateRange !== prevGlobalRange.current) {
-      prevGlobalRange.current = globalFilters.dateRange
-      const dates = computeDatesFromRange(globalFilters.dateRange)
-      setDateFrom(dates.dateFrom)
-      setDateTo(dates.dateTo)
-    }
-  }, [globalFilters.dateRange])
-
-  // Persist filter state to sessionStorage
-  useEffect(() => {
-    saveStoredFilters({ dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks, lastSyncedDateRange: globalFilters.dateRange })
-  }, [dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks, globalFilters.dateRange])
+    saveStoredFilters({ groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks })
+  }, [groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks])
 
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => a.code.localeCompare(b.code)),
@@ -232,8 +180,8 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
 
       // If we used a preset, sync the form fields
       if (overrideParams) {
-        if (overrideParams.dateFrom) setDateFrom(overrideParams.dateFrom)
-        if (overrideParams.dateTo) setDateTo(overrideParams.dateTo)
+        if (overrideParams.dateFrom) setCustomDateFrom(overrideParams.dateFrom)
+        if (overrideParams.dateTo) setCustomDateTo(overrideParams.dateTo)
         if (overrideParams.groupBy) setGroupBy(overrideParams.groupBy)
         if (overrideParams.billable) setBillable(overrideParams.billable)
       }
@@ -288,7 +236,7 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
               <input
                 type="date"
                 value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
+                onChange={e => setCustomDateFrom(e.target.value)}
                 aria-label="Date From"
                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
@@ -299,7 +247,7 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
               <input
                 type="date"
                 value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
+                onChange={e => setCustomDateTo(e.target.value)}
                 aria-label="Date To"
                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />

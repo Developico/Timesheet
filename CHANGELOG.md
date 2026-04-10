@@ -4,10 +4,11 @@
 
 ### Fixed
 
-- **Reports: dates synced with global period selector** — Report Date From / Date To
-  fields now initialize from the navigation bar period picker (e.g. "This Quarter") and
-  update automatically when the global period changes. Manual date edits still work
-  independently. (`components/reports/report-builder.tsx`)
+- **Reports: dates derived from global period selector** — Report Date From / Date To
+  fields now directly derive from the navigation bar period picker (e.g. "This Quarter",
+  "This Year"). Changing the global period immediately updates the report dates — no
+  stale values. Manual date edits are still possible and override the global dates until
+  the period is changed again. (`components/reports/report-builder.tsx`)
 
 - **Reports: consultant list shows only real people** — The consultant dropdown now
   fetches from the Graph API (`/api/graph/consultants`) — the same source as the
