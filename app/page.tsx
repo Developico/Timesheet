@@ -280,7 +280,7 @@ export default function HomePage() {
           )}
           {!fullLoading && activeTab === "calendar" && <CalendarView />}
           {!fullLoading && activeTab === "projects" && <ProjectsTable />}
-          {!fullLoading && activeTab === "reports" && user?.role === "Administrator" && <ReportBuilder projects={projects} consultants={consultants} />}
+          {!fullLoading && activeTab === "reports" && user?.role === "Administrator" && <ReportBuilder projects={projects} consultants={consultants.filter(c => c.isActive !== false)} />}
         </main>
         <ConsultantDock />
         <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
