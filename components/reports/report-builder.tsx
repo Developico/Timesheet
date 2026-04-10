@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Users, FolderKanban, BarChart3, Receipt, FileBarChart, Loader2, ChevronsUpDown, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { REPORT_PRESETS } from "@/lib/report-presets"
+import { useFilters } from "@/lib/filter-context"
 import { ReportPreview } from "./report-preview"
 import { ExportBar } from "./export-bar"
 import type { ReportParams, ReportResult } from "@/types/reports"
@@ -27,37 +28,167 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function defaultDateFrom(): string {
+function computeDatesFromRange(dateRange: string): { dateFrom: string; dateTo: string } {
   const now = new Date()
-  return fmt(new Date(now.getFullYear(), now.getMonth(), 1))
-}
-function defaultDateTo(): string {
-  const now = new Date()
-  return fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+  const startOfWeek = (b: Date) => {
+    const d = new Date(b)
+    const day = d.getDay() === 0 ? 7 : d.getDay()
+    d.setDate(d.getDate() - day + 1)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  switch (dateRange) {
+    case 'this-week': {
+      const s = startOfWeek(now)
+      const e = new Date(s); e.setDate(s.getDate() + 6)
+      return { dateFrom: fmt(s), dateTo: fmt(e) }
+    }
+    case 'previous-week': {
+      const e = startOfWeek(now); e.setDate(e.getDate() - 1)
+      const s = new Date(e); s.setDate(e.getDate() - 6)
+      return { dateFrom: fmt(s), dateTo: fmt(e) }
+    }
+    case 'this-month':
+      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+    case 'previous-month':
+    case 'last-month':
+      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth(), 0)) }
+    case 'this-quarter': {
+      const q = Math.floor(now.getMonth() / 3)
+      return { dateFrom: fmt(new Date(now.getFullYear(), q * 3, 1)), dateTo: fmt(new Date(now.getFullYear(), q * 3 + 3, 0)) }
+    }
+    case 'previous-quarter': {
+      const q = Math.floor(now.getMonth() / 3) - 1
+      const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear()
+      const eff = q < 0 ? 3 : q
+      return { dateFrom: fmt(new Date(year, eff * 3, 1)), dateTo: fmt(new Date(year, eff * 3 + 3, 0)) }
+    }
+    case 'this-year':
+      return { dateFrom: fmt(new Date(now.getFullYear(), 0, 1)), dateTo: fmt(new Date(now.getFullYear(), 11, 31)) }
+    case 'previous-year':
+      return { dateFrom: fmt(new Date(now.getFullYear() - 1, 0, 1)), dateTo: fmt(new Date(now.getFullYear() - 1, 11, 31)) }
+    default:
+      return { dateFrom: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+  }
 }
 
-export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
-  const [dateFrom, setDateFrom] = useState(defaultDateFrom)
-  const [dateTo, setDateTo] = useState(defaultDateTo)
-  const [groupBy, setGroupBy] = useState<ReportParams['groupBy']>('consultant')
-  const [billable, setBillable] = useState<'all' | 'billable' | 'non-billable'>('all')
-  const [selectedProjects, setSelectedProjects] = useState<string>('all')
-  const [selectedConsultants, setSelectedConsultants] = useState<string>('all')
-  const [includeTasks, setIncludeTasks] = useState(false)
-  const [groupTasks, setGroupTasks] = useState(false)
+const STORAGE_KEY = 'tt_report_filters'
+
+interface StoredFilters {
+  dateFrom: string
+  dateTo: string
+  groupBy: ReportParams['groupBy']
+  billable: 'all' | 'billable' | 'non-billable'
+  selectedProjects: string
+  selectedConsultants: string
+  includeTasks: boolean
+  groupTasks: boolean
+  /** Track which global dateRange was last synced so we only auto-sync once per change */
+  lastSyncedDateRange?: string
+}
+
+function loadStoredFilters(): Partial<StoredFilters> {
+  if (typeof sessionStorage === 'undefined') return {}
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw)
+  } catch { return {} }
+}
+
+function saveStoredFilters(filters: StoredFilters): void {
+  if (typeof sessionStorage === 'undefined') return
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters)) } catch { /* ignore quota errors */ }
+}
+
+type GraphConsultant = { aadObjectId: string; name: string; consultantId?: string }
+
+export function ReportBuilder({ projects, consultants: _dataverseConsultants }: ReportBuilderProps) {
+  const { filters: globalFilters } = useFilters()
+  const stored = useRef(loadStoredFilters()).current
+
+  // Compute initial dates: if global dateRange changed since last session, use global; otherwise restore session
+  const initialDates = useMemo(() => {
+    if (stored.lastSyncedDateRange !== globalFilters.dateRange && stored.dateFrom) {
+      // Global period changed since last visit — sync
+      return computeDatesFromRange(globalFilters.dateRange)
+    }
+    if (stored.dateFrom && stored.dateTo) {
+      return { dateFrom: stored.dateFrom, dateTo: stored.dateTo }
+    }
+    return computeDatesFromRange(globalFilters.dateRange)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const [dateFrom, setDateFrom] = useState(initialDates.dateFrom)
+  const [dateTo, setDateTo] = useState(initialDates.dateTo)
+  const [groupBy, setGroupBy] = useState<ReportParams['groupBy']>(stored.groupBy ?? 'consultant')
+  const [billable, setBillable] = useState<'all' | 'billable' | 'non-billable'>(stored.billable ?? 'all')
+  const [selectedProjects, setSelectedProjects] = useState<string>(stored.selectedProjects ?? 'all')
+  const [selectedConsultants, setSelectedConsultants] = useState<string>(stored.selectedConsultants ?? 'all')
+  const [includeTasks, setIncludeTasks] = useState(stored.includeTasks ?? false)
+  const [groupTasks, setGroupTasks] = useState(stored.groupTasks ?? false)
   const [result, setResult] = useState<ReportResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [consultantsOpen, setConsultantsOpen] = useState(false)
 
+  // Graph-based consultant list (same source as consultant dock / context switcher)
+  const [graphConsultants, setGraphConsultants] = useState<GraphConsultant[]>([])
+  const [graphLoading, setGraphLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch('/api/graph/consultants', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        const arr: GraphConsultant[] = Array.isArray(json.value) ? json.value : []
+        if (!cancelled) setGraphConsultants(arr.filter(c => !!c.consultantId))
+      } catch {
+        // Fallback: use dataverse consultants if graph fails
+        if (!cancelled) setGraphConsultants([])
+      } finally {
+        if (!cancelled) setGraphLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  // Use Graph consultants when available, fall back to dataverse prop
+  const effectiveConsultants = useMemo(() => {
+    if (graphConsultants.length > 0) {
+      return graphConsultants.map(c => ({ id: c.consultantId!, name: c.name }))
+    }
+    return _dataverseConsultants
+  }, [graphConsultants, _dataverseConsultants])
+
+  // Sync dates when global period selector changes
+  const prevGlobalRange = useRef(globalFilters.dateRange)
+  useEffect(() => {
+    if (globalFilters.dateRange !== prevGlobalRange.current) {
+      prevGlobalRange.current = globalFilters.dateRange
+      const dates = computeDatesFromRange(globalFilters.dateRange)
+      setDateFrom(dates.dateFrom)
+      setDateTo(dates.dateTo)
+    }
+  }, [globalFilters.dateRange])
+
+  // Persist filter state to sessionStorage
+  useEffect(() => {
+    saveStoredFilters({ dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks, lastSyncedDateRange: globalFilters.dateRange })
+  }, [dateFrom, dateTo, groupBy, billable, selectedProjects, selectedConsultants, includeTasks, groupTasks, globalFilters.dateRange])
+
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => a.code.localeCompare(b.code)),
     [projects],
   )
   const sortedConsultants = useMemo(
-    () => [...consultants].sort((a, b) => a.name.localeCompare(b.name)),
-    [consultants],
+    () => [...effectiveConsultants].sort((a, b) => a.name.localeCompare(b.name)),
+    [effectiveConsultants],
   )
 
   const selectedProjectLabel = useMemo(() => {
@@ -68,9 +199,9 @@ export function ReportBuilder({ projects, consultants }: ReportBuilderProps) {
 
   const selectedConsultantLabel = useMemo(() => {
     if (selectedConsultants === 'all') return 'All consultants'
-    const c = consultants.find(c => c.id === selectedConsultants)
+    const c = effectiveConsultants.find(c => c.id === selectedConsultants)
     return c?.name ?? 'All consultants'
-  }, [selectedConsultants, consultants])
+  }, [selectedConsultants, effectiveConsultants])
 
   const generate = useCallback(async (overrideParams?: Partial<ReportParams>) => {
     setLoading(true)
