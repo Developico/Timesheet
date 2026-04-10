@@ -90,7 +90,7 @@ export function ConsultantDock() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={consultantId ? `Filtering by ${activeName ?? 'selected user'}. Change` : "Open consultant filter"}
-        className={`fixed z-50 bottom-6 right-6 h-12 w-12 rounded-full flex items-center justify-center border backdrop-blur-md bg-background/70 shadow-md transition-all hover:shadow-lg hover:scale-105 focus:outline-none focus-visible:ring-2 ring-offset-2 ring-[#6eedd9] ${consultantId ? "ring-2 ring-[#6eedd9]" : ""}`}
+        className={`fixed z-50 bottom-[5.5rem] md:bottom-6 right-6 h-12 w-12 rounded-full flex items-center justify-center border backdrop-blur-md bg-background/70 shadow-md transition-all hover:shadow-lg hover:scale-105 focus:outline-none focus-visible:ring-2 ring-offset-2 ring-[#6eedd9] ${consultantId ? "ring-2 ring-[#6eedd9]" : ""}`}
       >
         <div className="relative">
           <User className="h-6 w-6 text-foreground" />
