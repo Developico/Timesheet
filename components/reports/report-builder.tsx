@@ -34,7 +34,7 @@ interface StoredFilters {
   groupBy: ReportParams['groupBy']
   billable: 'all' | 'billable' | 'non-billable'
   selectedProjects: string
-  selectedConsultants: string
+  selectedConsultants: string[]
   includeTasks: boolean
   groupTasks: boolean
 }
@@ -84,7 +84,9 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
   const [groupBy, setGroupBy] = useState<ReportParams['groupBy']>(stored.groupBy ?? 'consultant')
   const [billable, setBillable] = useState<'all' | 'billable' | 'non-billable'>(stored.billable ?? 'all')
   const [selectedProjects, setSelectedProjects] = useState<string>(stored.selectedProjects ?? 'all')
-  const [selectedConsultants, setSelectedConsultants] = useState<string>(stored.selectedConsultants ?? 'all')
+  const [selectedConsultants, setSelectedConsultants] = useState<string[]>(
+    Array.isArray(stored.selectedConsultants) ? stored.selectedConsultants : []
+  )
   const [includeTasks, setIncludeTasks] = useState(stored.includeTasks ?? false)
   const [groupTasks, setGroupTasks] = useState(stored.groupTasks ?? false)
   const [result, setResult] = useState<ReportResult | null>(null)
@@ -146,9 +148,12 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
   }, [selectedProjects, projects])
 
   const selectedConsultantLabel = useMemo(() => {
-    if (selectedConsultants === 'all') return 'All consultants'
-    const c = effectiveConsultants.find(c => c.id === selectedConsultants)
-    return c?.name ?? 'All consultants'
+    if (selectedConsultants.length === 0) return 'All consultants'
+    if (selectedConsultants.length === 1) {
+      const c = effectiveConsultants.find(c => c.id === selectedConsultants[0])
+      return c?.name ?? 'All consultants'
+    }
+    return `${selectedConsultants.length} consultants`
   }, [selectedConsultants, effectiveConsultants])
 
   const generate = useCallback(async (overrideParams?: Partial<ReportParams>) => {
@@ -163,7 +168,7 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
       params.set('billable', overrideParams?.billable ?? billable)
       if (!overrideParams) {
         if (selectedProjects !== 'all') params.set('projectIds', selectedProjects)
-        if (selectedConsultants !== 'all') params.set('consultantIds', selectedConsultants)
+        if (selectedConsultants.length > 0) params.set('consultantIds', selectedConsultants.join(','))
       }
       if (overrideParams?.projectIds) params.set('projectIds', overrideParams.projectIds.join(','))
       if (overrideParams?.consultantIds) params.set('consultantIds', overrideParams.consultantIds.join(','))
@@ -347,21 +352,30 @@ export function ReportBuilder({ projects, consultants: _dataverseConsultants }: 
                       <CommandGroup>
                         <CommandItem
                           value="all-consultants"
-                          onSelect={() => { setSelectedConsultants('all'); setConsultantsOpen(false) }}
+                          onSelect={() => setSelectedConsultants([])}
                         >
-                          <Check className={cn("mr-2 h-4 w-4", selectedConsultants === 'all' ? "opacity-100" : "opacity-0")} />
+                          <Check className={cn("mr-2 h-4 w-4", selectedConsultants.length === 0 ? "opacity-100" : "opacity-0")} />
                           All consultants
                         </CommandItem>
-                        {sortedConsultants.map(c => (
-                          <CommandItem
-                            key={c.id}
-                            value={c.name}
-                            onSelect={() => { setSelectedConsultants(c.id); setConsultantsOpen(false) }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedConsultants === c.id ? "opacity-100" : "opacity-0")} />
-                            {c.name}
-                          </CommandItem>
-                        ))}
+                        {sortedConsultants.map(c => {
+                          const isSelected = selectedConsultants.includes(c.id)
+                          return (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => {
+                                setSelectedConsultants(prev =>
+                                  isSelected
+                                    ? prev.filter(id => id !== c.id)
+                                    : [...prev, c.id]
+                                )
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                              {c.name}
+                            </CommandItem>
+                          )
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>
