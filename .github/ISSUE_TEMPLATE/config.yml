@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation (PL)
+    url: https://github.com/Developico/developico-timesheet/tree/main/docs/pl
+    about: Dokumentacja techniczna w języku polskim
+  - name: Documentation (EN)
+    url: https://github.com/Developico/developico-timesheet/tree/main/docs/en
+    about: Technical documentation in English
