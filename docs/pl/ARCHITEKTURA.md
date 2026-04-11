@@ -34,43 +34,35 @@ Developico Timesheet to aplikacja webowa zbudowana na Next.js 14 (App Router + P
 
 ## Diagram architektury
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Przeglądarka                   │
-│  ┌───────────┐  ┌──────────┐  ┌──────────────┐ │
-│  │ Dashboard  │  │ Calendar │  │   Reports    │ │
-│  └─────┬─────┘  └────┬─────┘  └──────┬───────┘ │
-│        └──────────────┼───────────────┘         │
-│              ┌────────┴────────┐                │
-│              │  Client Cache   │                │
-│              │  (TTL + SWR)    │                │
-│              └────────┬────────┘                │
-└───────────────────────┼─────────────────────────┘
-                        │ HTTPS
-┌───────────────────────┼─────────────────────────┐
-│               Next.js Server                     │
-│  ┌────────────────────┴──────────────────────┐  │
-│  │           Middleware                       │  │
-│  │   (CSP, HSTS, Rate Limiting)              │  │
-│  └────────────────────┬──────────────────────┘  │
-│  ┌──────────┐  ┌──────┴──────┐  ┌───────────┐  │
-│  │ NextAuth │  │  API Routes │  │   SSR /    │  │
-│  │ (Entra   │  │  /api/*     │  │   RSC      │  │
-│  │   ID)    │  └──────┬──────┘  └───────────┘  │
-│  └──────────┘         │                         │
-│              ┌────────┴────────┐                │
-│              │  IDataSource    │                │
-│              │  (Interface)    │                │
-│              ├─────────┬──────┤                │
-│              │  Mock   │  DV  │                │
-│              └─────────┴──┬───┘                │
-└───────────────────────────┼─────────────────────┘
-                            │ OAuth 2.0
-              ┌─────────────┼─────────────┐
-              │  Microsoft Dataverse      │
-              │  Microsoft Graph API      │
-              │  Entra ID                 │
-              └───────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Browser["Przeglądarka"]
+        Dashboard
+        Calendar["Calendar"]
+        Reports
+        Cache["Client Cache\n(TTL + SWR)"]
+        Dashboard & Calendar & Reports --> Cache
+    end
+
+    Cache -->|HTTPS| Middleware
+
+    subgraph Server["Next.js Server"]
+        Middleware["Middleware\n(CSP, HSTS, Rate Limiting)"]
+        Middleware --> NextAuth["NextAuth\n(Entra ID)"]
+        Middleware --> API["API Routes\n/api/*"]
+        Middleware --> SSR["SSR / RSC"]
+        API --> DataSource["IDataSource\n(Interface)"]
+        DataSource --> Mock["Mock"]
+        DataSource --> DV["Dataverse"]
+    end
+
+    DV -->|OAuth 2.0| External
+
+    subgraph External["Zewnętrzne usługi"]
+        Dataverse["Microsoft Dataverse"]
+        Graph["Microsoft Graph API"]
+        EntraID["Entra ID"]
+    end
 ```
 
 ## Warstwa prezentacji

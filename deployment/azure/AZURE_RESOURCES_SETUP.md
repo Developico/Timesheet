@@ -4,28 +4,18 @@
 
 Aplikacja Developico Timesheet wymaga następujących zasobów Azure:
 
-```
-┌─────────────────────────────────────────────┐
-│             Resource Group                   │
-│  rg-developico-timesheet                    │
-│                                              │
-│  ┌──────────────┐  ┌──────────────────────┐ │
-│  │ App Service   │  │ App Service Plan     │ │
-│  │ (Linux,       │  │ (B1 / S1 / P1v3)    │ │
-│  │  Node 20)     │  └──────────────────────┘ │
-│  └──────┬───────┘                            │
-│         │                                    │
-│  ┌──────┴───────┐  ┌──────────────────────┐ │
-│  │ Entra ID      │  │ Application Insights │ │
-│  │ App           │  │ (opcjonalnie)        │ │
-│  │ Registration  │  └──────────────────────┘ │
-│  └──────────────┘                            │
-└─────────────────────────────────────────────┘
-                    │
-       ┌────────────┼────────────┐
-       │            │            │
-  Entra ID    Dataverse    Graph API
- (tenant)     (CRM)       (users)
+```mermaid
+flowchart TB
+    subgraph RG["Resource Group\nrg-developico-timesheet"]
+        AppService["App Service\n(Linux, Node 20)"]
+        Plan["App Service Plan\n(B1 / S1 / P1v3)"]
+        EntraApp["Entra ID\nApp Registration"]
+        AppInsights["Application Insights\n(opcjonalnie)"]
+    end
+
+    AppService --> EntraIDTenant["Entra ID\n(tenant)"]
+    AppService --> Dataverse["Dataverse\n(CRM)"]
+    AppService --> GraphAPI["Graph API\n(users)"]
 ```
 
 ## 1. Resource Group
