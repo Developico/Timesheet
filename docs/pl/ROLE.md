@@ -98,27 +98,22 @@ CONSULTANT_GROUP_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ## Przepływ uwierzytelniania
 
-```
-Użytkownik → Login → Azure AD → Callback → NextAuth.js
-                                                │
-                                           JWT Token
-                                           (groups claim)
-                                                │
-                                      ┌─────────┴──────────┐
-                                      │   lib/auth-client   │
-                                      │   hasPermission()   │
-                                      └─────────┬──────────┘
-                                                │
-                                      ┌─────────┴──────────┐
-                                      │  Sprawdzenie roli   │
-                                      │  w id_token groups  │
-                                      └─────────┬──────────┘
-                                                │
-                              ┌─────────────────┼─────────────────┐
-                              │                 │                 │
-                     Admin Group ID    Consultant Group ID   Brak grupy
-                              │                 │                 │
-                        Administrator      Consultant       Unauthorized
+```mermaid
+flowchart TD
+    User["Użytkownik"] --> Login["Login"]
+    Login --> AzureAD["Azure AD"]
+    AzureAD --> Callback["Callback"]
+    Callback --> NextAuth["NextAuth.js"]
+    NextAuth --> JWT["JWT Token\n(groups claim)"]
+    JWT --> AuthClient["lib/auth-client\nhasPermission()"]
+    AuthClient --> CheckRole["Sprawdzenie roli\nw id_token groups"]
+    CheckRole --> Admin["Administrator"]
+    CheckRole --> Consultant["Consultant"]
+    CheckRole --> Unauthorized["Unauthorized"]
+
+    Admin -.- AdminGroup["Admin Group ID"]
+    Consultant -.- ConsultantGroup["Consultant Group ID"]
+    Unauthorized -.- NoGroup["Brak grupy"]
 ```
 
 ### Implementacja (`pages/api/auth/[...nextauth].ts`)

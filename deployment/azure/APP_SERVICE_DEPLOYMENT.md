@@ -6,25 +6,18 @@ Aplikacja jest wdrażana jako standalone Next.js app na Azure App Service (Linux
 
 ## Architektura wdrożenia
 
-```
-GitHub Repository
-    │
-    ├── push to main
-    │
-    ▼
-GitHub Actions (.github/workflows/deploy.yml)
-    │
-    ├── 1. Checkout code
-    ├── 2. Setup Node.js 20
-    ├── 3. Install (pnpm)
-    ├── 4. Build (standalone)
-    └── 5. Deploy → Azure App Service
-                        │
-                        ▼
-              Azure App Service (Linux)
-              ├── Node 20 LTS
-              ├── server.js (standalone)
-              └── static/ + .next/
+```mermaid
+flowchart TD
+    Repo["GitHub Repository"] -->|push to main| GHA["GitHub Actions\n(.github/workflows/deploy.yml)"]
+    GHA --> Step1["1. Checkout code"]
+    GHA --> Step2["2. Setup Node.js 20"]
+    GHA --> Step3["3. Install (pnpm)"]
+    GHA --> Step4["4. Build (standalone)"]
+    GHA --> Step5["5. Deploy"]
+    Step5 --> AppService["Azure App Service (Linux)"]
+    AppService --> Node["Node 20 LTS"]
+    AppService --> ServerJS["server.js (standalone)"]
+    AppService --> Static["static/ + .next/"]
 ```
 
 ## Konfiguracja App Service
