@@ -16,6 +16,12 @@ export interface DataverseRequestOptions<TBody = unknown> {
   retry?: number
 }
 
+export interface DataverseResponse<T = Record<string, unknown>> {
+  value?: T[]
+  '@odata.nextLink'?: string
+  '@odata.count'?: number
+}
+
 export class DataverseClient {
   private base = ensureDataverseBaseUrl()
 
@@ -61,22 +67,25 @@ export class DataverseClient {
   return res.text() as unknown as TResponse
   }
 
-  list<T = unknown>(entitySet: string, query?: string) {
-    return this.request<T>(`/${entitySet}`, { query })
+  list<T = Record<string, unknown>>(entitySet: string, query?: string) {
+    return this.request<DataverseResponse<T>>(`/${entitySet}`, { query })
   }
 
   // Fetch all pages by following @odata.nextLink. Returns a consolidated array in { value } shape.
-  async listAll<T = unknown>(entitySet: string, query?: string): Promise<{ value: any[] }> {
-    const first = (await this.request<{ value?: any[]; [k: string]: any }>(`/${entitySet}`, { query })) || { value: [] }
-    const out: any[] = Array.isArray(first.value) ? [...first.value] : []
-    let nextLink: string | null = (first as any)['@odata.nextLink'] || null
+  async listAll<T = Record<string, unknown>>(entitySet: string, query?: string): Promise<DataverseResponse<T>> {
+    const first = (await this.request<DataverseResponse<T>>(`/${entitySet}`, { query })) || { value: [] }
+    const out: T[] = Array.isArray(first.value) ? [...first.value] : []
+    let nextLink: string | null = (first as DataverseResponse<T>)['@odata.nextLink'] || null
     let page = 1
     while (nextLink) {
-      // nextLink is an absolute URL from Dataverse; fetch it directly reusing auth headers
-      const pageRes = await this.requestAbsolute<{ value?: any[]; [k: string]: any }>(nextLink)
+      // Validate nextLink origin to prevent URL-based injection
+      if (!nextLink.startsWith(this.base)) {
+        throw new Error(`Untrusted @odata.nextLink origin: ${nextLink.slice(0, 80)}`)
+      }
+      const pageRes = await this.requestAbsolute<DataverseResponse<T>>(nextLink)
       const vals = Array.isArray(pageRes?.value) ? pageRes!.value! : []
       out.push(...vals)
-      nextLink = (pageRes as any)['@odata.nextLink'] || null
+      nextLink = (pageRes as DataverseResponse<T>)['@odata.nextLink'] || null
       page += 1
     }
     return { value: out }

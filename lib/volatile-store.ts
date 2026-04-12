@@ -16,4 +16,6 @@ load();
 export function vsSet(key: string, value: string, exp: number, persistNow=false){ store.set(key,{value,exp}); if(!PERSIST_ENABLED) return; if(persistNow){ try{ ensureDir(PERSIST_PATH); const obj: Record<string, Entry>={}; for(const [k,v] of store.entries()) obj[k]=v; fs.writeFileSync(PERSIST_PATH, JSON.stringify(obj)); } catch{} } else saveDebounced(); }
 export function vsGet(key: string){ const e=store.get(key); if(!e) return; const now=Math.floor(Date.now()/1000); if(e.exp<=now){ store.delete(key); saveDebounced(); return; } return e.value; }
 export function vsGetWithReload(key:string){ const v=vsGet(key); if(v!==undefined) return v; try{ load(); }catch{} return vsGet(key); }
-if (typeof setInterval !== 'undefined'){ setInterval(()=>{ const now=Math.floor(Date.now()/1000); let removed=false; for(const [k,v] of store.entries()){ if(v.exp<=now){ store.delete(k); removed=true; } } if(removed) saveDebounced(); },60000).unref?.(); }
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+if (typeof setInterval !== 'undefined'){ cleanupTimer = setInterval(()=>{ const now=Math.floor(Date.now()/1000); let removed=false; for(const [k,v] of store.entries()){ if(v.exp<=now){ store.delete(k); removed=true; } } if(removed) saveDebounced(); },60000); cleanupTimer.unref?.(); }
+export function shutdown(){ if(cleanupTimer){ clearInterval(cleanupTimer); cleanupTimer=null; } if(timer){ clearTimeout(timer); timer=null; } }

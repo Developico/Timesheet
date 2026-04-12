@@ -1,6 +1,6 @@
 import type { Consultant } from '@/types'
 import { DV } from '@/lib/dataverse-config'
-import { dataverseClient } from '@/lib/dataverse-client'
+import { dataverseClient, type DataverseResponse } from '@/lib/dataverse-client'
 import { ensureEnabled } from './dataverse-common'
 
 export async function getConsultants(): Promise<Consultant[]> {
@@ -24,8 +24,8 @@ export async function getConsultants(): Promise<Consultant[]> {
       if (wantAvatar) fields.push(DV.consultant.avatar as string)
       const select = fields.filter(Boolean).join(',')
       try {
-        const data = await dataverseClient.list(entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`) as { value?: any[] }
-        const records: any[] = Array.isArray(data.value) ? data.value : []
+        const data = await dataverseClient.list(entitySet, `$select=${select}&$orderby=${DV.consultant.fullName} asc`)
+        const records: any[] = data?.value ?? []
         return records.map(r => {
           const disabledVal = wantDisabled ? r[DV.consultant.disabledFlag as string] : undefined
           const accessModeVal = wantAccessMode ? r[DV.consultant.accessMode as string] : undefined

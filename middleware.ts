@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
+const IS_DEV = process.env.NODE_ENV === 'development'
+
 // Security headers applied to all responses
+// In production, unsafe-eval is removed from script-src (only needed for Next.js dev HMR)
 const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
@@ -10,7 +13,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",                     // Next.js requires inline scripts
+    IS_DEV
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"                  // Dev: HMR requires unsafe-eval
+      : "script-src 'self' 'unsafe-inline'",                               // Prod: no unsafe-eval
     "style-src 'self' 'unsafe-inline'",                                     // Tailwind injects inline styles
     "img-src 'self' blob: data: https://graph.microsoft.com",
     "font-src 'self' https://fonts.gstatic.com",

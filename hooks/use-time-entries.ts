@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getOrLoad, peekState } from '@/lib/client-cache'
 import { CACHE_TTL_MS, CACHE_STALE_WINDOW_MS } from '@/lib/constants'
 
@@ -13,6 +13,7 @@ export function useTimeEntries(opts: Options) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string|null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const projectIdsKey = useMemo(() => projectIds?.join(',') || '-', [projectIds])
 
   useEffect(()=>{
     let cancelled = false
@@ -20,7 +21,7 @@ export function useTimeEntries(opts: Options) {
     const params = new URLSearchParams({ from, to })
     if (projectIds?.length) params.set('projectIds', projectIds.join(','))
     if (billable) params.set('billable', billable)
-    const key = `timeEntries:v1:${from}:${to}:${projectIds?.join(',')||'-'}:${billable||'-'}`
+    const key = `timeEntries:v1:${from}:${to}:${projectIdsKey}:${billable||'-'}`
 
     const stateBefore = peekState(key)
     
@@ -50,7 +51,7 @@ export function useTimeEntries(opts: Options) {
       .catch(e => { if(!cancelled){ setError(e.message||'Failed to load time entries'); setLoading(false); setRefreshing(false) } })
 
     return ()=>{ cancelled = true }
-  },[from,to,projectIds?.join(','),billable])
+  },[from,to,projectIdsKey,billable])
 
   return { entries, loading, error, refreshing }
 }
