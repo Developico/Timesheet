@@ -66,12 +66,13 @@ async function dvDelete(entitySet: string, id: string) {
 }
 
 async function main() {
-  const userId = '271810ab-c6e2-ee11-904c-000d3a66a755'
+  const userId = process.env.TARGET_USER_ID
+  if (!userId) { console.error('Set TARGET_USER_ID env variable'); process.exit(1) }
   const filter = encodeURIComponent(
     `_tt_userid_value eq ${userId} and tt_startdatetime ge 2026-01-01T00:00:00Z and tt_startdatetime le 2026-04-30T23:59:59Z`
   )
   console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`)
-  console.log('Querying all entries for Test User1 (2026-01–04)...')
+  console.log(`Querying all entries for user ${userId} (2026-01–04)...`)
   const records = await dvGetAll('tt_timeregisters', `$select=tt_timeregisterid,tt_startdatetime,tt_note&$filter=${filter}`)
   console.log(`Found ${records.length} records.`)
 

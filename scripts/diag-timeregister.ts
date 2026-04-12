@@ -81,8 +81,9 @@ async function main() {
   console.log(`Project nav property: ${projectNav?.ReferencingEntityNavigationPropertyName}`)
   console.log(`User nav property: ${userNav?.ReferencingEntityNavigationPropertyName}`)
 
-  const userId = '271810ab-c6e2-ee11-904c-000d3a66a755'
-  const projectId = '5e2c84ba-021c-ee11-8f6d-0022489d0546' // D.D
+  const userId = process.env.TARGET_USER_ID
+  const projectId = process.env.TARGET_PROJECT_ID
+  if (!userId || !projectId) { console.error('Set TARGET_USER_ID and TARGET_PROJECT_ID env variables'); process.exit(1) }
 
   // Test with navigation property binding
   const body: Record<string, unknown> = {
