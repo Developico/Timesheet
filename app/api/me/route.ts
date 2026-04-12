@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { z } from 'zod'
+
+const TokenClaimsSchema = z.object({
+  id: z.string().default(''),
+  name: z.string().default(''),
+  email: z.string().default(''),
+  role: z.string().optional(),
+  roles: z.array(z.string()).optional().default([]),
+  aad_obo_key: z.string().optional(),
+}).passthrough()
 
 // Returns basic current user info derived from NextAuth JWT.
 // 200: { id,name,email,role,roles,hasPhoto }
@@ -12,17 +22,21 @@ export async function GET(req: NextRequest) {
   const token = await getToken({ req, secret })
   if(!token) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const t = token as Record<string, any>
-  const rawRoles = Array.isArray(t.roles) ? t.roles.filter((r:unknown)=> typeof r === 'string') : []
-  const role = typeof t.role === 'string' ? t.role : (rawRoles[0] || 'Unauthorized')
+  const parsed = TokenClaimsSchema.safeParse(token)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'invalid_token', message: 'Token claims validation failed' }, { status: 500 })
+  }
+  const t = parsed.data
+  const rawRoles = t.roles.filter(Boolean)
+  const role = t.role || rawRoles[0] || 'Unauthorized'
 
   const payload = {
-    id: typeof t.id === 'string' ? t.id : '',
-    name: typeof t.name === 'string' ? t.name : '',
-    email: typeof t.email === 'string' ? t.email : '',
+    id: t.id,
+    name: t.name,
+    email: t.email,
     role,
     roles: rawRoles.length ? rawRoles : [role],
-    hasPhoto: Boolean(t.aad_obo_key), // heuristic: if OBO key exists we can probably fetch /api/me/photo
+    hasPhoto: Boolean(t.aad_obo_key),
   }
 
   return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-store' } })

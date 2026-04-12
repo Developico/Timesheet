@@ -1,6 +1,6 @@
 import type { TimeEntry, TimeEntryFilters } from '@/types'
 import { DV } from '@/lib/dataverse-config'
-import { dataverseClient } from '@/lib/dataverse-client'
+import { dataverseClient, type DataverseResponse } from '@/lib/dataverse-client'
 import { appLog } from '@/lib/app-logger'
 import { odataGuid } from '@/lib/odata-sanitizer'
 import { ensureEnabled } from './dataverse-common'
@@ -35,7 +35,7 @@ export async function getTimeEntries(params: TimeEntryFilters): Promise<TimeEntr
   appLog('debug', 'timeentries build', { select: selects, filter: decodeURIComponent(filter), orderby })
   let records: any[] = []
   try {
-    const data = await dataverseClient.listAll(tr.entitySet, `$select=${selects}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
+    const data = await dataverseClient.listAll(tr.entitySet, `$select=${selects}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`)
     records = Array.isArray(data.value) ? data.value : []
   } catch (e: any) {
     const msg = e.message || ''
@@ -79,7 +79,7 @@ async function handleDurationFallback(
   for (const cand of candidateList) {
     try {
       const sel = [...baseFields, cand].join(',')
-      const d2 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
+      const d2 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`)
       candidateRecords = Array.isArray(d2.value) ? d2.value : []
       chosen = cand
       appLog('info', 'timeentries duration fallback selected', { column: cand })
@@ -94,7 +94,7 @@ async function handleDurationFallback(
   }
   if (!candidateRecords) {
     const sel = baseFields.join(',')
-    const d3 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`) as { value?: any[] }
+    const d3 = await dataverseClient.listAll(tr.entitySet, `$select=${sel}&$filter=${filter}&$orderby=${encodeURIComponent(orderby)}`)
     candidateRecords = Array.isArray(d3.value) ? d3.value : []
     appLog('warn', 'timeentries no duration candidates matched returning zero hours')
   }
@@ -124,9 +124,9 @@ async function fetchProjectBillable(projectIds: (string | undefined)[]): Promise
     const chunk = unique.slice(i, i + size)
     const orExpr = chunk.map(id => `${p.id} eq ${id}`).join(' or ')
     try {
-      const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('(' + orExpr + ')')}`) as { value?: any[] }
-      for (const pr of (Array.isArray(projData.value) ? projData.value : [])) {
-        map[pr[p.id]] = !!pr[p.billable]
+      const projData = await dataverseClient.list(p.entitySet, `$select=${p.id},${p.billable}&$filter=${encodeURIComponent('(' + orExpr + ')')}`)
+      for (const pr of (projData?.value ?? [])) {
+        map[pr[p.id as string] as string] = !!pr[p.billable as string]
       }
     } catch (e: any) {
       appLog('warn', 'timeentries project billable fetch error', { message: e.message })
@@ -141,8 +141,8 @@ export async function getProjectAssignments(consultantId: string): Promise<strin
   const filter = encodeURIComponent(`${pu.userLookup} eq ${odataGuid(consultantId)}`)
   const select = pu.projectLookup
   appLog('debug', 'assignments query', { entity: pu.entitySet, filter: decodeURIComponent(filter) })
-  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
-  const records: any[] = Array.isArray(data.value) ? data.value : []
+  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`)
+  const records: any[] = data?.value ?? []
   const ids = new Set<string>()
   for (const r of records) {
     const pid = r[pu.projectLookup]
@@ -158,8 +158,8 @@ export async function getProjectTeam(projectId: string): Promise<string[]> {
   const filter = encodeURIComponent(`${pu.projectLookup} eq ${odataGuid(projectId)}`)
   const select = pu.userLookup
   appLog('debug', 'project team query', { entity: pu.entitySet, filter: decodeURIComponent(filter) })
-  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
-  const records: any[] = Array.isArray(data.value) ? data.value : []
+  const data = await dataverseClient.list(pu.entitySet, `$select=${select}&$filter=${filter}`)
+  const records: any[] = data?.value ?? []
   const ids = new Set<string>()
   for (const r of records) {
     const uid = r[pu.userLookup]
@@ -175,7 +175,7 @@ export async function getDaysOff(from: string, to: string): Promise<{ date: stri
   const dateField = d.date
   const filter = encodeURIComponent(`${dateField} ge ${from} and ${dateField} le ${to}`)
   const select = [d.id, d.date, d.name].join(',')
-  const data = await dataverseClient.list(d.entitySet, `$select=${select}&$filter=${filter}`) as { value?: any[] }
-  const records: any[] = Array.isArray(data.value) ? data.value : []
+  const data = await dataverseClient.list(d.entitySet, `$select=${select}&$filter=${filter}`)
+  const records: any[] = data?.value ?? []
   return records.map(r => ({ date: r[d.date]?.substring(0, 10), name: r[d.name] }))
 }

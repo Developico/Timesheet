@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
       try {
         const mapped = await mapAadOidToConsultantId(auth.oid)
         if (mapped) consultantId = mapped
-      } catch {/* ignore */}
+      } catch (e) {
+        appLog('debug', 'aad-oid mapping failed, using raw consultantId', { oid: auth.oid, error: String(e) })
+      }
     }
     const ds = getDataSource()
     const params = {

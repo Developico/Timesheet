@@ -16,14 +16,14 @@ export async function getProjects(currentConsultantId?: string): Promise<Project
   const filter = `${s.stateCode} eq 0`
   let records: any[] = []
   try {
-    const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
-    records = Array.isArray(data.value) ? data.value : []
+    const data = await dataverseClient.list(s.entitySet, `$select=${select}&$filter=${encodeURIComponent(filter)}`)
+    records = data?.value ?? []
   } catch (e: any) {
     const msg = e.message || ''
     if (s.allUsers && msg.includes(s.allUsers)) {
       const fallbackSelect = fields.filter(f => f !== s.allUsers).join(',')
-      const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`) as { value?: any[] }
-      records = Array.isArray(data2.value) ? data2.value : []
+      const data2 = await dataverseClient.list(s.entitySet, `$select=${fallbackSelect}&$filter=${encodeURIComponent(filter)}`)
+      records = data2?.value ?? []
     } else throw e
   }
   let assignmentSet: Set<string> | null = null

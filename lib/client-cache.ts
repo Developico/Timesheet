@@ -64,15 +64,16 @@ const inFlight = new Map<string, Promise<any>>();
 // Periodic cleanup (lazy initialized in browser)
 const CLEAN_INTERVAL = 5 * 60_000; // 5 min
 let cleanupStarted = false;
+let cleanupTimerRef: ReturnType<typeof setInterval> | null = null;
 function ensureCleanupTimer() {
   if (cleanupStarted || typeof window === 'undefined') return;
   cleanupStarted = true;
-  setInterval(() => {
+  cleanupTimerRef = setInterval(() => {
     const now = Date.now();
     for (const [k, e] of store.entries()) {
       if (now - e.ts > e.ttl + e.staleWindow) store.delete(k);
     }
-  }, CLEAN_INTERVAL).unref?.();
+  }, CLEAN_INTERVAL);
 }
 
 export function get<T = any>(key: string): GetResult<T> {
@@ -156,6 +157,16 @@ export function invalidate(keyOrPrefix: string) {
 export function prime<T>(key: string, data: T, opts: { ttlMs: number; staleWindowMs?: number }) {
   // Insert only if not already present (avoid overwriting fresher data)
   if (!store.has(key)) set(key, data, opts);
+}
+
+export function destroy() {
+  if (cleanupTimerRef) {
+    clearInterval(cleanupTimerRef);
+    cleanupTimerRef = null;
+  }
+  cleanupStarted = false;
+  store.clear();
+  inFlight.clear();
 }
 
 export function stats() {
